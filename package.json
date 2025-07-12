@@ -1,5 +1,5 @@
 {
-  "name": "mmb.adm",
+  "name": "rbd.clt",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,7 @@
     "dev": "next dev --turbopack",
     "lint": "next lint",
     "lint:ts": "tsc --noEmit --incremental",
-    "prepare": "husky",
+    "prepare": "husky install",
     "start": "next start"
   },
   "dependencies": {
