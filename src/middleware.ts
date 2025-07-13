@@ -3,8 +3,62 @@ import { getStoredSession } from "./lib/session/session";
 
 const signInRoute = "/sign-in";
 const authRoutes = [signInRoute, "/forgot-password", "/sign-up"];
-const publicRoutes = ["/", "/api"]; // Landing page and API routes are public
-const protectedRoutes = ["/dashboard"]; // Routes that require authentication
+const publicRoutes = ["/", "/api", "/products", "/categories"]; // Public routes including product browsing
+
+// Role-based dashboard routes
+const roleDashboards = {
+  Customer: "/dashboard/customer",
+  Staff: "/dashboard/staff",
+  Admin: "/dashboard/admin",
+} as const;
+
+// Define protected routes by role
+const roleProtectedRoutes = {
+  Customer: [
+    "/dashboard/customer",
+    "/orders",
+    "/design-studio",
+    "/cart",
+    "/checkout",
+  ],
+  Staff: [
+    "/dashboard/staff",
+    "/orders",
+    "/design-approvals",
+    "/production",
+    "/customer-support",
+  ],
+  Admin: [
+    "/dashboard/admin",
+    "/dashboard/staff", // Admin can access staff routes
+    "/settings",
+    "/analytics",
+    "/admin",
+  ],
+} as const;
+
+// All protected routes (union of all role-specific routes)
+const allProtectedRoutes = [
+  ...roleProtectedRoutes.Customer,
+  ...roleProtectedRoutes.Staff,
+  ...roleProtectedRoutes.Admin,
+  "/dashboard", // Legacy dashboard route
+];
+
+function getRoleBasedDashboard(role: string): string {
+  return (
+    roleDashboards[role as keyof typeof roleDashboards] ||
+    roleDashboards.Customer
+  );
+}
+
+function canAccessRoute(userRole: string, path: string): boolean {
+  const userRoutes =
+    roleProtectedRoutes[userRole as keyof typeof roleProtectedRoutes];
+  if (!userRoutes) return false;
+
+  return userRoutes.some((route) => path.startsWith(route));
+}
 
 export default async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
@@ -17,14 +71,15 @@ export default async function middleware(req: NextRequest) {
     (route) => path === route || path.startsWith(route)
   );
 
-  // Check if the current path is a protected route
-  const isProtectedRoute = protectedRoutes.some((route) =>
+  // Check if the current path is any protected route
+  const isProtectedRoute = allProtectedRoutes.some((route) =>
     path.startsWith(route)
   );
 
   const cookie = req.cookies;
   const session = await getStoredSession(cookie);
   const isAuth = !!session;
+  const userRole = session?.user?.role;
 
   // If user is not authenticated and trying to access protected routes
   if (isProtectedRoute && !isAuth) {
@@ -36,9 +91,26 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // If user is authenticated and trying to access auth routes, redirect to dashboard
-  if (isAuth && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+  // If user is authenticated
+  if (isAuth && userRole) {
+    // Redirect from auth routes to appropriate dashboard
+    if (isAuthRoute) {
+      const dashboard = getRoleBasedDashboard(userRole);
+      return NextResponse.redirect(new URL(dashboard, req.url));
+    }
+
+    // Handle legacy /dashboard redirect
+    if (path === "/dashboard") {
+      const dashboard = getRoleBasedDashboard(userRole);
+      return NextResponse.redirect(new URL(dashboard, req.url));
+    }
+
+    // Check if user can access the requested protected route
+    if (isProtectedRoute && !canAccessRoute(userRole, path)) {
+      // Redirect to their appropriate dashboard if they can't access the route
+      const dashboard = getRoleBasedDashboard(userRole);
+      return NextResponse.redirect(new URL(dashboard, req.url));
+    }
   }
 
   // Allow access to public routes regardless of auth status

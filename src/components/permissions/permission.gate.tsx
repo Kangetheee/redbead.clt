@@ -1,46 +1,87 @@
 import { ReactNode } from "react";
-
 import { Permission } from "@/lib/roles/types/permission.type";
 import { Session } from "@/lib/session/session.types";
-
 import { getPermissions } from "./permission.utils";
 
-// type RedirectBehavior = "back" | "404" | { path: Route };
-
-type Props = {
+interface PermissionGateProps {
   session: Session | null;
   children: ReactNode;
-  permissions: Permission[];
+  permissions?: Permission[];
+  permission?: Permission;
   superAdmin?: boolean;
   fallback?: ReactNode;
   requireAll?: boolean;
-  // /**
-  //  * Redirect behavior when access is denied:
-  //  * - 'back': Returns to previous page
-  //  * - '404': Redirects to 404 page
-  //  * - { path: '/custom-path' }: Redirects to specified path
-  //  */
-  // redirect?: RedirectBehavior;
-};
 
-export default function PermissionGate({
+  // Subject-specific checks
+  subject?: string;
+  action?: "create" | "read" | "update" | "delete";
+
+  // Role checks
+  role?: "Admin" | "Staff" | "Customer";
+  roles?: ("Admin" | "Staff" | "Customer")[];
+}
+
+export function PermissionGate({
+  session,
   children,
-  permissions,
+  permissions = [],
+  permission,
   superAdmin = false,
   fallback = null,
   requireAll = false,
-  session,
-}: Props) {
-  const { hasAnyPermission, hasAllPermissions, isSuperAdmin } =
-    getPermissions(session);
+  subject,
+  action,
+  role,
+  roles,
+}: PermissionGateProps) {
+  const {
+    hasAnyPermission,
+    hasAllPermissions,
+    hasPermission,
+    isSuperAdmin,
+    roleType,
+  } = getPermissions(session);
 
-  if (superAdmin) return isSuperAdmin() ? children : fallback;
+  // Super admin check
+  if (superAdmin) {
+    return isSuperAdmin() ? children : fallback;
+  }
 
-  if (!permissions.length) return children;
+  // Role-based access
+  if (role && roleType !== role) {
+    return <>{fallback}</>;
+  }
 
-  const hasAccess = requireAll
-    ? hasAllPermissions(permissions)
-    : hasAnyPermission(permissions);
+  if (roles && roleType && !roles.includes(roleType as any)) {
+    return <>{fallback}</>;
+  }
 
-  return hasAccess ? children : fallback;
+  // Single permission check
+  if (permission && !hasPermission(permission)) {
+    return <>{fallback}</>;
+  }
+
+  // Multiple permissions check
+  if (permissions && permissions.length > 0) {
+    const hasAccess = requireAll
+      ? hasAllPermissions(permissions)
+      : hasAnyPermission(permissions);
+
+    if (!hasAccess) {
+      return <>{fallback}</>;
+    }
+  }
+
+  // Subject-action based access
+  if (subject && action) {
+    const requiredPermission = `${subject}:${action}` as Permission;
+    if (!hasPermission(requiredPermission)) {
+      return <>{fallback}</>;
+    }
+  }
+
+  return <>{children}</>;
 }
+
+// Export as default to match existing usage
+export default PermissionGate;

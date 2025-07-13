@@ -23,10 +23,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | Mama Bima Admin",
-    default: "Mama Bima Admin",
+    template: "%s | Redbead",
+    default: "Redbead",
   },
-  description: "Mama Bima Admin",
+  description: "Redbead",
 };
 
 export default function RootLayout({

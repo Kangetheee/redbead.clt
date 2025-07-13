@@ -2,7 +2,7 @@ import { Permission } from "@/lib/roles/types/permission.type";
 import { getSession } from "@/lib/session/session";
 import { Session } from "@/lib/session/session.types";
 
-const SUPER_ADMIN = ["admin", "super-admin"];
+const SUPER_ADMIN = ["Admin"];
 
 export function isSuperAdmin(role?: string): boolean {
   return (role && SUPER_ADMIN.includes(role)) || false;

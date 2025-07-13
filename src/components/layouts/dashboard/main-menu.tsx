@@ -31,8 +31,8 @@ export default function MainMenu({ className, onClose, navGroups }: Props) {
             className="flex items-center gap-2 font-semibold"
             onClick={() => onClose?.()}
           >
-            <img src="/logo.png" alt="Mama Bima" className="h-6 w-6" />
-            Mama Bima
+            <img src="/logo.png" alt="Redbead" className="h-6 w-6" />
+            Redbead
           </Link>
         </div>
 
