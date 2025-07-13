@@ -3,7 +3,14 @@ import { getStoredSession } from "./lib/session/session";
 
 const signInRoute = "/sign-in";
 const authRoutes = [signInRoute, "/forgot-password", "/sign-up"];
-const publicRoutes = ["/", "/api", "/products", "/categories"]; // Public routes including product browsing
+
+// Public routes - no authentication required
+const publicRoutes = [
+  "/",
+  "/api",
+  "/products", // Public product browsing
+  "/categories", // Public category browsing
+];
 
 // Role-based dashboard routes
 const roleDashboards = {
@@ -12,28 +19,31 @@ const roleDashboards = {
   Admin: "/dashboard/admin",
 } as const;
 
-// Define protected routes by role
+// Define protected routes by role - ALL these require authentication
 const roleProtectedRoutes = {
   Customer: [
     "/dashboard/customer",
-    "/orders",
     "/design-studio",
     "/cart",
     "/checkout",
+    "/orders",
+    "/profile",
   ],
   Staff: [
     "/dashboard/staff",
-    "/orders",
-    "/design-approvals",
-    "/production",
-    "/customer-support",
+    "/staff", // Staff-specific routes
+    "/design-approvals", // Design approval workflow
+    "/production", // Production management
+    "/customer-support", // Customer support tools
   ],
   Admin: [
     "/dashboard/admin",
     "/dashboard/staff", // Admin can access staff routes
-    "/settings",
-    "/analytics",
-    "/admin",
+    "/admin", // Admin-specific routes
+    "/settings", // System settings
+    "/analytics", // Analytics and reports
+    "/users", // User management
+    "/roles", // Role management
   ],
 } as const;
 

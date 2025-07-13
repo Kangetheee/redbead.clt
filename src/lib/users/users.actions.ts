@@ -2,17 +2,17 @@
 
 import { getErrorMessage } from "../get-error-message";
 import { ActionResponse, PaginatedData } from "../shared/types";
-import { CreateUserDto, UpdateUserDto } from "./dto/users.dto";
-import { UserDetail, UserResponse } from "./types/users.types";
+import { CreateUserDto, UpdateUserDto, GetUsersDto } from "./dto/users.dto";
+import { UserDetail, UserResponse, UserProfile } from "./types/users.types";
 import { UserService } from "./users.service";
 
 const userService = new UserService();
 
 export async function getUsersAction(
-  query?: string
+  params?: GetUsersDto
 ): Promise<ActionResponse<PaginatedData<UserResponse>>> {
   try {
-    const res = await userService.findAll(query);
+    const res = await userService.findAll(params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -32,11 +32,10 @@ export async function getUserAction(
 
 export async function createUserAction(
   values: CreateUserDto
-): Promise<ActionResponse<void>> {
+): Promise<ActionResponse<UserDetail>> {
   try {
-    await userService.create(values);
-
-    return { success: true, data: undefined };
+    const res = await userService.create(values);
+    return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
@@ -45,11 +44,44 @@ export async function createUserAction(
 export async function updateUserAction(
   userId: string,
   values: UpdateUserDto
-): Promise<ActionResponse<void>> {
+): Promise<ActionResponse<{ message: string }>> {
   try {
-    await userService.update(userId, values);
+    const res = await userService.update(userId, values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
 
-    return { success: true, data: undefined };
+export async function deleteUserAction(
+  userId: string
+): Promise<ActionResponse<{ message: string }>> {
+  try {
+    const res = await userService.delete(userId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Profile actions
+export async function getUserProfileAction(): Promise<
+  ActionResponse<UserProfile>
+> {
+  try {
+    const res = await userService.getProfile();
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function updateUserProfileAction(
+  values: UpdateUserDto
+): Promise<ActionResponse<{ message: string }>> {
+  try {
+    const res = await userService.updateProfile(values);
+    return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
