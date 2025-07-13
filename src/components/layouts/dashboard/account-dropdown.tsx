@@ -39,7 +39,7 @@ export default function AccountDropdown() {
       } else {
         toast.error("Failed to sign out");
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error("Failed to sign out");
     }

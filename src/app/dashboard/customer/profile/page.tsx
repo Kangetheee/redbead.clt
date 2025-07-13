@@ -62,7 +62,7 @@ export default function CustomerProfilePage() {
 
     try {
       await updateProfileMutation.mutateAsync(formData);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Error toast is handled by the mutation
     }
@@ -91,7 +91,7 @@ export default function CustomerProfilePage() {
         newPassword: "",
         confirmPassword: "",
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error("Failed to update password");
     }
