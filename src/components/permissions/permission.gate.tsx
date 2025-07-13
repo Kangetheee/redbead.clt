@@ -51,7 +51,7 @@ export function PermissionGate({
   if (role && roleType !== role) {
     return <>{fallback}</>;
   }
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (roles && roleType && !roles.includes(roleType as any)) {
     return <>{fallback}</>;
   }
