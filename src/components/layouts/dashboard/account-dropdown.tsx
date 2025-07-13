@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Power, Settings, User } from "lucide-react";
 import { FiChevronDown } from "react-icons/fi";
 
-import { signOutAction } from "@/lib/auth/auth.actions";
+import { signOutFormAction } from "@/lib/auth/auth.actions";
 import { getSession } from "@/lib/session/session";
 import { cn, getInitials } from "@/lib/utils";
 
@@ -88,7 +88,7 @@ export default async function AccountDropdown() {
         <form
           action={async () => {
             "use server";
-            await signOutAction();
+            await signOutFormAction();
             redirect("/sign-in");
           }}
         >

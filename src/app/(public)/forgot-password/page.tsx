@@ -1,4 +1,4 @@
-import { Metadata } from "next/types";
+import type { Metadata } from "next/types";
 import { Suspense } from "react";
 
 import { Card } from "@/components/ui/card";

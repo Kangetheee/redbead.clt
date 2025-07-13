@@ -19,13 +19,13 @@ export default function LoginForm() {
   const searchParams = useSearchParams();
   const searchParamsString = searchParams?.toString() || "";
   const callbackUrl =
-    new URLSearchParams(searchParamsString).get("callbackUrl") || "/";
+    new URLSearchParams(searchParamsString).get("callbackUrl") || "/dashboard";
 
   const otherParams = new URLSearchParams(searchParamsString);
   otherParams.delete("callbackUrl");
   otherParams.delete("msisdn");
   const dashboardUrl = otherParams.toString()
-    ? `${callbackUrl}?${otherParams.toString()}`
+    ? `${callbackUrl}?${otherParams}`
     : callbackUrl;
 
   const form = useForm<SignInDto>({
@@ -59,8 +59,9 @@ export default function LoginForm() {
           control={control}
           name="identifier"
           label="Phone Number"
-          placeholder="07000000000"
+          placeholder="0700000000"
         />
+
         <div className="space-y-1">
           <FormInput
             control={control}
@@ -82,6 +83,16 @@ export default function LoginForm() {
         <FormButton isLoading={isPending} className="w-full">
           Sign In
         </FormButton>
+
+        <div className="text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/sign-up"
+            className="underline-offset-4 hover:text-primary hover:underline"
+          >
+            Sign up
+          </Link>
+        </div>
       </form>
     </Form>
   );
