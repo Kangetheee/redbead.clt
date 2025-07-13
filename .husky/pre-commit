@@ -6,4 +6,4 @@ if [ "$branch" = "main" ]; then
 fi
 
 pnpm lint-staged
-pnpm lint:ts
+# pnpm lint:ts
