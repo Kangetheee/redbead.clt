@@ -55,16 +55,23 @@ const allProtectedRoutes = [
   "/dashboard", // Legacy dashboard route
 ];
 
+// Helper function to normalize role casing
+function normalizeRole(role: string): string {
+  return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+}
+
 function getRoleBasedDashboard(role: string): string {
+  const normalizedRole = normalizeRole(role);
   return (
-    roleDashboards[role as keyof typeof roleDashboards] ||
+    roleDashboards[normalizedRole as keyof typeof roleDashboards] ||
     roleDashboards.Customer
   );
 }
 
 function canAccessRoute(userRole: string, path: string): boolean {
+  const normalizedRole = normalizeRole(userRole);
   const userRoutes =
-    roleProtectedRoutes[userRole as keyof typeof roleProtectedRoutes];
+    roleProtectedRoutes[normalizedRole as keyof typeof roleProtectedRoutes];
   if (!userRoutes) return false;
 
   return userRoutes.some((route) => path.startsWith(route));

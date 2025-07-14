@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import Link from "next/link";
@@ -20,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../ui/dropdown-menu";
+import { signOutFormAction } from "@/lib/auth/auth.actions";
 
 export default function AccountDropdown() {
   const router = useRouter();
@@ -28,18 +30,7 @@ export default function AccountDropdown() {
   // Handle sign out function
   const handleSignOut = async () => {
     try {
-      // You may need to implement a client-side sign out function
-      // or use your auth library's sign out method
-      const response = await fetch("/api/auth/signout", {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        router.push("/sign-in");
-      } else {
-        toast.error("Failed to sign out");
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      await signOutFormAction();
     } catch (error) {
       toast.error("Failed to sign out");
     }

@@ -61,6 +61,11 @@ export function useUserProfile() {
   });
 }
 
+export async function fetchUserProfile() {
+  const response = await getUserProfileAction();
+  return response.success ? response.data : null;
+}
+
 // Hook for user search/autocomplete
 export function useUserSearch(options?: {
   isAdmin?: boolean;
