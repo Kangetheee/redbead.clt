@@ -52,8 +52,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// Import our order components
 import OrderSummaryCard from "@/components/orders/order-summary-card";
 import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
 import { useOrders } from "@/hooks/use-orders";
