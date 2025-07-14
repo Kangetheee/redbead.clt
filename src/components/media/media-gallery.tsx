@@ -213,7 +213,7 @@ export default function MediaGallery({
       <div className="flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <Select
-            value={String(folderDetails.meta.pageSize)}
+            value={String(folderDetails.meta.totalItems)}
             onValueChange={(value) => setSearchParams({ pageSize: value })}
           >
             <SelectTrigger className="w-[100px]">
@@ -237,27 +237,28 @@ export default function MediaGallery({
             size="icon"
             onClick={() =>
               setSearchParams({
-                pageIndex: (folderDetails.meta.pageIndex - 1).toString(),
+                pageIndex: (folderDetails.meta.currentPage - 1).toString(),
               })
             }
-            disabled={folderDetails.meta.pageIndex === 0}
+            disabled={folderDetails.meta.currentPage === 0}
           >
             <FiChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm">
-            Page {folderDetails.meta.pageIndex + 1} of{" "}
-            {folderDetails.meta.pageCount}
+            Page {folderDetails.meta.currentPage + 1} of{" "}
+            {folderDetails.meta.totalPages}
           </span>
           <Button
             variant="outline"
             size="icon"
             onClick={() =>
               setSearchParams({
-                pageIndex: (folderDetails.meta.pageIndex + 1).toString(),
+                pageIndex: (folderDetails.meta.currentPage + 1).toString(),
               })
             }
             disabled={
-              folderDetails.meta.pageIndex === folderDetails.meta.pageCount - 1
+              folderDetails.meta.currentPage ===
+              folderDetails.meta.totalPages - 1
             }
           >
             <FiChevronRight className="h-4 w-4" />

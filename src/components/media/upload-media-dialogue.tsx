@@ -79,7 +79,7 @@ export default function UploadMediaDialogue({ folderId }: Props) {
                   placeholder="Select folder"
                   className="max-w-sm"
                   options={
-                    folders?.results.map(({ id, name }) => ({
+                    folders?.items.map(({ id, name }) => ({
                       label: name,
                       value: id,
                     })) ?? []

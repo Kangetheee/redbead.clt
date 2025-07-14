@@ -80,7 +80,7 @@ export function useUserSearch(options?: {
     select: (data): UserOption[] => {
       if (!data.success) return [];
 
-      return data.data.results
+      return data.data.items
         .filter((user) => !isAdmin || user.role.name !== "Customer")
         .map((user) => ({
           value: user.id,
