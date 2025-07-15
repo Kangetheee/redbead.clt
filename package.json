@@ -63,6 +63,7 @@
     "date-fns": "^4.1.0",
     "deep-object-diff": "^1.1.9",
     "frimousse": "^0.2.0",
+    "heroicons": "^2.2.0",
     "jose": "^6.0.10",
     "lodash": "^4.17.21",
     "lucide-react": "^0.483.0",

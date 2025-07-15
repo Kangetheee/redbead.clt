@@ -163,6 +163,9 @@ importers:
       frimousse:
         specifier: ^0.2.0
         version: 0.2.0(react@19.0.0)
+      heroicons:
+        specifier: ^2.2.0
+        version: 2.2.0
       jose:
         specifier: ^6.0.10
         version: 6.0.10
@@ -3856,6 +3859,12 @@ packages:
         integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==,
       }
     engines: { node: ">= 0.4" }
+
+  heroicons@2.2.0:
+    resolution:
+      {
+        integrity: sha512-yOwvztmNiBWqR946t+JdgZmyzEmnRMC2nxvHFC90bF1SUttwB6yJKYeme1JeEcBfobdOs827nCyiWBS2z/brog==,
+      }
 
   human-signals@5.0.0:
     resolution:
@@ -8222,6 +8231,8 @@ snapshots:
   hasown@2.0.2:
     dependencies:
       function-bind: 1.1.2
+
+  heroicons@2.2.0: {}
 
   human-signals@5.0.0: {}
 
