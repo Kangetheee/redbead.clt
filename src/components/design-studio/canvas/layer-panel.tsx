@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
@@ -16,6 +17,8 @@ import {
   Square,
   Circle,
   GripVertical,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import {
   CanvasLayer,
@@ -26,7 +29,7 @@ import { cn } from "@/lib/utils";
 interface LayerPanelProps {
   canvas: CanvasData;
   onCanvasChange: (canvas: CanvasData) => void;
-  selectedLayerId?: string;
+  selectedLayerId?: string | null; // Fixed: allow null
   onLayerSelect: (layerId: string | null) => void;
 }
 
@@ -43,6 +46,21 @@ export function LayerPanel({
   const updateLayer = (layerId: string, updates: Partial<CanvasLayer>) => {
     const updatedLayers = canvas.layers.map((layer) =>
       layer.id === layerId ? { ...layer, ...updates } : layer
+    );
+    onCanvasChange({ ...canvas, layers: updatedLayers });
+  };
+
+  const updateLayerProperties = (
+    layerId: string,
+    properties: Record<string, any>
+  ) => {
+    const layer = canvas.layers.find((l) => l.id === layerId);
+    if (!layer) return;
+
+    const updatedLayers = canvas.layers.map((l) =>
+      l.id === layerId
+        ? { ...l, properties: { ...l.properties, ...properties } }
+        : l
     );
     onCanvasChange({ ...canvas, layers: updatedLayers });
   };
@@ -65,10 +83,12 @@ export function LayerPanel({
       id: `${layer.id}_copy_${Date.now()}`,
       x: layer.x + 10,
       y: layer.y + 10,
+      zIndex: Math.max(...canvas.layers.map((l) => l.zIndex || 0)) + 1,
     };
 
     const updatedLayers = [...canvas.layers, newLayer];
     onCanvasChange({ ...canvas, layers: updatedLayers });
+    onLayerSelect(newLayer.id);
   };
 
   const moveLayer = (layerId: string, direction: "up" | "down") => {
@@ -77,7 +97,7 @@ export function LayerPanel({
 
     const currentZIndex = layer.zIndex || 0;
     const newZIndex =
-      direction === "up" ? currentZIndex + 1 : currentZIndex - 1;
+      direction === "up" ? currentZIndex + 1 : Math.max(0, currentZIndex - 1);
 
     updateLayer(layerId, { zIndex: newZIndex });
   };
@@ -87,6 +107,14 @@ export function LayerPanel({
     if (!layer) return;
 
     updateLayer(layerId, { visible: layer.visible !== false ? false : true });
+  };
+
+  const toggleLayerLock = (layerId: string) => {
+    const layer = canvas.layers.find((l) => l.id === layerId);
+    if (!layer) return;
+
+    const isLocked = (layer.properties as any)?.locked ?? false;
+    updateLayerProperties(layerId, { locked: !isLocked });
   };
 
   const getLayerIcon = (type: string) => {
@@ -108,11 +136,14 @@ export function LayerPanel({
     switch (layer.type) {
       case "text": {
         const props = layer.properties as { text?: string };
-        return props?.text || "Text Layer";
+        return (
+          props?.text?.slice(0, 20) +
+            (props?.text && props.text.length > 20 ? "..." : "") || "Text Layer"
+        );
       }
       case "image": {
-        const props = layer.properties as { alt?: string };
-        return props?.alt || "Image Layer";
+        const props = layer.properties as { alt?: string; name?: string };
+        return props?.alt || props?.name || "Image Layer";
       }
       case "shape": {
         const props = layer.properties as { shapeType?: string };
@@ -124,30 +155,40 @@ export function LayerPanel({
   };
 
   return (
-    <Card className="w-80">
-      <CardHeader>
-        <CardTitle className="text-lg">Layers</CardTitle>
+    <Card className="w-full h-full">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center justify-between">
+          Layers
+          <span className="text-sm font-normal text-muted-foreground">
+            {canvas.layers.length}
+          </span>
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <div className="space-y-1 max-h-96 overflow-y-auto">
           {sortedLayers.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">
-              No layers yet. Add some content to your design.
+              <Square className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No layers yet</p>
+              <p className="text-xs">Add content to your design</p>
             </div>
           ) : (
-            sortedLayers.map((layer) => {
+            sortedLayers.map((layer, index) => {
               const Icon = getLayerIcon(layer.type);
               const isSelected = selectedLayerId === layer.id;
               const isVisible = layer.visible !== false;
+              const isLocked = (layer.properties as any)?.locked ?? false;
 
               return (
                 <div
                   key={layer.id}
                   className={cn(
-                    "flex items-center gap-2 p-2 hover:bg-accent cursor-pointer border-l-2",
+                    "flex items-center gap-2 p-2 hover:bg-accent cursor-pointer border-l-2 mx-2 rounded-r transition-colors",
                     isSelected
                       ? "bg-accent border-l-primary"
-                      : "border-l-transparent"
+                      : "border-l-transparent",
+                    !isVisible && "opacity-60",
+                    isLocked && "bg-muted/50"
                   )}
                   onClick={() => onLayerSelect(layer.id)}
                 >
@@ -155,7 +196,12 @@ export function LayerPanel({
                   <GripVertical className="h-4 w-4 text-muted-foreground" />
 
                   {/* Layer Icon */}
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <div className="relative">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    {isLocked && (
+                      <Lock className="h-2 w-2 absolute -top-1 -right-1 text-red-500" />
+                    )}
+                  </div>
 
                   {/* Layer Name */}
                   <div className="flex-1 min-w-0">
@@ -167,10 +213,30 @@ export function LayerPanel({
                     >
                       {getLayerName(layer)}
                     </div>
+                    <div className="text-xs text-muted-foreground">
+                      {layer.type} • {Math.round(layer.x)},{Math.round(layer.y)}
+                    </div>
                   </div>
 
                   {/* Layer Controls */}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Lock Toggle */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleLayerLock(layer.id);
+                      }}
+                    >
+                      {isLocked ? (
+                        <Lock className="h-3 w-3 text-red-500" />
+                      ) : (
+                        <Unlock className="h-3 w-3" />
+                      )}
+                    </Button>
+
                     {/* Visibility Toggle */}
                     <Button
                       variant="ghost"
@@ -197,6 +263,7 @@ export function LayerPanel({
                         e.stopPropagation();
                         moveLayer(layer.id, "up");
                       }}
+                      disabled={index === 0}
                     >
                       <ArrowUp className="h-3 w-3" />
                     </Button>
@@ -210,6 +277,7 @@ export function LayerPanel({
                         e.stopPropagation();
                         moveLayer(layer.id, "down");
                       }}
+                      disabled={index === sortedLayers.length - 1}
                     >
                       <ArrowDown className="h-3 w-3" />
                     </Button>
@@ -231,10 +299,12 @@ export function LayerPanel({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 text-destructive"
+                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteLayer(layer.id);
+                        if (window.confirm("Delete this layer?")) {
+                          deleteLayer(layer.id);
+                        }
                       }}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -245,6 +315,33 @@ export function LayerPanel({
             })
           )}
         </div>
+
+        {/* Layer Statistics */}
+        {canvas.layers.length > 0 && (
+          <div className="p-3 border-t bg-muted/30">
+            <div className="text-xs text-muted-foreground space-y-1">
+              <div className="flex justify-between">
+                <span>Total Layers:</span>
+                <span>{canvas.layers.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Visible:</span>
+                <span>
+                  {canvas.layers.filter((l) => l.visible !== false).length}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Locked:</span>
+                <span>
+                  {
+                    canvas.layers.filter((l) => (l.properties as any)?.locked)
+                      .length
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

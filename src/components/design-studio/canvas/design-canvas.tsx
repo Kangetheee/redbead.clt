@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
@@ -11,10 +12,18 @@ import { cn } from "@/lib/utils";
 interface DesignCanvasProps {
   canvas: CanvasData;
   onCanvasChange: (canvas: CanvasData) => void;
-  selectedLayerId?: string;
+  selectedLayerId?: string | null; // Fixed: allow null
   onLayerSelect: (layerId: string | null) => void;
   zoom: number;
   readonly?: boolean;
+  // Added missing props that are being passed from parent
+  onLayerUpdate?: (layerId: string, updates: Partial<CanvasLayer>) => void;
+  onLayerDelete?: (layerId: string) => void;
+  onLayerDuplicate?: (layerId: string) => void;
+  onLayerReorder?: (
+    layerId: string,
+    direction: "up" | "down" | "top" | "bottom"
+  ) => void;
 }
 
 export function DesignCanvas({
@@ -24,11 +33,17 @@ export function DesignCanvas({
   onLayerSelect,
   zoom,
   readonly = false,
+  onLayerUpdate,
+  onLayerDelete,
+  onLayerDuplicate,
+  onLayerReorder,
 }: DesignCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragLayerId, setDragLayerId] = useState<string | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
 
   const handleLayerClick = useCallback(
     (layerId: string, event: React.MouseEvent) => {
@@ -57,7 +72,16 @@ export function DesignCanvas({
       event.preventDefault();
       event.stopPropagation();
 
-      setIsDragging(true);
+      const target = event.target as HTMLElement;
+      const isResizeHandle = target.classList.contains("resize-handle");
+
+      if (isResizeHandle) {
+        setIsResizing(true);
+        setResizeHandle(target.dataset.handle || null);
+      } else {
+        setIsDragging(true);
+      }
+
       setDragLayerId(layerId);
       setDragStart({
         x: event.clientX,
@@ -71,48 +95,109 @@ export function DesignCanvas({
 
   const handleMouseMove = useCallback(
     (event: MouseEvent) => {
-      if (!isDragging || !dragLayerId || readonly) return;
+      if ((!isDragging && !isResizing) || !dragLayerId || readonly) return;
 
       const deltaX = (event.clientX - dragStart.x) / zoom;
       const deltaY = (event.clientY - dragStart.y) / zoom;
 
-      const updatedLayers = canvas.layers.map((layer) => {
-        if (layer.id === dragLayerId) {
-          return {
-            ...layer,
-            x: Math.max(
-              0,
-              Math.min(canvas.width - layer.width, layer.x + deltaX)
-            ),
-            y: Math.max(
-              0,
-              Math.min(canvas.height - layer.height, layer.y + deltaY)
-            ),
-          };
-        }
-        return layer;
-      });
+      const layer = canvas.layers.find((l) => l.id === dragLayerId);
+      if (!layer) return;
 
-      onCanvasChange({
-        ...canvas,
-        layers: updatedLayers,
-      });
+      if (isDragging) {
+        // Handle dragging
+        const newX = Math.max(
+          0,
+          Math.min(canvas.width - layer.width, layer.x + deltaX)
+        );
+        const newY = Math.max(
+          0,
+          Math.min(canvas.height - layer.height, layer.y + deltaY)
+        );
+
+        if (onLayerUpdate) {
+          onLayerUpdate(dragLayerId, { x: newX, y: newY });
+        } else {
+          // Fallback to old method
+          const updatedLayers = canvas.layers.map((l) => {
+            if (l.id === dragLayerId) {
+              return { ...l, x: newX, y: newY };
+            }
+            return l;
+          });
+
+          onCanvasChange({
+            ...canvas,
+            layers: updatedLayers,
+          });
+        }
+      } else if (isResizing && resizeHandle) {
+        // Handle resizing
+        let newWidth = layer.width;
+        let newHeight = layer.height;
+        let newX = layer.x;
+        let newY = layer.y;
+
+        switch (resizeHandle) {
+          case "nw":
+            newWidth = Math.max(10, layer.width - deltaX);
+            newHeight = Math.max(10, layer.height - deltaY);
+            newX = layer.x + deltaX;
+            newY = layer.y + deltaY;
+            break;
+          case "ne":
+            newWidth = Math.max(10, layer.width + deltaX);
+            newHeight = Math.max(10, layer.height - deltaY);
+            newY = layer.y + deltaY;
+            break;
+          case "sw":
+            newWidth = Math.max(10, layer.width - deltaX);
+            newHeight = Math.max(10, layer.height + deltaY);
+            newX = layer.x + deltaX;
+            break;
+          case "se":
+            newWidth = Math.max(10, layer.width + deltaX);
+            newHeight = Math.max(10, layer.height + deltaY);
+            break;
+        }
+
+        if (onLayerUpdate) {
+          onLayerUpdate(dragLayerId, {
+            width: newWidth,
+            height: newHeight,
+            x: newX,
+            y: newY,
+          });
+        }
+      }
 
       setDragStart({
         x: event.clientX,
         y: event.clientY,
       });
     },
-    [isDragging, dragLayerId, dragStart, zoom, canvas, onCanvasChange, readonly]
+    [
+      isDragging,
+      isResizing,
+      dragLayerId,
+      resizeHandle,
+      dragStart,
+      zoom,
+      canvas,
+      onCanvasChange,
+      onLayerUpdate,
+      readonly,
+    ]
   );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
+    setIsResizing(false);
     setDragLayerId(null);
+    setResizeHandle(null);
   }, []);
 
   useEffect(() => {
-    if (isDragging) {
+    if (isDragging || isResizing) {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
 
@@ -121,7 +206,7 @@ export function DesignCanvas({
         document.removeEventListener("mouseup", handleMouseUp);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
 
   const sortedLayers = [...canvas.layers].sort(
     (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
@@ -223,13 +308,15 @@ function LayerRenderer({
 
       return (
         <div
-          className="w-full h-full flex items-center justify-center"
+          className="w-full h-full flex items-center justify-center p-2"
           style={{
             fontSize: (textProps.fontSize || 16) * zoom,
             fontFamily: textProps.fontFamily || "sans-serif",
             fontWeight: textProps.fontWeight || "normal",
             color: textProps.color || "#000000",
             textAlign: textProps.textAlign || "center",
+            lineHeight: 1.2,
+            overflow: "hidden",
           }}
         >
           {textProps.text || "Text"}
@@ -304,10 +391,22 @@ function LayerRenderer({
       {/* Resize handles for selected layer */}
       {isSelected && !readonly && (
         <>
-          <div className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize" />
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize" />
-          <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize" />
-          <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize" />
+          <div
+            className="resize-handle absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize"
+            data-handle="nw"
+          />
+          <div
+            className="resize-handle absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize"
+            data-handle="ne"
+          />
+          <div
+            className="resize-handle absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize"
+            data-handle="sw"
+          />
+          <div
+            className="resize-handle absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize"
+            data-handle="se"
+          />
         </>
       )}
     </div>

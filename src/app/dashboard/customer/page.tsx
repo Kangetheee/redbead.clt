@@ -176,9 +176,6 @@ export default function CustomerDashboardPage() {
               Manage your corporate merchandise orders and designs.
             </p>
           </div>
-          {/* <Button variant="outline" onClick={handleSignOut}>
-            Sign Out
-          </Button> */}
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">

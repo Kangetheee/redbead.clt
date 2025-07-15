@@ -1,3 +1,5 @@
+// /* eslint-disable @typescript-eslint/no-explicit-any */
+// /* eslint-disable @typescript-eslint/no-unused-vars */
 // import { DashboardHeader } from "@/components/shared/dashboard-header"
 // import { Breadcrumbs } from "@/components/shared/breadcrumbs"
 // import { PersonalInfoForm } from "@/components/customer/personal-info"

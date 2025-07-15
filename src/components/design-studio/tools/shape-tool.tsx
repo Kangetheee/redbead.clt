@@ -24,7 +24,7 @@ import { ColorPicker } from "./color-picker";
 interface ShapeToolProps {
   canvas: CanvasData;
   onCanvasChange: (canvas: CanvasData) => void;
-  selectedLayerId?: string;
+  selectedLayerId?: string | null;
   onLayerSelect: (layerId: string) => void;
 }
 

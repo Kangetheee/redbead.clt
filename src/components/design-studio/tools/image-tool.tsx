@@ -26,7 +26,7 @@ import { toast } from "sonner";
 interface ImageToolProps {
   canvas: CanvasData;
   onCanvasChange: (canvas: CanvasData) => void;
-  selectedLayerId?: string;
+  selectedLayerId?: string | null;
   onLayerSelect: (layerId: string) => void;
 }
 
