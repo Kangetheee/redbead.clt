@@ -1,122 +1,126 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShippingOption } from "@/lib/checkout/types/checkout.types";
+import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Truck, Clock } from "lucide-react";
-import { ShippingOption } from "@/lib/checkout/types/checkout.types";
+import { Truck, Clock, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ShippingOptionsProps {
   options: ShippingOption[];
-  selectedOptionId?: string;
+  selectedOption: string;
   onOptionSelect: (optionId: string) => void;
-  loading?: boolean;
 }
 
 export function ShippingOptions({
   options,
-  selectedOptionId,
+  selectedOption,
   onOptionSelect,
-  loading = false,
 }: ShippingOptionsProps) {
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5" />
-            Shipping Options
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="text-muted-foreground">
-              Calculating shipping options...
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (options.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5" />
-            Shipping Options
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            No shipping options available for this address
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const getUrgencyIcon = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes("emergency") || lowerName.includes("rush")) {
+      return <Zap className="h-4 w-4 text-red-500" />;
+    }
+    if (lowerName.includes("expedited") || lowerName.includes("express")) {
+      return <Clock className="h-4 w-4 text-orange-500" />;
+    }
+    return <Truck className="h-4 w-4 text-blue-500" />;
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Truck className="h-5 w-5" />
-          Shipping Options
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <RadioGroup
-          value={selectedOptionId}
-          onValueChange={onOptionSelect}
-          className="space-y-3"
-        >
+    <div className="space-y-4">
+      <h3 className="text-lg font-medium">Choose Delivery Option</h3>
+
+      <RadioGroup value={selectedOption} onValueChange={onOptionSelect}>
+        <div className="space-y-3">
           {options.map((option) => (
-            <div key={option.id} className="flex items-center space-x-2">
-              <RadioGroupItem value={option.id} id={option.id} />
-              <Label htmlFor={option.id} className="flex-1 cursor-pointer">
-                <div className="rounded-md border p-3 hover:bg-accent">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{option.name}</span>
-                        {option.isFree && (
-                          <Badge variant="secondary">Free</Badge>
+            <div key={option.id} className="relative">
+              <Label
+                htmlFor={option.id}
+                className={cn(
+                  "cursor-pointer",
+                  selectedOption === option.id &&
+                    "ring-2 ring-primary rounded-lg"
+                )}
+              >
+                <Card
+                  className={cn(
+                    "transition-all duration-200 hover:shadow-md",
+                    selectedOption === option.id && "border-primary"
+                  )}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem
+                        value={option.id}
+                        id={option.id}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {getUrgencyIcon(option.name)}
+                            <span className="font-medium">{option.name}</span>
+                            {option.isFree && (
+                              <Badge variant="secondary" className="text-xs">
+                                Free
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            {option.isFree ? (
+                              <span className="font-medium text-green-600">
+                                Free
+                              </span>
+                            ) : (
+                              <div>
+                                <span className="font-medium">
+                                  KES {option.cost.toLocaleString()}
+                                </span>
+                                {option.originalCost !== option.cost && (
+                                  <span className="text-sm text-muted-foreground line-through ml-2">
+                                    KES {option.originalCost.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {option.description && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {option.description}
+                          </p>
                         )}
+
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>
+                            {option.estimatedDays
+                              ? `${option.estimatedDays} delivery`
+                              : "Delivery time varies"}
+                          </span>
+                          {option.zone && <span>Zone: {option.zone.name}</span>}
+                        </div>
+
                         {option.urgencyMultiplier > 1 && (
-                          <Badge variant="outline">Express</Badge>
+                          <div className="mt-2">
+                            <Badge variant="outline" className="text-xs">
+                              {option.urgencyMultiplier}x urgency fee applied
+                            </Badge>
+                          </div>
                         )}
                       </div>
-                      {option.description && (
-                        <div className="text-sm text-muted-foreground">
-                          {option.description}
-                        </div>
-                      )}
-                      {option.estimatedDays && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {option.estimatedDays}
-                        </div>
-                      )}
                     </div>
-                    <div className="text-right">
-                      <div className="font-medium">
-                        {option.isFree ? "Free" : `$${option.cost.toFixed(2)}`}
-                      </div>
-                      {option.originalCost !== option.cost && (
-                        <div className="text-xs text-muted-foreground line-through">
-                          ${option.originalCost.toFixed(2)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </Label>
             </div>
           ))}
-        </RadioGroup>
-      </CardContent>
-    </Card>
+        </div>
+      </RadioGroup>
+    </div>
   );
 }

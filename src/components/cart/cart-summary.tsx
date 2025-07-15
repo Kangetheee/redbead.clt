@@ -1,61 +1,111 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CartSummary as CartSummaryType } from "@/lib/cart/types/cart.types";
 import { Separator } from "@/components/ui/separator";
-import { CartResponse } from "@/lib/cart/types/cart.types";
+import { Badge } from "@/components/ui/badge";
+import { Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CartSummaryProps {
-  cart: CartResponse;
+  summary: CartSummaryType;
+  showDetails?: boolean;
 }
 
-export function CartSummary({ cart }: CartSummaryProps) {
-  const { summary } = cart;
+export default function CartSummary({
+  summary,
+  showDetails = true,
+}: CartSummaryProps) {
+  const hasCustomizationAdjustments = summary.customizationAdjustments !== 0;
+  const customizationSavings = summary.customizationAdjustments < 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Order Summary</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex justify-between text-sm">
-          <span>Items ({summary.itemCount})</span>
-          <span>${summary.subtotal.toFixed(2)}</span>
-        </div>
+    <div className="space-y-3">
+      {/* Item Count */}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">
+          Items ({summary.itemCount})
+        </span>
+        <span>{summary.totalQuantity} pcs</span>
+      </div>
 
-        {summary.customizationAdjustments !== 0 && (
-          <div className="flex justify-between text-sm">
-            <span>Customization Adjustments</span>
-            <span
-              className={
-                summary.customizationAdjustments > 0
-                  ? "text-red-600"
-                  : "text-green-600"
-              }
-            >
-              {summary.customizationAdjustments > 0 ? "+" : ""}$
-              {summary.customizationAdjustments.toFixed(2)}
+      {/* Subtotal */}
+      <div className="flex items-center justify-between">
+        <span>Subtotal</span>
+        <span className="font-medium">
+          KES {summary.subtotal.toLocaleString()}
+        </span>
+      </div>
+
+      {/* Customization Adjustments */}
+      {hasCustomizationAdjustments && showDetails && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <span className={customizationSavings ? "text-green-600" : ""}>
+              Customization {customizationSavings ? "Discount" : "Charges"}
+            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    {customizationSavings
+                      ? "Savings from bulk customization discounts"
+                      : "Additional charges for product customizations"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <span
+            className={`font-medium ${customizationSavings ? "text-green-600" : ""}`}
+          >
+            {customizationSavings ? "-" : "+"}KES{" "}
+            {Math.abs(summary.customizationAdjustments).toLocaleString()}
+          </span>
+        </div>
+      )}
+
+      <Separator />
+
+      {/* Total */}
+      <div className="flex items-center justify-between text-lg font-bold">
+        <span>Total</span>
+        <span>KES {summary.total.toLocaleString()}</span>
+      </div>
+
+      {/* Additional Info */}
+      {showDetails && (
+        <div className="space-y-2 pt-2 border-t">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              Estimated
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              Final price may change based on shipping and taxes
             </span>
           </div>
-        )}
 
-        <Separator />
-
-        <div className="flex justify-between font-medium">
-          <span>Total Quantity</span>
-          <span>{summary.totalQuantity} items</span>
+          {hasCustomizationAdjustments && customizationSavings && (
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="text-xs bg-green-600">
+                Savings
+              </Badge>
+              <span className="text-xs text-green-600">
+                You saved KES{" "}
+                {Math.abs(summary.customizationAdjustments).toLocaleString()}{" "}
+                with bulk customizations!
+              </span>
+            </div>
+          )}
         </div>
-
-        <Separator />
-
-        <div className="flex justify-between text-lg font-semibold">
-          <span>Total</span>
-          <span>${summary.total.toFixed(2)}</span>
-        </div>
-
-        <div className="text-xs text-muted-foreground">
-          * Shipping and taxes calculated at checkout
-        </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

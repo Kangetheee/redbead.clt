@@ -1,108 +1,146 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaymentMethod } from "@/lib/payments/types/payments.types";
+import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { CreditCard, Smartphone, Building } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Smartphone, CreditCard, Building2, Banknote } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type PaymentMethodType = "MPESA" | "BANK_TRANSFER" | "CARD";
 
 interface PaymentMethodsProps {
-  selectedMethod?: string;
-  onMethodSelect: (method: string) => void;
-  availableMethods: string[];
+  methods: PaymentMethod[];
+  selectedMethod: PaymentMethodType; // Changed from string to PaymentMethodType
+  onMethodSelect: (method: PaymentMethodType) => void; // Changed from string to PaymentMethodType
   customerPhone?: string;
-  onPhoneChange?: (phone: string) => void;
+  onPhoneChange: (phone: string) => void;
 }
 
 export function PaymentMethods({
+  methods,
   selectedMethod,
   onMethodSelect,
-  availableMethods,
   customerPhone,
   onPhoneChange,
 }: PaymentMethodsProps) {
-  const paymentMethods = [
-    {
-      id: "MPESA",
-      name: "M-Pesa",
-      description: "Pay with M-Pesa mobile money",
-      icon: Smartphone,
-      requiresPhone: true,
-    },
-    {
-      id: "BANK_TRANSFER",
-      name: "Bank Transfer",
-      description: "Direct bank transfer",
-      icon: Building,
-      requiresPhone: false,
-    },
-    {
-      id: "CARD",
-      name: "Credit/Debit Card",
-      description: "Pay with credit or debit card",
-      icon: CreditCard,
-      requiresPhone: false,
-    },
-  ];
+  const getPaymentIcon = (type: string) => {
+    switch (type) {
+      case "MPESA":
+        return <Smartphone className="h-5 w-5 text-green-600" />;
+      case "CARD":
+        return <CreditCard className="h-5 w-5 text-blue-600" />;
+      case "BANK_TRANSFER":
+        return <Building2 className="h-5 w-5 text-purple-600" />;
+      case "CASH":
+        return <Banknote className="h-5 w-5 text-orange-600" />;
+      default:
+        return <CreditCard className="h-5 w-5 text-gray-600" />;
+    }
+  };
 
-  const filteredMethods = paymentMethods.filter((method) =>
-    availableMethods.includes(method.id)
-  );
+  const formatFees = (fees: PaymentMethod["fees"]) => {
+    if (!fees) return null;
+
+    const parts = [];
+    if (fees.percentage) parts.push(`${fees.percentage}%`);
+    if (fees.fixed) parts.push(`KES ${fees.fixed}`);
+
+    return parts.length > 0 ? `${parts.join(" + ")} fee` : null;
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Payment Method</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <RadioGroup
-          value={selectedMethod}
-          onValueChange={onMethodSelect}
-          className="space-y-3"
-        >
-          {filteredMethods.map((method) => {
-            const Icon = method.icon;
-            return (
-              <div key={method.id} className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value={method.id} id={method.id} />
-                  <Label htmlFor={method.id} className="flex-1 cursor-pointer">
-                    <div className="rounded-md border p-3 hover:bg-accent">
-                      <div className="flex items-center gap-3">
-                        <Icon className="h-5 w-5" />
-                        <div>
-                          <div className="font-medium">{method.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {method.description}
+    <div className="space-y-4">
+      <h3 className="text-lg font-medium">Payment Method</h3>
+
+      <RadioGroup
+        value={selectedMethod}
+        onValueChange={(value) => onMethodSelect(value as PaymentMethodType)} // Type assertion needed here
+      >
+        <div className="space-y-3">
+          {methods
+            .filter((method) => method.isActive)
+            .map((method) => (
+              <div key={method.id} className="relative">
+                <Label
+                  htmlFor={method.id}
+                  className={cn(
+                    "cursor-pointer",
+                    selectedMethod === method.type &&
+                      "ring-2 ring-primary rounded-lg"
+                  )}
+                >
+                  <Card
+                    className={cn(
+                      "transition-all duration-200 hover:shadow-md",
+                      selectedMethod === method.type && "border-primary"
+                    )}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-3">
+                        <RadioGroupItem
+                          value={method.type}
+                          id={method.id}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {getPaymentIcon(method.type)}
+                              <span className="font-medium">{method.name}</span>
+                            </div>
+                            {formatFees(method.fees) && (
+                              <Badge variant="outline" className="text-xs">
+                                {formatFees(method.fees)}
+                              </Badge>
+                            )}
                           </div>
+
+                          <p className="text-sm text-muted-foreground">
+                            {method.description}
+                          </p>
                         </div>
                       </div>
-                    </div>
-                  </Label>
-                </div>
-
-                {/* Phone number input for M-Pesa */}
-                {method.requiresPhone && selectedMethod === method.id && (
-                  <div className="ml-6 space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+254712345678"
-                      value={customerPhone || ""}
-                      onChange={(e) => onPhoneChange?.(e.target.value)}
-                      className="max-w-xs"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Enter your M-Pesa registered phone number
-                    </p>
-                  </div>
-                )}
+                    </CardContent>
+                  </Card>
+                </Label>
               </div>
-            );
-          })}
-        </RadioGroup>
-      </CardContent>
-    </Card>
+            ))}
+        </div>
+      </RadioGroup>
+
+      {/* Phone number input for MPESA */}
+      {selectedMethod === "MPESA" && (
+        <div className="mt-4 p-4 bg-muted rounded-lg">
+          <Label htmlFor="customerPhone" className="text-sm font-medium">
+            M-Pesa Phone Number
+          </Label>
+          <Input
+            id="customerPhone"
+            type="tel"
+            placeholder="+254 7XX XXX XXX"
+            value={customerPhone || ""}
+            onChange={(e) => onPhoneChange(e.target.value)}
+            className="mt-2"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            You will receive an M-Pesa prompt on this number
+          </p>
+        </div>
+      )}
+
+      {/* Bank transfer details */}
+      {selectedMethod === "BANK_TRANSFER" && (
+        <div className="mt-4 p-4 bg-muted rounded-lg">
+          <h4 className="font-medium mb-2">Bank Transfer Instructions</h4>
+          <p className="text-sm text-muted-foreground">
+            Bank transfer details will be provided after order confirmation.
+            Please ensure payment is made within 24 hours to secure your order.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

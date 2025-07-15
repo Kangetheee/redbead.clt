@@ -1,6 +1,5 @@
 "use client";
 
-// import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,14 +9,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 import {
   ShoppingCart,
@@ -26,90 +20,140 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Package,
+  Eye,
+  Plus,
+  ArrowRight,
+  Star,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
-import Image from "next/image";
 import { useUserProfile } from "@/hooks/use-users";
-// import { toast } from "sonner";
-
-// Mock data for orders and designs (since these hooks aren't provided)
-const mockRecentOrders = [
-  {
-    id: "order_123",
-    orderNumber: "ORD-2024-001",
-    status: "DELIVERED",
-    total: 299.99,
-    items: 3,
-    orderDate: "2024-01-10T14:30:00.000Z",
-    deliveryDate: "2024-01-15T10:00:00.000Z",
-  },
-  {
-    id: "order_124",
-    orderNumber: "ORD-2024-002",
-    status: "SHIPPED",
-    total: 199.99,
-    items: 2,
-    orderDate: "2024-01-14T09:15:00.000Z",
-    estimatedDelivery: "2024-01-20T12:00:00.000Z",
-  },
-  {
-    id: "order_125",
-    orderNumber: "ORD-2024-003",
-    status: "PROCESSING",
-    total: 50.0,
-    items: 1,
-    orderDate: "2024-07-01T10:00:00.000Z",
-    estimatedDelivery: "2024-07-08T17:00:00.000Z",
-  },
-  {
-    id: "order_126",
-    orderNumber: "ORD-2024-004",
-    status: "DESIGN_PENDING",
-    total: 120.5,
-    items: 2,
-    orderDate: "2024-07-05T11:30:00.000Z",
-    estimatedDelivery: "2024-07-15T12:00:00.000Z",
-  },
-];
-
-const mockMyDesigns = [
-  {
-    id: "design_123",
-    name: "Business Card Design V2",
-    category: "business-cards",
-    thumbnail: "/placeholder.svg?height=150&width=200",
-    lastModified: "2024-01-12T16:45:00.000Z",
-    isTemplate: false,
-  },
-  {
-    id: "design_124",
-    name: "Event Lanyard - Summer Fest",
-    category: "lanyards",
-    thumbnail: "/placeholder.svg?height=150&width=200",
-    lastModified: "2024-06-20T09:00:00.000Z",
-    isTemplate: false,
-  },
-  {
-    id: "design_125",
-    name: "Company Logo Mug",
-    category: "mugs",
-    thumbnail: "/placeholder.svg?height=150&width=200",
-    lastModified: "2024-05-10T14:00:00.000Z",
-    isTemplate: true,
-  },
-];
+import { useOrders } from "@/hooks/use-orders";
+import { useUserDesignsList } from "@/hooks/use-designs";
+import { useFeaturedProducts } from "@/hooks/use-products";
+import { useCart } from "@/hooks/use-cart";
+import { useInitializeCheckout } from "@/hooks/use-checkout";
+import { CartFloatingButton } from "@/components/cart/cart-floating-button";
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
+import { EmptyState } from "@/components/shared/empty-state";
+import { OrderResponse } from "@/lib/orders/types/orders.types";
+import { DesignResponseDto } from "@/lib/designs/dto/designs.dto";
 
 export default function CustomerDashboardPage() {
   const router = useRouter();
+
+  // Data fetching hooks
   const {
     data: userProfile,
     isLoading: isLoadingProfile,
     error: profileError,
   } = useUserProfile();
+  const {
+    data: recentOrdersResponse,
+    isLoading: isLoadingOrders,
+    error: ordersError,
+  } = useOrders({
+    page: 1,
+    limit: 5,
+  });
+  const {
+    data: userDesignsResponse,
+    isLoading: isLoadingDesigns,
+    error: designsError,
+  } = useUserDesignsList({
+    page: 1,
+    limit: 6,
+  });
+  const { data: featuredProducts, isLoading: isLoadingProducts } =
+    useFeaturedProducts(6);
+  const { data: cart, isLoading: isLoadingCart } = useCart();
 
-  // Handle error state
+  // Checkout initialization
+  const initializeCheckoutMutation = useInitializeCheckout();
+
+  // Handle quick checkout
+  const handleQuickCheckout = async () => {
+    if (!cart?.items.length) {
+      router.push("/dashboard/customer/browse");
+      return;
+    }
+
+    try {
+      const result = await initializeCheckoutMutation.mutateAsync({
+        useCartItems: true,
+      });
+
+      if (result.success) {
+        router.push(
+          `/dashboard/customer/checkout?session=${result.data.sessionId}`
+        );
+      }
+    } catch (error) {
+      console.error("Failed to initialize checkout:", error);
+    }
+  };
+
+  // Extract data from responses safely
+  const recentOrders = recentOrdersResponse?.success
+    ? recentOrdersResponse.data
+    : null;
+  const userDesigns = userDesignsResponse; // This returns PaginatedDesignsResponseDto directly
+
+  // Calculate dashboard stats
+  const totalOrders = recentOrders?.meta?.totalItems || 0;
+  const totalDesigns = userDesigns?.meta?.totalItems || 0;
+  const cartItemCount = cart?.summary.itemCount || 0;
+  const cartTotal = cart?.summary.total || 0;
+
+  // Count pending approvals (orders with design approval status)
+  const pendingApprovals =
+    recentOrders?.items?.filter(
+      (order: OrderResponse) =>
+        order.status === "DESIGN_PENDING" || order.designApprovalRequired
+    ).length || 0;
+
+  // Order status styling
+  const getOrderStatusBadge = (status: string) => {
+    const config = {
+      DELIVERED: {
+        variant: "default" as const,
+        className: "bg-green-600 text-white",
+      },
+      SHIPPED: {
+        variant: "default" as const,
+        className: "bg-blue-600 text-white",
+      },
+      PROCESSING: {
+        variant: "default" as const,
+        className: "bg-orange-600 text-white",
+      },
+      DESIGN_PENDING: {
+        variant: "outline" as const,
+        className: "border-yellow-500 text-yellow-700",
+      },
+      PENDING: {
+        variant: "outline" as const,
+        className: "border-yellow-500 text-yellow-700",
+      },
+      CANCELLED: { variant: "destructive" as const, className: "" },
+    };
+
+    const statusConfig = config[status as keyof typeof config] || {
+      variant: "outline" as const,
+      className: "border-gray-500 text-gray-700",
+    };
+
+    return (
+      <Badge variant={statusConfig.variant} className={statusConfig.className}>
+        {status.replace(/_/g, " ")}
+      </Badge>
+    );
+  };
+
+  // Error handling
   if (profileError) {
-    // If we get an unauthorized error, redirect to sign in
     if (
       profileError.message?.includes("401") ||
       profileError.message?.includes("unauthorized")
@@ -121,33 +165,30 @@ export default function CustomerDashboardPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="p-6">
-              <div className="flex items-center text-red-600">
-                <XCircle className="h-5 w-5 mr-2" />
-                <span>
-                  Error loading profile data. Please try refreshing the page.
-                </span>
-              </div>
-              <Button
-                onClick={() => window.location.reload()}
-                className="mt-4"
-                variant="outline"
-              >
-                Refresh Page
-              </Button>
-            </CardContent>
-          </Card>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Error loading profile data. Please try refreshing the page.
+            </AlertDescription>
+          </Alert>
+          <Button
+            onClick={() => window.location.reload()}
+            className="mt-4"
+            variant="outline"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Page
+          </Button>
         </div>
       </div>
     );
   }
 
-  // Show loading state while loading profile
+  // Loading state
   if (isLoadingProfile) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin mr-2" />
             <span>Loading your dashboard...</span>
@@ -157,28 +198,53 @@ export default function CustomerDashboardPage() {
     );
   }
 
-  // Use mock data for orders and designs (replace with actual hooks when available)
-  const recentOrders = mockRecentOrders;
-  const myDesigns = mockMyDesigns;
-
   const userName = userProfile?.name || "Customer";
   const userRole = userProfile?.roles_users_roleIdToroles?.name || "Customer";
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground dark:text-gray-50">
-              Welcome, {userName}!
+            <h1 className="text-3xl font-bold text-foreground">
+              Welcome back, {userName}!
             </h1>
-            <p className="text-muted-foreground dark:text-gray-400 mt-2">
+            <p className="text-muted-foreground mt-2">
               Manage your corporate merchandise orders and designs.
             </p>
           </div>
+
+          {/* Quick Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 mt-4 lg:mt-0">
+            <Button asChild variant="outline">
+              <Link href="/dashboard/customer/browse">
+                <Package className="h-4 w-4 mr-2" />
+                Browse Products
+              </Link>
+            </Button>
+
+            {cartItemCount > 0 && (
+              <Button
+                onClick={handleQuickCheckout}
+                disabled={initializeCheckoutMutation.isPending}
+              >
+                {initializeCheckoutMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                )}
+                {initializeCheckoutMutation.isPending
+                  ? "Processing..."
+                  : "Quick Checkout"}
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {/* Dashboard Stats */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Orders */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -188,23 +254,51 @@ export default function CustomerDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {recentOrders.length > 0 ? `${recentOrders.length}` : "0"}
+                {isLoadingOrders ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  totalOrders
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {recentOrders.length > 0
-                  ? "View your order history"
-                  : "No orders yet"}
+                {totalOrders > 0 ? "View your order history" : "No orders yet"}
               </p>
-              <Button
-                asChild
-                variant="outline"
-                className="w-full mt-4 bg-transparent"
-              >
+              <Button asChild variant="outline" className="w-full mt-4">
                 <Link href="/dashboard/customer/orders">View Orders</Link>
               </Button>
             </CardContent>
           </Card>
 
+          {/* Shopping Cart */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Shopping Cart
+              </CardTitle>
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {isLoadingCart ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  cartItemCount
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {cartItemCount > 0
+                  ? `KES ${cartTotal.toLocaleString()} total`
+                  : "No items in cart"}
+              </p>
+              <Button asChild variant="outline" className="w-full mt-4">
+                <Link href="/dashboard/customer/cart">
+                  {cartItemCount > 0 ? "View Cart" : "Start Shopping"}
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Saved Designs */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -213,24 +307,27 @@ export default function CustomerDashboardPage() {
               <Palette className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{myDesigns.length}</div>
+              <div className="text-2xl font-bold">
+                {isLoadingDesigns ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  totalDesigns
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
-                {myDesigns.length > 0
+                {totalDesigns > 0
                   ? "Your personalized designs"
                   : "No designs saved"}
               </p>
-              <Button
-                asChild
-                variant="outline"
-                className="w-full mt-4 bg-transparent"
-              >
+              <Button asChild variant="outline" className="w-full mt-4">
                 <Link href="/dashboard/customer/design-studio">
-                  Manage Designs
+                  {totalDesigns > 0 ? "Manage Designs" : "Create Design"}
                 </Link>
               </Button>
             </CardContent>
           </Card>
 
+          {/* Pending Approvals */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -239,16 +336,18 @@ export default function CustomerDashboardPage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">
+                {isLoadingOrders ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  pendingApprovals
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Awaiting your design approval
               </p>
-              <Button
-                asChild
-                variant="outline"
-                className="w-full mt-4 bg-transparent"
-              >
-                <Link href="/dashboard/customer/design-approvals">
+              <Button asChild variant="outline" className="w-full mt-4">
+                <Link href="/dashboard/customer/orders?status=DESIGN_PENDING">
                   Review Designs
                 </Link>
               </Button>
@@ -256,182 +355,374 @@ export default function CustomerDashboardPage() {
           </Card>
         </div>
 
+        {/* Featured Products */}
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-            <CardDescription>Your latest merchandise orders.</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Featured Products</CardTitle>
+              <CardDescription>Popular items you might like</CardDescription>
+            </div>
+            <Button asChild variant="outline">
+              <Link href="/dashboard/customer/browse">
+                View All
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent>
-            {recentOrders.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order #</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Order Date</TableHead>
-                    <TableHead>Delivery Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">
-                        {order.orderNumber}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            order.status === "DELIVERED"
-                              ? "bg-green-100 text-green-800"
-                              : order.status === "SHIPPED"
-                                ? "bg-blue-100 text-blue-800"
-                                : order.status === "PENDING" ||
-                                    order.status === "PROCESSING" ||
-                                    order.status === "DESIGN_PENDING"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {order.status.replace(/_/g, " ")}
+            {isLoadingProducts ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Card key={index}>
+                    <CardContent className="p-4">
+                      <Skeleton className="w-full h-32 mb-3" />
+                      <Skeleton className="h-4 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2 mb-3" />
+                      <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : featuredProducts && featuredProducts.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredProducts.map((product) => (
+                  <Card
+                    key={product.id}
+                    className="group hover:shadow-md transition-shadow"
+                  >
+                    <CardContent className="p-4">
+                      <div className="relative mb-3">
+                        <img
+                          src={product.thumbnailImage || "/placeholder.svg"}
+                          alt={product.name}
+                          width={200}
+                          height={120}
+                          className="w-full h-32 object-cover rounded-md"
+                        />
+                        {product.isFeatured && (
+                          <Badge className="absolute top-2 right-2 bg-yellow-500">
+                            <Star className="h-3 w-3 mr-1" />
+                            Featured
+                          </Badge>
+                        )}
+                      </div>
+
+                      <h3 className="font-medium text-sm mb-1 line-clamp-2">
+                        {product.name}
+                      </h3>
+
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-lg font-bold">
+                          KES {product.basePrice.toLocaleString()}
                         </span>
-                      </TableCell>
-                      <TableCell>${order.total.toFixed(2)}</TableCell>
-                      <TableCell>{order.items}</TableCell>
-                      <TableCell>
-                        {format(new Date(order.orderDate), "MMM dd, yyyy")}
-                      </TableCell>
-                      <TableCell>
-                        {order.deliveryDate
-                          ? format(new Date(order.deliveryDate), "MMM dd, yyyy")
-                          : order.estimatedDelivery
-                            ? `Est. ${format(new Date(order.estimatedDelivery), "MMM dd, yyyy")}`
-                            : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/dashboard/customer/orders/${order.id}`}>
+                        {/* Remove averageRating references until properly typed */}
+                      </div>
+
+                      <div className="space-y-2">
+                        <AddToCartButton
+                          productId={product.id}
+                          quantity={product.minOrderQuantity}
+                          size="sm"
+                          className="w-full"
+                        />
+
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                        >
+                          <Link
+                            href={`/dashboard/customer/products/${product.slug}`}
+                          >
+                            <Eye className="h-3 w-3 mr-2" />
                             View Details
                           </Link>
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-muted-foreground text-center py-4">
-                No recent orders found.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>My Saved Designs</CardTitle>
-            <CardDescription>Your custom designs for products.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {myDesigns.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {myDesigns.map((design) => (
-                  <Card key={design.id} className="flex flex-col">
-                    <CardContent className="p-4 flex-1">
-                      {design.thumbnail && (
-                        <Image
-                          src={design.thumbnail || "/placeholder.svg"}
-                          alt={design.name}
-                          width={200}
-                          height={150}
-                          className="w-full h-32 object-cover rounded-md mb-3"
-                        />
-                      )}
-                      <h3 className="font-semibold text-lg mb-1">
-                        {design.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {design.category}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Last Modified:{" "}
-                        {format(new Date(design.lastModified), "MMM dd, yyyy")}
-                      </p>
+                      </div>
                     </CardContent>
-                    <div className="p-4 border-t">
-                      <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="w-full bg-transparent"
-                      >
-                        <Link
-                          href={`/dashboard/customer/design-studio/${design.id}`}
-                        >
-                          Edit Design
-                        </Link>
-                      </Button>
-                    </div>
                   </Card>
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground text-center py-4">
-                No saved designs found.{" "}
-                <Link
-                  href="/dashboard/customer/design-studio"
-                  className="underline"
-                >
-                  Start a new design
-                </Link>
-                .
-              </p>
+              <EmptyState
+                icon={Package}
+                title="No Featured Products"
+                description="Check back later for our featured product recommendations."
+                action={{
+                  label: "Browse All Products",
+                  onClick: () => router.push("/dashboard/customer/browse"),
+                }}
+              />
             )}
           </CardContent>
         </Card>
 
+        <div className="grid lg:grid-cols-2 gap-8 mb-8">
+          {/* Recent Orders */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Recent Orders</CardTitle>
+                <CardDescription>
+                  Your latest merchandise orders
+                </CardDescription>
+              </div>
+              {totalOrders > 5 && (
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/dashboard/customer/orders">View All</Link>
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {isLoadingOrders ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="flex items-center space-x-4">
+                      <Skeleton className="h-10 w-10 rounded" />
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                      <Skeleton className="h-8 w-20" />
+                    </div>
+                  ))}
+                </div>
+              ) : ordersError ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Failed to load recent orders. Please try again.
+                  </AlertDescription>
+                </Alert>
+              ) : recentOrders &&
+                recentOrders.items &&
+                recentOrders.items.length > 0 ? (
+                <div className="space-y-4">
+                  {recentOrders.items.map((order: OrderResponse) => (
+                    <div
+                      key={order.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">
+                            {order.orderNumber}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {order.orderItems?.length || 0} items • KES{" "}
+                            {order.totalAmount.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(order.createdAt), "MMM dd, yyyy")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right space-y-2">
+                        {getOrderStatusBadge(order.status)}
+                        <div>
+                          <Button asChild variant="outline" size="sm">
+                            <Link
+                              href={`/dashboard/customer/orders/${order.id}`}
+                            >
+                              View
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={ShoppingCart}
+                  title="No Orders Yet"
+                  description="Start shopping to see your orders here."
+                  action={{
+                    label: "Browse Products",
+                    onClick: () => router.push("/dashboard/customer/browse"),
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* My Saved Designs */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>My Saved Designs</CardTitle>
+                <CardDescription>
+                  Your custom designs for products
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                {totalDesigns > 6 && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/dashboard/customer/design-studio/saved-designs">
+                      View All
+                    </Link>
+                  </Button>
+                )}
+                <Button asChild size="sm">
+                  <Link href="/dashboard/customer/design-studio/create">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Design
+                  </Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoadingDesigns ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <Card key={index}>
+                      <CardContent className="p-3">
+                        <Skeleton className="w-full h-20 mb-2" />
+                        <Skeleton className="h-4 w-3/4 mb-1" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : designsError ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Failed to load designs. Please try again.
+                  </AlertDescription>
+                </Alert>
+              ) : userDesigns &&
+                userDesigns.items &&
+                userDesigns.items.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {userDesigns.items
+                    .slice(0, 4)
+                    .map((design: DesignResponseDto) => (
+                      <Card
+                        key={design.id}
+                        className="group hover:shadow-sm transition-shadow"
+                      >
+                        <CardContent className="p-3">
+                          <div className="relative mb-2">
+                            <img
+                              src={design.preview || "/placeholder.svg"}
+                              alt={design.name}
+                              width={120}
+                              height={80}
+                              className="w-full h-20 object-cover rounded-md"
+                            />
+                            {design.isTemplate && (
+                              <Badge
+                                variant="secondary"
+                                className="absolute top-1 right-1 text-xs"
+                              >
+                                Template
+                              </Badge>
+                            )}
+                          </div>
+                          <h3 className="font-medium text-sm mb-1 line-clamp-1">
+                            {design.name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            {format(new Date(design.updatedAt), "MMM dd")}
+                          </p>
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Link
+                              href={`/dashboard/customer/design-studio/edit/${design.id}`}
+                            >
+                              Edit
+                            </Link>
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={Palette}
+                  title="No Saved Designs"
+                  description="Create your first custom design to get started."
+                  action={{
+                    label: "Start Designing",
+                    onClick: () =>
+                      router.push("/dashboard/customer/design-studio/create"),
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Account Information */}
         <Card>
           <CardHeader>
             <CardTitle>Account Information</CardTitle>
           </CardHeader>
           <CardContent>
             {userProfile ? (
-              <div className="space-y-2 text-muted-foreground dark:text-gray-300">
-                <p>
-                  <span className="font-medium">Name:</span>{" "}
-                  {userProfile.name || "N/A"}
-                </p>
-                <p>
-                  <span className="font-medium">Email:</span>{" "}
-                  {userProfile.email || "N/A"}
-                </p>
-                <p>
-                  <span className="font-medium">Phone:</span>{" "}
-                  {userProfile.phone || "N/A"}
-                </p>
-                <p>
-                  <span className="font-medium">Role:</span> {userRole}
-                </p>
-                <p>
-                  <span className="font-medium">Account Status:</span>{" "}
-                  {userProfile.isActive ? (
-                    <span className="inline-flex items-center gap-1 text-green-600">
-                      <CheckCircle className="h-4 w-4" /> Active
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-red-600">
-                      <XCircle className="h-4 w-4" /> Inactive
-                    </span>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div>
+                    <span className="font-medium text-sm">Name:</span>
+                    <p className="text-muted-foreground">
+                      {userProfile.name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-sm">Email:</span>
+                    <p className="text-muted-foreground">
+                      {userProfile.email || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-sm">Phone:</span>
+                    <p className="text-muted-foreground">
+                      {userProfile.phone || "N/A"}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <span className="font-medium text-sm">Role:</span>
+                    <p className="text-muted-foreground">{userRole}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-sm">Account Status:</span>
+                    <div className="flex items-center gap-2">
+                      {userProfile.isActive ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-green-600">Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4 text-red-600" />
+                          <span className="text-red-600">Inactive</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {userProfile.createdAt && (
+                    <div>
+                      <span className="font-medium text-sm">Member since:</span>
+                      <p className="text-muted-foreground">
+                        {format(
+                          new Date(userProfile.createdAt),
+                          "MMM dd, yyyy"
+                        )}
+                      </p>
+                    </div>
                   )}
-                </p>
-                {userProfile.createdAt && (
-                  <p>
-                    <span className="font-medium">Member since:</span>{" "}
-                    {format(new Date(userProfile.createdAt), "MMM dd, yyyy")}
-                  </p>
-                )}
+                </div>
               </div>
             ) : (
               <div className="flex items-center text-muted-foreground">
@@ -439,11 +730,14 @@ export default function CustomerDashboardPage() {
                 Loading account information...
               </div>
             )}
-            <Button asChild className="mt-4">
+            <Button asChild className="mt-6">
               <Link href="/dashboard/customer/profile">Edit Profile</Link>
             </Button>
           </CardContent>
         </Card>
+
+        {/* Floating Cart Button */}
+        <CartFloatingButton />
       </div>
     </div>
   );
