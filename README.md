@@ -1,6 +1,6 @@
-# Mama Bima Assistant - User Journey Guide
+# Redbead Assistant - User Journey Guide
 
-This document outlines the complete journey for the Mama Bima Assistant, from initial admin setup to the end-user experience. Use this guide to understand how all components of the system work together to deliver personalized plan recommendations.
+This document outlines the complete journey for the Redbead Assistant, from initial admin setup to the end-user experience. Use this guide to understand how all components of the system work together to deliver personalized plan recommendations.
 
 ## Table of Contents
 
@@ -229,4 +229,4 @@ This document outlines the complete journey for the Mama Bima Assistant, from in
 
 ---
 
-This user journey represents the complete lifecycle of the Mama Bima Assistant, demonstrating how it creates value by guiding users through a conversational experience to receive personalized plan recommendations
+This user journey represents the complete lifecycle of the Redbead Assistant, demonstrating how it creates value by guiding users through a conversational experience to receive personalized plan recommendations

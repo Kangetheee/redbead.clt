@@ -9,15 +9,14 @@ import { getErrorMessage } from "../get-error-message";
 import { getSession } from "../session/session";
 
 type BaseOptions = {
-  headers?: AxiosHeaders;
+  headers?: AxiosHeaders | Record<string, string>;
 };
 
-type RequestOptions = BaseOptions &
-  (
-    | { method?: "GET" | "DELETE" }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    | { method?: "POST" | "PATCH"; data: Record<string, any> }
-  );
+type RequestOptions = BaseOptions & {
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: Record<string, any> | FormData;
+};
 
 export class Fetcher {
   constructor(private apiUri = axios.create({ baseURL: env.API_URL })) {}
@@ -92,17 +91,31 @@ export class Fetcher {
         if (hasAuth && !accessToken)
           throw new Error("No active session found. Please login to continue");
 
+        // Build headers object, handling FormData specially
+        const baseHeaders: Record<string, string> = {
+          ...headersList,
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        };
+
+        // Don't set Content-Type for FormData - let the browser set it with boundary
+        const isFormData =
+          restOptions.data && restOptions.data instanceof FormData;
+        if (!isFormData) {
+          baseHeaders["Content-Type"] = "application/json";
+          baseHeaders["Accept"] = "application/json";
+        }
+
+        // Merge additional headers, but don't override Content-Type for FormData
+        const finalHeaders = {
+          ...baseHeaders,
+          ...(!isFormData && otherHeaders ? otherHeaders : {}),
+        };
+
         const requestOptions: AxiosRequestConfig = {
           url,
           method,
           ...restOptions,
-          headers: {
-            ...headersList,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-            ...otherHeaders,
-          },
+          headers: finalHeaders,
         };
 
         console.log(requestOptions);
@@ -132,14 +145,6 @@ export class Fetcher {
             );
             throw new Error(
               "Network is unreachable. Please check your internet connection."
-            );
-          }
-          if (error.code === "EHOSTUNREACH") {
-            console.error(
-              "Host unreachable. Check network connection or server status."
-            );
-            throw new Error(
-              "Unable to reach the server. Please check your network connection."
             );
           }
           if (error.code === "EHOSTUNREACH") {

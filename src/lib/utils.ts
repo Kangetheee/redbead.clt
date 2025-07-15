@@ -337,3 +337,10 @@ export function getDaysBetween(range: DateRange): number {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return diffDays + 1;
 }
+
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+  }).format(amount);
+}

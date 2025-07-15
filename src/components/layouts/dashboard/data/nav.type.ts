@@ -35,7 +35,6 @@ export type NavIcon =
   | "MdOutlineSmartToy"
   | "MdOutlineQuestionAnswer"
   | "MdOutlineMailOutline"
-  | "MdOutlinePayments"
   | "MdOutlineAdminPanelSettings"
   | "MdOutlineManageAccounts"
   | "MdOutlineHistoryToggleOff"

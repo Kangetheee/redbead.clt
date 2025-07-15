@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: cloudfrontUrl },
       { protocol: "https", hostname: "d2tk6bz1ze3gs5.cloudfront.net" },
+      { protocol: "https", hostname: "rbdapi.oleq.app" },
     ],
   },
   env: {

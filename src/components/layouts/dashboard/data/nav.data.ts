@@ -13,93 +13,206 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    name: "Clients",
+    name: "Products",
     items: [
       {
-        name: "Clients",
-        icon: "MdOutlinePerson",
-        href: "/clients",
-        permissions: ["Client:read"],
+        name: "Products",
+        icon: "MdOutlineInventory2",
+        href: "/products",
+        permissions: ["Product:read"],
       },
       {
-        name: "Interactions",
-        icon: "LuCalendarClock",
-        href: "/interactions",
-        permissions: ["Interaction:read"],
-      },
-    ],
-  },
-  // {
-  //   name: "Bots",
-  //   items: [
-  //     {
-  //       name: "Bots",
-  //       icon: "MdOutlineSmartToy",
-  //       href: "/bots",
-  //       permissions: ["Bot:read"],
-  //       isIncomplete: true,
-  //     },
-  //   ],
-  // },
-  {
-    name: "Conversations",
-    items: [
-      // {
-      //   name: "Questions",
-      //   icon: "MdOutlineMailOutline",
-      //   isIncomplete: true,
-      //   subitems: [
-      //     {
-      //       name: "All Questions",
-      //       href: "/questions",
-      //       permissions: ["Question:read"],
-      //     },
-      //     {
-      //       name: "Add Questions",
-      //       href: "/questions/create",
-      //       permissions: ["Question:create"],
-      //     },
-      //   ],
-      // },
-      {
-        name: "Conversations",
-        icon: "MdOutlineQuestionAnswer",
-        href: "/conversations",
-        permissions: ["Conversation:read"],
-      },
-    ],
-  },
-  {
-    name: "Insurance",
-    items: [
-      {
-        name: "Underwriters",
-        icon: "MdOutlineAccountBalance",
-        href: "/insurance/underwriters",
-        permissions: ["Underwriter:read"],
-      },
-      {
-        name: "Insurance Types",
+        name: "Categories",
         icon: "MdOutlineCategory",
-        href: "/insurance/insurance-types",
-        permissions: ["InsuranceType:read"],
+        href: "/categories",
+        permissions: ["Category:read"],
       },
       {
-        name: "Insurance Plans",
-        icon: "MdOutlineDescription",
-        href: "/insurance/insurance-plans",
-        permissions: ["InsurancePlan:read"],
+        name: "Customization",
+        icon: "MdOutlineSettings",
+        subitems: [
+          {
+            name: "Options",
+            href: "/customization/options",
+            permissions: ["CustomizationOption:read"],
+          },
+          {
+            name: "Values",
+            href: "/customization/values",
+            permissions: ["CustomizationOptionValue:read"],
+          },
+        ],
       },
     ],
   },
   {
-    name: "Integrations",
+    name: "Orders",
     items: [
       {
-        name: "Channels",
-        icon: "LuUnplug",
-        href: "/channels",
-        permissions: ["Channel:read"],
+        name: "Orders",
+        icon: "MdOutlineShoppingCart",
+        href: "/orders",
+        permissions: ["Order:read"],
+      },
+      {
+        name: "Bulk Orders",
+        icon: "MdOutlineWork",
+        href: "/bulk-orders",
+        permissions: ["BulkOrder:read"],
+      },
+      {
+        name: "Cart Management",
+        icon: "MdOutlineLocalOffer",
+        href: "/carts",
+        permissions: ["Cart:read"],
+      },
+    ],
+  },
+  {
+    name: "Design Studio",
+    items: [
+      {
+        name: "Designs",
+        icon: "MdOutlineBrandingWatermark",
+        href: "/designs",
+        permissions: ["Design:read"],
+      },
+      {
+        name: "Templates",
+        icon: "MdOutlineDescription",
+        href: "/design-templates",
+        permissions: ["DesignTemplate:read"],
+      },
+      {
+        name: "Approvals",
+        icon: "MdOutlineFactCheck",
+        href: "/design-approvals",
+        permissions: ["DesignApproval:read"],
+      },
+      {
+        name: "Assets",
+        icon: "MdOutlinePermMedia",
+        href: "/design-assets",
+        permissions: ["DesignAsset:read"],
+      },
+    ],
+  },
+  {
+    name: "Customers",
+    items: [
+      {
+        name: "Customers",
+        icon: "MdOutlinePeople",
+        href: "/customers",
+        permissions: ["Customer:read"],
+      },
+      {
+        name: "Customer Tags",
+        icon: "MdOutlineBadge",
+        href: "/customer-tags",
+        permissions: ["CustomerTag:read"],
+      },
+      {
+        name: "Addresses",
+        icon: "MdOutlineLocalShipping",
+        href: "/addresses",
+        permissions: ["Address:read"],
+      },
+    ],
+  },
+  {
+    name: "Payments & Shipping",
+    items: [
+      {
+        name: "Payments",
+        icon: "MdOutlinePayments",
+        href: "/payments",
+        permissions: ["Payment:read"],
+      },
+      {
+        name: "Shipping Zones",
+        icon: "MdOutlineLocalShipping",
+        href: "/shipping/zones",
+        permissions: ["ShippingZone:read"],
+      },
+      {
+        name: "Shipping Rates",
+        icon: "MdOutlineAssessment",
+        href: "/shipping/rates",
+        permissions: ["ShippingRate:read"],
+      },
+    ],
+  },
+  {
+    name: "Media",
+    items: [
+      {
+        name: "Media Library",
+        icon: "MdOutlinePermMedia",
+        href: "/media",
+        permissions: ["Media:read"],
+      },
+      {
+        name: "Uploads",
+        icon: "MdOutlineArticle",
+        href: "/uploads",
+        permissions: ["Upload:read"],
+      },
+    ],
+  },
+  {
+    name: "Communications",
+    items: [
+      {
+        name: "Email Templates",
+        icon: "MdOutlineEmail",
+        href: "/email-templates",
+        permissions: ["EmailTemplate:read"],
+      },
+      {
+        name: "Email Logs",
+        icon: "MdOutlineMailOutline",
+        href: "/email-logs",
+        permissions: ["EmailLog:read"],
+      },
+      {
+        name: "Notifications",
+        icon: "MdOutlineMessage",
+        subitems: [
+          {
+            name: "Templates",
+            href: "/notifications/templates",
+            permissions: ["NotificationTemplate:read"],
+          },
+          {
+            name: "Preferences",
+            href: "/notifications/preferences",
+            permissions: ["NotificationPreference:read"],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: "Analytics",
+    items: [
+      {
+        name: "Metrics",
+        icon: "MdOutlineAssessment",
+        href: "/analytics/metrics",
+        permissions: ["Metric:read"],
+      },
+      {
+        name: "Patterns",
+        icon: "MdOutlineStarBorder",
+        href: "/analytics/patterns",
+        permissions: ["Pattern:read"],
+      },
+      {
+        name: "Behavior",
+        icon: "MdOutlinePeopleAlt",
+        href: "/analytics/behavior",
+        permissions: ["BehaviorPattern:read"],
       },
     ],
   },
@@ -113,7 +226,7 @@ export const navGroups: NavGroup[] = [
         permissions: ["Role:read"],
       },
       {
-        name: "Admin Users",
+        name: "Users",
         icon: "MdOutlineManageAccounts",
         href: "/settings/users",
         permissions: ["User:read"],
@@ -125,44 +238,10 @@ export const navGroups: NavGroup[] = [
         permissions: ["ActivityLog:read"],
       },
       {
-        name: "Audit Logs",
+        name: "Audit Trails",
         icon: "MdOutlineFactCheck",
-        href: "/settings/audit-logs",
+        href: "/settings/audit-trails",
         permissions: ["AuditTrail:read"],
-      },
-    ],
-  },
-  {
-    name: "Legal",
-    items: [
-      {
-        name: "Privacy Policy",
-        icon: "MdOutlinePrivacyTip",
-        href: "/privacy",
-        permissions: ["Legal:read"],
-      },
-      {
-        name: "Terms of Service",
-        icon: "MdOutlineGavel",
-        href: "/terms",
-        permissions: ["Legal:read"],
-      },
-    ],
-  },
-  {
-    name: "FAQ",
-    items: [
-      {
-        name: "Enquiries",
-        icon: "MdOutlineContactSupport",
-        href: "/enquiries",
-        permissions: ["WebsiteEnquiry:read"],
-      },
-      {
-        name: "Manage FAQs",
-        icon: "MdOutlineQuestionAnswer",
-        href: "/faqs",
-        permissions: ["Faq:read"],
       },
     ],
   },

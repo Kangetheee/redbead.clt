@@ -11,7 +11,10 @@ import { Form } from "@/components/ui/form";
 import FormButton from "@/components/ui/form-button";
 import FormPhoneInput from "@/components/ui/form-phone-input";
 import { resetPasswordAction } from "@/lib/auth/auth.actions";
-import { ResetPasswordDto, resetPasswordSchema } from "@/lib/auth/dto/auth.dto";
+import {
+  type ResetPasswordDto,
+  resetPasswordSchema,
+} from "@/lib/auth/dto/auth.dto";
 
 export default function ForgotPasswordForm() {
   const router = useRouter();

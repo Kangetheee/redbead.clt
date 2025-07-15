@@ -1,5 +1,6 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -45,6 +46,15 @@ export default function SignInPage() {
         <Suspense fallback={<LoadingSkeleton />}>
           <LoginForm />
         </Suspense>
+
+        <div className="mt-4 text-center text-sm text-muted-foreground">
+          <Link
+            href="/sign-in/otp"
+            className="underline-offset-4 hover:text-primary hover:underline"
+          >
+            Sign in with OTP instead
+          </Link>
+        </div>
 
         <div className="mt-4 text-center text-sm text-muted-foreground">
           <p>Protected by enterprise-grade security</p>
