@@ -1,11 +1,32 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useOrderConfirmation } from "@/hooks/use-checkout";
-import { usePaymentStatus } from "@/hooks/use-payments";
+import { format } from "date-fns";
+import {
+  ArrowLeft,
+  Download,
+  ExternalLink,
+  Package,
+  Truck,
+  MessageSquare,
+  Star,
+  StarOff,
+  Repeat,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  CreditCard,
+  FileText,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,444 +34,530 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  CreditCard,
-  Package,
-  Truck,
-  Eye,
-  Download,
-  Share,
-  ArrowLeft,
-  ExternalLink,
-  RefreshCw,
-  Smartphone,
-  Building2,
-} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
-interface OrderConfirmationPageProps {
-  orderId: string;
-}
+// Import our order components
+import OrderTimeline from "@/components/orders/order-timeline";
+import OrderStatusBadge from "@/components/orders/order-status-badge";
+import { useOrder } from "@/hooks/use-orders";
 
-const PAYMENT_STATUS_CONFIG = {
-  PENDING: {
-    icon: Clock,
-    color: "bg-yellow-500",
-    textColor: "text-yellow-700",
-    bgColor: "bg-yellow-50",
-    borderColor: "border-yellow-200",
-  },
-  PROCESSING: {
-    icon: RefreshCw,
-    color: "bg-blue-500",
-    textColor: "text-blue-700",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
-  },
-  COMPLETED: {
-    icon: CheckCircle,
-    color: "bg-green-500",
-    textColor: "text-green-700",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
-  },
-  FAILED: {
-    icon: AlertCircle,
-    color: "bg-red-500",
-    textColor: "text-red-700",
-    bgColor: "bg-red-50",
-    borderColor: "border-red-200",
-  },
-  CANCELLED: {
-    icon: AlertCircle,
-    color: "bg-gray-500",
-    textColor: "text-gray-700",
-    bgColor: "bg-gray-50",
-    borderColor: "border-gray-200",
-  },
-};
+// FIXED: Change this to a default export instead of named export
+export default function OrderConfirmationPage() {
+  const params = useParams();
+  const orderId = params.id as string;
+  const [isFavorited, setIsFavorited] = useState(false);
 
-const PAYMENT_METHOD_ICONS = {
-  MPESA: Smartphone,
-  BANK_TRANSFER: Building2,
-  CARD: CreditCard,
-};
+  // Fetch order data
+  const { data: orderData, isLoading, refetch } = useOrder(orderId);
+  const order = orderData?.success ? orderData.data : null;
 
-export function OrderConfirmationPage({ orderId }: OrderConfirmationPageProps) {
-  const router = useRouter();
-  const [showPaymentPolling, setShowPaymentPolling] = useState(false);
-
-  const {
-    data: orderData,
-    isLoading: orderLoading,
-    error: orderError,
-  } = useOrderConfirmation(orderId);
-
-  const {
-    data: paymentData,
-    isLoading: paymentLoading,
-    refetch: refetchPayment,
-  } = usePaymentStatus(orderId, !!orderData);
-
-  useEffect(() => {
-    // Show payment polling for pending payments
-    if (
-      paymentData?.status === "PENDING" ||
-      paymentData?.status === "PROCESSING"
-    ) {
-      setShowPaymentPolling(true);
-    } else if (paymentData?.status === "COMPLETED") {
-      setShowPaymentPolling(false);
-    }
-  }, [paymentData?.status]);
-
-  const handleContinueShopping = () => {
-    router.push("/dashboard/customer/products");
-  };
-
-  const handleViewOrders = () => {
-    router.push("/dashboard/customer/orders");
-  };
-
-  const handleDownloadReceipt = () => {
-    // Implementation for downloading receipt
-    console.log("Download receipt for order:", orderId);
-  };
-
-  const handleShareOrder = () => {
-    // Implementation for sharing order
-    if (navigator.share) {
-      navigator.share({
-        title: `Order ${orderData?.orderNumber}`,
-        text: `My order confirmation for order ${orderData?.orderNumber}`,
-        url: window.location.href,
-      });
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(window.location.href);
-    }
-  };
-
-  if (orderLoading) {
+  if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-8 w-1/3" />
-              <Skeleton className="h-4 w-1/2" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </CardContent>
-          </Card>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+          <span>Loading order details...</span>
         </div>
       </div>
     );
   }
 
-  if (orderError || !orderData) {
+  if (!order) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
-              <h2 className="text-xl font-semibold">Order Not Found</h2>
-              <p className="text-muted-foreground">
-                We couldn&apos;t find the order you&apos;re looking for. Please
-                check the order ID and try again.
-              </p>
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" onClick={() => router.back()}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Go Back
-                </Button>
-                <Button onClick={handleViewOrders}>View My Orders</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Order not found or you don&apos;t have permission to view it.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
-  const paymentStatusConfig = paymentData?.status
-    ? PAYMENT_STATUS_CONFIG[
-        paymentData.status as keyof typeof PAYMENT_STATUS_CONFIG
-      ]
-    : PAYMENT_STATUS_CONFIG.PENDING;
+  const getProgressPercentage = () => {
+    const statusFlow = [
+      "PENDING",
+      "DESIGN_PENDING",
+      "DESIGN_APPROVED",
+      "PAYMENT_CONFIRMED",
+      "PROCESSING",
+      "SHIPPED",
+      "DELIVERED",
+    ];
 
-  const PaymentIcon = paymentStatusConfig.icon;
-  const PaymentMethodIcon =
-    PAYMENT_METHOD_ICONS[
-      paymentData?.method as keyof typeof PAYMENT_METHOD_ICONS
-    ] || CreditCard;
+    const currentIndex = statusFlow.indexOf(order.status);
+    return currentIndex >= 0
+      ? ((currentIndex + 1) / statusFlow.length) * 100
+      : 0;
+  };
+
+  const canReorder = order.status === "DELIVERED";
+  const needsDesignApproval = order.status === "DESIGN_PENDING";
+  const needsPayment = order.status === "PAYMENT_PENDING";
+  const isActive = !["DELIVERED", "CANCELLED", "REFUNDED"].includes(
+    order.status
+  );
+
+  const handleReorder = () => {
+    // Implement reorder functionality
+    console.log("Reordering:", order.id);
+  };
+
+  const handleFavoriteToggle = () => {
+    setIsFavorited(!isFavorited);
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="space-y-6">
-        {/* Success Header */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/dashboard/customer/orders">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Orders
+            </Link>
+          </Button>
+
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Order #{order.orderNumber}
+            </h1>
+            <p className="text-muted-foreground">
+              Placed on {format(new Date(order.createdAt), "MMMM dd, yyyy")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleFavoriteToggle}>
+            {isFavorited ? (
+              <Star className="h-4 w-4 mr-2 fill-current" />
+            ) : (
+              <StarOff className="h-4 w-4 mr-2" />
+            )}
+            {isFavorited ? "Favorited" : "Add to Favorites"}
+          </Button>
+
+          {canReorder && (
+            <Button variant="outline" size="sm" onClick={handleReorder}>
+              <Repeat className="h-4 w-4 mr-2" />
+              Reorder
+            </Button>
+          )}
+
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Invoice
+          </Button>
+        </div>
+      </div>
+
+      {/* Status and Progress */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-green-700">
-                  Order Confirmed!
-                </h1>
-                <p className="text-muted-foreground">
-                  Thank you for your order. We&apos;ve received your request and
-                  will process it shortly.
+                <h3 className="font-semibold mb-1">Order Status</h3>
+                <OrderStatusBadge status={order.status} size="default" />
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Progress</p>
+                <p className="font-semibold">
+                  {Math.round(getProgressPercentage())}% Complete
                 </p>
               </div>
-              <div className="flex items-center justify-center gap-4 text-sm">
-                <Badge variant="outline" className="px-3 py-1">
-                  Order #{orderData.orderNumber}
-                </Badge>
-                <Badge variant="outline" className="px-3 py-1">
-                  {new Date(orderData.createdAt).toLocaleDateString()}
-                </Badge>
+            </div>
+
+            <div>
+              <Progress value={getProgressPercentage()} className="h-2" />
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>Order Placed</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {order.payment ? (
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                )}
+                <span>Payment</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {["PROCESSING", "PRODUCTION", "SHIPPED", "DELIVERED"].includes(
+                  order.status
+                ) ? (
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Clock className="h-4 w-4 text-gray-400" />
+                )}
+                <span>Production</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {order.status === "DELIVERED" ? (
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Clock className="h-4 w-4 text-gray-400" />
+                )}
+                <span>Delivered</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Payment Status */}
-        {paymentData && (
+      {/* Action Alerts */}
+      {needsDesignApproval && (
+        <Alert className="border-blue-200 bg-blue-50">
+          <FileText className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            <strong>Design Approval Required:</strong> Please review and approve
+            the design mockups for your order.
+            <Button
+              variant="link"
+              size="sm"
+              className="ml-2 text-blue-800 p-0 h-auto"
+            >
+              Review Design
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {needsPayment && (
+        <Alert className="border-orange-200 bg-orange-50">
+          <CreditCard className="h-4 w-4 text-orange-600" />
+          <AlertDescription className="text-orange-800">
+            <strong>Payment Required:</strong> Complete your payment to proceed
+            with production.
+            <Button
+              variant="link"
+              size="sm"
+              className="ml-2 text-orange-800 p-0 h-auto"
+            >
+              Make Payment
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="details" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="details">Order Details</TabsTrigger>
+          <TabsTrigger value="tracking">Tracking</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="support">Support</TabsTrigger>
+        </TabsList>
+
+        {/* Order Details Tab */}
+        <TabsContent value="details" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Order Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Order Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  {order.orderItems.map((item, index) => (
+                    <div key={item.id} className="flex justify-between">
+                      <div>
+                        <p className="font-medium">Product {item.productId}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Quantity: {item.quantity}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <span>${order.subtotalAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tax</span>
+                    <span>${order.taxAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Shipping</span>
+                    <span>${order.shippingAmount.toFixed(2)}</span>
+                  </div>
+                  {order.discountAmount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Discount</span>
+                      <span>-${order.discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between font-bold">
+                    <span>Total</span>
+                    <span>${order.totalAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Shipping Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Shipping Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    SHIPPING ADDRESS
+                  </label>
+                  <p className="mt-1">Address ID: {order.shippingAddress.id}</p>
+                  {/* In a real app, display full address */}
+                </div>
+
+                {order.trackingNumber && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      TRACKING NUMBER
+                    </label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="font-mono text-sm">
+                        {order.trackingNumber}
+                      </p>
+                      {order.trackingUrl && (
+                        <Button variant="ghost" size="sm" asChild>
+                          <a
+                            href={order.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {order.expectedDelivery && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      EXPECTED DELIVERY
+                    </label>
+                    <p className="mt-1 flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {format(
+                        new Date(order.expectedDelivery),
+                        "MMMM dd, yyyy"
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {order.urgencyLevel && order.urgencyLevel !== "NORMAL" && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      PRIORITY LEVEL
+                    </label>
+                    <Badge variant="destructive" className="mt-1">
+                      {order.urgencyLevel}
+                    </Badge>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Special Instructions */}
+          {order.specialInstructions && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Special Instructions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  {order.specialInstructions}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Tracking Tab */}
+        <TabsContent value="tracking" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Payment Status
+                <Truck className="h-5 w-5" />
+                Order Tracking
               </CardTitle>
+              <CardDescription>
+                Real-time updates on your order progress
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                className={`p-4 rounded-lg ${paymentStatusConfig.bgColor} ${paymentStatusConfig.borderColor} border`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full ${paymentStatusConfig.color} flex items-center justify-center`}
-                    >
-                      <PaymentIcon className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                      <div
-                        className={`font-medium ${paymentStatusConfig.textColor}`}
-                      >
-                        {paymentData.status === "PENDING" && "Payment Pending"}
-                        {paymentData.status === "PROCESSING" &&
-                          "Processing Payment"}
-                        {paymentData.status === "COMPLETED" &&
-                          "Payment Completed"}
-                        {paymentData.status === "FAILED" && "Payment Failed"}
-                        {paymentData.status === "CANCELLED" &&
-                          "Payment Cancelled"}
+              {order.trackingNumber ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold">Tracking Number</p>
+                        <p className="font-mono text-sm">
+                          {order.trackingNumber}
+                        </p>
                       </div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        <PaymentMethodIcon className="h-4 w-4" />
-                        {paymentData.method} • KES{" "}
-                        {paymentData.amount.toLocaleString()}
-                      </div>
+                      {order.trackingUrl && (
+                        <Button asChild>
+                          <a
+                            href={order.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Track Package
+                          </a>
+                        </Button>
+                      )}
                     </div>
                   </div>
 
-                  {showPaymentPolling && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => refetchPayment()}
-                      disabled={paymentLoading}
-                    >
-                      <RefreshCw
-                        className={`h-4 w-4 ${paymentLoading ? "animate-spin" : ""}`}
-                      />
-                    </Button>
-                  )}
+                  {/* Mock tracking updates */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 w-2 bg-green-500 rounded-full" />
+                      <div>
+                        <p className="font-medium">Package shipped</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(
+                            new Date(order.updatedAt),
+                            "MMM dd, yyyy 'at' hh:mm a"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 w-2 bg-blue-500 rounded-full" />
+                      <div>
+                        <p className="font-medium">Order processed</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(
+                            new Date(order.createdAt),
+                            "MMM dd, yyyy 'at' hh:mm a"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold">
+                    No tracking available yet
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Tracking information will appear here once your order ships
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                {/* Payment Instructions */}
-                {paymentData.status === "PENDING" &&
-                  paymentData.method === "MPESA" && (
-                    <Alert className="mt-4">
-                      <Smartphone className="h-4 w-4" />
-                      <AlertDescription>
-                        Please check your phone for the M-Pesa prompt and enter
-                        your PIN to complete the payment.
-                      </AlertDescription>
-                    </Alert>
-                  )}
+        {/* Timeline Tab */}
+        <TabsContent value="timeline">
+          <OrderTimeline order={order} showFilters={false} maxHeight="600px" />
+        </TabsContent>
 
-                {paymentData.status === "PENDING" &&
-                  paymentData.method === "BANK_TRANSFER" && (
-                    <Alert className="mt-4">
-                      <Building2 className="h-4 w-4" />
-                      <AlertDescription>
-                        Bank transfer details have been sent to your email.
-                        Please complete the transfer to proceed with your order.
-                      </AlertDescription>
-                    </Alert>
-                  )}
+        {/* Support Tab */}
+        <TabsContent value="support" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Need Help?
+              </CardTitle>
+              <CardDescription>Get support for your order</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Button variant="outline" className="justify-start">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Support
+                </Button>
+                <Button variant="outline" className="justify-start">
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call Support
+                </Button>
+                <Button variant="outline" className="justify-start">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Live Chat
+                </Button>
+                <Button variant="outline" className="justify-start">
+                  <FileText className="h-4 w-4 mr-2" />
+                  FAQ
+                </Button>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <h4 className="font-medium">Common Actions</h4>
+                <div className="space-y-2">
+                  <Button variant="ghost" className="w-full justify-start">
+                    Report an issue with this order
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start">
+                    Request order modification
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start">
+                    Cancel this order
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start">
+                    Request refund
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* Order Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Order Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-medium mb-2">Order Information</h4>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Order Number:</span>
-                    <span className="font-medium">{orderData.orderNumber}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Amount:</span>
-                    <span className="font-medium">
-                      KES {orderData.totalAmount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Estimated Delivery:
-                    </span>
-                    <span className="font-medium">
-                      {orderData.estimatedDelivery}
-                    </span>
-                  </div>
-                </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Order Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>Order ID:</span>
+                <span className="font-mono">{order.id}</span>
               </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Shipping Address</h4>
-                <div className="text-sm text-muted-foreground">
-                  <div className="font-medium text-foreground">
-                    {orderData.shippingAddress.recipientName}
-                  </div>
-                  <div className="whitespace-pre-line">
-                    {orderData.shippingAddress.formattedAddress}
-                  </div>
-                </div>
+              <div className="flex justify-between">
+                <span>Order Date:</span>
+                <span>{format(new Date(order.createdAt), "MMM dd, yyyy")}</span>
               </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <h4 className="font-medium mb-3">Items Ordered</h4>
-              <div className="space-y-2">
-                {orderData.items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center p-2 border rounded"
-                  >
-                    <div>
-                      <div className="font-medium text-sm">
-                        {item.productName}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Quantity: {item.quantity}
-                        {item.customizations.length > 0 && (
-                          <span> • {item.customizations.join(", ")}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex justify-between">
+                <span>Last Updated:</span>
+                <span>{format(new Date(order.updatedAt), "MMM dd, yyyy")}</span>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Next Steps */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              What&apos;s Next?
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {orderData.nextSteps.map((step, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">{step}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Button onClick={handleContinueShopping} className="flex-1">
-            Continue Shopping
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={handleViewOrders}
-            className="flex-1"
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            View My Orders
-          </Button>
-
-          <Button variant="outline" onClick={handleDownloadReceipt}>
-            <Download className="mr-2 h-4 w-4" />
-            Download Receipt
-          </Button>
-
-          <Button variant="outline" onClick={handleShareOrder}>
-            <Share className="mr-2 h-4 w-4" />
-            Share
-          </Button>
-        </div>
-
-        {/* Support Contact */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-sm text-muted-foreground">
-              <p>
-                Need help with your order?{" "}
-                <Link href="/contact" className="text-primary hover:underline">
-                  Contact our support team
-                </Link>{" "}
-                or call us at{" "}
-                <a
-                  href="tel:+254700000000"
-                  className="text-primary hover:underline"
-                >
-                  +254 700 000 000
-                </a>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
