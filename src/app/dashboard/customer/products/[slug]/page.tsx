@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useProductBySlug } from "@/hooks/use-products";
 import { CustomizationChoiceDto } from "@/lib/cart/dto/cart.dto";
 import ProductGallery from "./product-gallery";
@@ -14,10 +14,11 @@ import { ArrowLeft, Share, Heart } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
+// FIXED: Updated interface to match Next.js 15 async params
 interface ProductDetailPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
 export default function ProductDetailPage({ params }: ProductDetailPageProps) {
@@ -25,8 +26,19 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     CustomizationChoiceDto[]
   >([]);
   const [selectedDesignId, setSelectedDesignId] = useState<string>();
+  const [slug, setSlug] = useState<string | null>(null);
 
-  const { data: product, isLoading, error } = useProductBySlug(params.slug);
+  // FIXED: Await the params Promise in useEffect
+  useEffect(() => {
+    const getParams = async () => {
+      const resolvedParams = await params;
+      setSlug(resolvedParams.slug);
+    };
+    getParams();
+  }, [params]);
+
+  // Wait for slug to be resolved before making the API call
+  const { data: product, isLoading, error } = useProductBySlug(slug || "");
 
   const handleShare = async () => {
     try {
@@ -47,7 +59,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     }
   };
 
-  if (isLoading) {
+  // Show loading state while slug is being resolved or product is loading
+  if (!slug || isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
