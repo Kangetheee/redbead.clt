@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useProducts } from "@/hooks/use-products";
 import { GetProductsDto } from "@/lib/products/dto/products.dto";
 import ProductGrid from "./product-grid";
@@ -17,22 +17,43 @@ import {
 import { Button } from "@/components/ui/button";
 import { Grid, List } from "lucide-react";
 
+// FIXED: Updated interface to match Next.js 15 async params
 interface CategoryPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
 export default function CategoryPage({ params }: CategoryPageProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [slug, setSlug] = useState<string | null>(null);
   const [filters, setFilters] = useState<GetProductsDto>({
     page: 1,
     limit: 12,
-    categoryId: params.slug, // Assuming slug is used as categoryId
     isActive: true,
   });
 
-  const { data: productsData, isLoading, error } = useProducts(filters);
+  // FIXED: Await the params Promise in useEffect
+  useEffect(() => {
+    const getParams = async () => {
+      const resolvedParams = await params;
+      setSlug(resolvedParams.slug);
+      // Update filters with the resolved slug/categoryId
+      setFilters((prev) => ({
+        ...prev,
+        categoryId: resolvedParams.slug, // Assuming slug is used as categoryId
+      }));
+    };
+    getParams();
+  }, [params]);
+
+  const {
+    data: productsData,
+    isLoading,
+    error,
+  } = useProducts(
+    slug ? filters : { ...filters, categoryId: undefined } // Only call API when slug is resolved
+  );
 
   const handleFilterChange = (key: keyof GetProductsDto, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
@@ -41,6 +62,37 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   const handlePageChange = (page: number) => {
     setFilters((prev) => ({ ...prev, page }));
   };
+
+  // Show loading state while slug is being resolved
+  if (!slug) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-gray-300 rounded w-64"></div>
+          <Card>
+            <CardHeader>
+              <div className="h-6 bg-gray-300 rounded w-32"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <div className="h-10 bg-gray-300 rounded w-48"></div>
+                <div className="h-10 bg-gray-300 rounded w-48"></div>
+              </div>
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-square bg-gray-300 rounded-lg mb-4"></div>
+                <div className="h-4 bg-gray-300 rounded mb-2"></div>
+                <div className="h-4 bg-gray-300 rounded w-2/3"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -60,7 +112,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-4 capitalize">
-          {params.slug.replace("-", " ")} Products
+          {slug.replace("-", " ")} Products
         </h1>
 
         {/* Category Info and Filters */}
