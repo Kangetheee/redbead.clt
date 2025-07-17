@@ -18,7 +18,7 @@ export const navGroups: NavGroup[] = [
       {
         name: "Products",
         icon: "MdOutlineInventory2",
-        href: "/products",
+        href: "/dashboard/customer/products",
         permissions: ["Product:read"],
       },
       {

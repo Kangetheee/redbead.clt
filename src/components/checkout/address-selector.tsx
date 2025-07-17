@@ -17,6 +17,9 @@ interface AddressSelectorProps {
   selectedAddressId: string;
   onAddressSelect: (addressId: string) => void;
   addressType: "SHIPPING" | "BILLING" | "BOTH";
+  showAddNew?: boolean;
+  onAddNew?: () => void;
+  required?: boolean;
 }
 
 export function AddressSelector({

@@ -34,8 +34,6 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-// Custom Components
 import { CheckoutSteps } from "@/components/checkout/checkout-steps";
 import { AddressSelector } from "@/components/checkout/address-selector";
 import { ShippingCalculation } from "@/components/checkout/shipping-calculation";
@@ -43,8 +41,6 @@ import { OrderSummary } from "@/components/checkout/order-summary";
 import { PaymentMethods } from "@/components/checkout/payment-methods";
 import { CheckoutError } from "@/components/checkout/checkout-error";
 import { CheckoutLoading } from "@/components/checkout/checkout-loading";
-
-// Icons
 import {
   ShoppingCart,
   MapPin,
