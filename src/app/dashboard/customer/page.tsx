@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -27,8 +29,10 @@ import {
   Star,
   RefreshCw,
   AlertCircle,
+  Lightbulb,
+  Gift,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInHours, differenceInDays } from "date-fns";
 import { useUserProfile } from "@/hooks/use-users";
 import { useOrders } from "@/hooks/use-orders";
 import { useUserDesignsList } from "@/hooks/use-designs";
@@ -40,9 +44,210 @@ import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
 import { DesignResponseDto } from "@/lib/designs/dto/designs.dto";
+import FormInput from "@/components/ui/form-input";
+import { Form } from "@/components/ui/form";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const guestEmailSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
+type GuestEmailForm = z.infer<typeof guestEmailSchema>;
+
+// Helper function to determine if user is new
+const isNewUser = (
+  userProfile: any,
+  totalOrders: number,
+  totalDesigns: number,
+  cartItemCount: number
+) => {
+  if (!userProfile?.createdAt) return false;
+
+  const accountAge = differenceInHours(
+    new Date(),
+    new Date(userProfile.createdAt)
+  );
+  const isRecentAccount = accountAge <= 48; // Less than 48 hours old
+
+  // TODO: Consider user "new" if:
+  // 1. Account is less than 48 hours old, OR
+  // 2. Account is less than 7 days old AND has no activity
+  const hasNoActivity =
+    totalOrders === 0 && totalDesigns === 0 && cartItemCount === 0;
+  const isVeryNewAccount = accountAge <= 168; // Less than 7 days
+
+  return isRecentAccount || (isVeryNewAccount && hasNoActivity);
+};
+
+// Helper function to get appropriate welcome message
+const getWelcomeMessage = (
+  isNew: boolean,
+  userName: string,
+  userProfile: any
+) => {
+  if (isNew) {
+    const accountAge = differenceInHours(
+      new Date(),
+      new Date(userProfile?.createdAt || new Date())
+    );
+
+    if (accountAge <= 1) {
+      return {
+        title: `Welcome to our platform, ${userName}!`,
+        subtitle:
+          "We're excited to have you here. Let's get you started with creating amazing corporate merchandise.",
+        type: "brand-new" as const,
+      };
+    } else if (accountAge <= 24) {
+      return {
+        title: `Welcome back, ${userName}!`,
+        subtitle:
+          "Ready to explore our products and create some custom designs?",
+        type: "very-new" as const,
+      };
+    } else {
+      return {
+        title: `Hi ${userName}!`,
+        subtitle:
+          "Let's create something amazing together. Browse our products or start designing!",
+        type: "new" as const,
+      };
+    }
+  }
+
+  return {
+    title: `Welcome back, ${userName}!`,
+    subtitle: "Manage your corporate merchandise orders and designs.",
+    type: "returning" as const,
+  };
+};
+
+// New user onboarding steps component
+const NewUserGuidance = ({
+  isNew,
+  totalOrders,
+  totalDesigns,
+  cartItemCount,
+}: {
+  isNew: boolean;
+  totalOrders: number;
+  totalDesigns: number;
+  cartItemCount: number;
+}) => {
+  const [showGuidance, setShowGuidance] = useState(false);
+
+  useEffect(() => {
+    // Show guidance for very new users
+    if (isNew && totalOrders === 0 && totalDesigns === 0) {
+      setShowGuidance(true);
+    }
+  }, [isNew, totalOrders, totalDesigns]);
+
+  if (!showGuidance) return null;
+
+  const nextSteps = [
+    {
+      icon: Package,
+      title: "Browse Products",
+      description: "Explore our catalog of corporate merchandise",
+      action: "Browse Now",
+      href: "/dashboard/customer/browse",
+      priority: cartItemCount === 0 ? "high" : "medium",
+    },
+    {
+      icon: Palette,
+      title: "Create Custom Design",
+      description: "Design personalized merchandise for your brand",
+      action: "Start Designing",
+      href: "/dashboard/customer/design-studio/create",
+      priority: totalDesigns === 0 ? "high" : "low",
+    },
+    {
+      icon: Lightbulb,
+      title: "Learn How It Works",
+      description: "Get familiar with our ordering process",
+      action: "View Guide",
+      href: "/help/getting-started",
+      priority: "medium",
+    },
+  ];
+
+  const highPrioritySteps = nextSteps.filter(
+    (step) => step.priority === "high"
+  );
+  const stepsToShow =
+    highPrioritySteps.length > 0 ? highPrioritySteps : nextSteps.slice(0, 2);
+
+  return (
+    <Card className="border-blue-200 bg-blue-50 mb-8">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Gift className="h-5 w-5 text-blue-600" />
+          <CardTitle className="text-blue-900">Get Started</CardTitle>
+        </div>
+        <CardDescription className="text-blue-700">
+          Here are some recommended next steps to make the most of your account:
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          {stepsToShow.map((step, index) => (
+            <div
+              key={index}
+              className="flex items-start gap-3 p-3 bg-white rounded-lg border"
+            >
+              <step.icon className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-medium text-sm text-gray-900">
+                  {step.title}
+                </h4>
+                <p className="text-xs text-gray-600 mb-2">{step.description}</p>
+                <Button asChild size="sm" variant="outline" className="text-xs">
+                  <Link href={step.href}>
+                    {step.action}
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowGuidance(false)}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            Dismiss
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 export default function CustomerDashboardPage() {
   const router = useRouter();
+  const [showGuestEmailDialog, setShowGuestEmailDialog] = useState(false);
+
+  const guestEmailForm = useForm<GuestEmailForm>({
+    resolver: zodResolver(guestEmailSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
 
   // Data fetching hooks
   const {
@@ -74,16 +279,31 @@ export default function CustomerDashboardPage() {
   const initializeCheckoutMutation = useInitializeCheckout();
 
   // Handle quick checkout
-  const handleQuickCheckout = async () => {
+  const handleQuickCheckout = async (guestEmail?: string) => {
     if (!cart?.items.length) {
       router.push("/dashboard/customer/browse");
       return;
     }
 
+    const isAuthenticated = !!userProfile?.email;
+
+    if (!isAuthenticated && !guestEmail) {
+      setShowGuestEmailDialog(true);
+      return;
+    }
+
     try {
-      const result = await initializeCheckoutMutation.mutateAsync({
+      const checkoutData: any = {
         useCartItems: true,
-      });
+      };
+
+      if (isAuthenticated) {
+        console.log("Proceeding with authenticated user checkout");
+      } else {
+        checkoutData.guestEmail = guestEmail;
+      }
+
+      const result = await initializeCheckoutMutation.mutateAsync(checkoutData);
 
       if (result.success) {
         router.push(
@@ -95,11 +315,20 @@ export default function CustomerDashboardPage() {
     }
   };
 
-  // Extract data from responses safely
+  const onGuestEmailSubmit = (data: GuestEmailForm) => {
+    setShowGuestEmailDialog(false);
+    guestEmailForm.reset();
+    handleQuickCheckout(data.email);
+  };
+
+  const onQuickCheckoutClick = () => {
+    handleQuickCheckout();
+  };
+
   const recentOrders = recentOrdersResponse?.success
     ? recentOrdersResponse.data
     : null;
-  const userDesigns = userDesignsResponse; // This returns PaginatedDesignsResponseDto directly
+  const userDesigns = userDesignsResponse;
 
   // Calculate dashboard stats
   const totalOrders = recentOrders?.meta?.totalItems || 0;
@@ -113,6 +342,17 @@ export default function CustomerDashboardPage() {
       (order: OrderResponse) =>
         order.status === "DESIGN_PENDING" || order.designApprovalRequired
     ).length || 0;
+
+  // Determine if user is new and get welcome message
+  const userName = userProfile?.name || "Customer";
+  const userRole = userProfile?.roles_users_roleIdToroles?.name || "Customer";
+  const isUserNew = isNewUser(
+    userProfile,
+    totalOrders,
+    totalDesigns,
+    cartItemCount
+  );
+  const welcomeMessage = getWelcomeMessage(isUserNew, userName, userProfile);
 
   // Order status styling
   const getOrderStatusBadge = (status: string) => {
@@ -198,51 +438,151 @@ export default function CustomerDashboardPage() {
     );
   }
 
-  const userName = userProfile?.name || "Customer";
-  const userRole = userProfile?.roles_users_roleIdToroles?.name || "Customer";
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* Enhanced Header */}
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Welcome back, {userName}!
+              {welcomeMessage.title}
             </h1>
             <p className="text-muted-foreground mt-2">
-              Manage your corporate merchandise orders and designs.
+              {welcomeMessage.subtitle}
             </p>
+
+            {/* Show account age for very new users */}
+            {isUserNew && userProfile?.createdAt && (
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                  <Gift className="h-3 w-3" />
+                  {differenceInDays(
+                    new Date(),
+                    new Date(userProfile.createdAt)
+                  ) === 0
+                    ? "New today!"
+                    : `${differenceInDays(new Date(), new Date(userProfile.createdAt))} days with us`}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Quick Actions */}
+          {/* Enhanced Quick Actions for new users */}
           <div className="flex flex-col sm:flex-row gap-3 mt-4 lg:mt-0">
-            <Button asChild variant="outline">
-              <Link href="/dashboard/customer/browse">
-                <Package className="h-4 w-4 mr-2" />
-                Browse Products
-              </Link>
-            </Button>
+            {isUserNew && cartItemCount === 0 ? (
+              // For new users with empty cart, prioritize browsing
+              <>
+                <Button asChild>
+                  <Link href="/dashboard/customer/browse">
+                    <Package className="h-4 w-4 mr-2" />
+                    Start Shopping
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/customer/design-studio/create">
+                    <Palette className="h-4 w-4 mr-2" />
+                    Create Design
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              // Regular actions for returning users
+              <>
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/customer/browse">
+                    <Package className="h-4 w-4 mr-2" />
+                    Browse Products
+                  </Link>
+                </Button>
 
-            {cartItemCount > 0 && (
-              <Button
-                onClick={handleQuickCheckout}
-                disabled={initializeCheckoutMutation.isPending}
-              >
-                {initializeCheckoutMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <ShoppingCart className="h-4 w-4 mr-2" />
+                {cartItemCount > 0 && (
+                  <Button
+                    onClick={onQuickCheckoutClick}
+                    disabled={initializeCheckoutMutation.isPending}
+                  >
+                    {initializeCheckoutMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                    )}
+                    {initializeCheckoutMutation.isPending
+                      ? "Processing..."
+                      : "Quick Checkout"}
+                  </Button>
                 )}
-                {initializeCheckoutMutation.isPending
-                  ? "Processing..."
-                  : "Quick Checkout"}
-              </Button>
+              </>
             )}
           </div>
         </div>
 
-        {/* Dashboard Stats */}
+        {/* New User Guidance */}
+        <NewUserGuidance
+          isNew={isUserNew}
+          totalOrders={totalOrders}
+          totalDesigns={totalDesigns}
+          cartItemCount={cartItemCount}
+        />
+
+        {/* Guest Email Dialog */}
+        <Dialog
+          open={showGuestEmailDialog}
+          onOpenChange={setShowGuestEmailDialog}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Guest Checkout</DialogTitle>
+              <DialogDescription>
+                Please provide your email address to continue with checkout.
+                This will be used for order confirmations and updates.
+              </DialogDescription>
+            </DialogHeader>
+
+            <Form {...guestEmailForm}>
+              <form
+                onSubmit={guestEmailForm.handleSubmit(onGuestEmailSubmit)}
+                className="space-y-4"
+              >
+                <FormInput
+                  name="email"
+                  label="Email Address"
+                  type="email"
+                  placeholder="Enter your email address"
+                  control={guestEmailForm.control}
+                  required
+                  description="We'll send your order confirmation to this email"
+                />
+
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowGuestEmailDialog(false);
+                      guestEmailForm.reset();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={guestEmailForm.formState.isSubmitting}
+                  >
+                    {guestEmailForm.formState.isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Continue to Checkout"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Enhanced Dashboard Stats with new user context */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Orders */}
           <Card>
@@ -261,10 +601,26 @@ export default function CustomerDashboardPage() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {totalOrders > 0 ? "View your order history" : "No orders yet"}
+                {totalOrders > 0
+                  ? "View your order history"
+                  : isUserNew
+                    ? "Place your first order"
+                    : "No orders yet"}
               </p>
               <Button asChild variant="outline" className="w-full mt-4">
-                <Link href="/dashboard/customer/orders">View Orders</Link>
+                <Link
+                  href={
+                    totalOrders > 0
+                      ? "/dashboard/customer/orders"
+                      : "/dashboard/customer/browse"
+                  }
+                >
+                  {totalOrders > 0
+                    ? "View Orders"
+                    : isUserNew
+                      ? "Start Shopping"
+                      : "Browse Products"}
+                </Link>
               </Button>
             </CardContent>
           </Card>
@@ -288,10 +644,18 @@ export default function CustomerDashboardPage() {
               <p className="text-xs text-muted-foreground">
                 {cartItemCount > 0
                   ? `KES ${cartTotal.toLocaleString()} total`
-                  : "No items in cart"}
+                  : isUserNew
+                    ? "Add items to get started"
+                    : "No items in cart"}
               </p>
               <Button asChild variant="outline" className="w-full mt-4">
-                <Link href="/dashboard/customer/cart">
+                <Link
+                  href={
+                    cartItemCount > 0
+                      ? "/dashboard/customer/cart"
+                      : "/dashboard/customer/browse"
+                  }
+                >
                   {cartItemCount > 0 ? "View Cart" : "Start Shopping"}
                 </Link>
               </Button>
@@ -317,7 +681,9 @@ export default function CustomerDashboardPage() {
               <p className="text-xs text-muted-foreground">
                 {totalDesigns > 0
                   ? "Your personalized designs"
-                  : "No designs saved"}
+                  : isUserNew
+                    ? "Create your first design"
+                    : "No designs saved"}
               </p>
               <Button asChild variant="outline" className="w-full mt-4">
                 <Link href="/dashboard/customer/design-studio">
@@ -344,11 +710,15 @@ export default function CustomerDashboardPage() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Awaiting your design approval
+                {pendingApprovals > 0
+                  ? "Awaiting your design approval"
+                  : isUserNew
+                    ? "Design approvals will appear here"
+                    : "No pending approvals"}
               </p>
               <Button asChild variant="outline" className="w-full mt-4">
                 <Link href="/dashboard/customer/orders?status=DESIGN_PENDING">
-                  Review Designs
+                  {pendingApprovals > 0 ? "Review Designs" : "View Orders"}
                 </Link>
               </Button>
             </CardContent>
@@ -415,7 +785,6 @@ export default function CustomerDashboardPage() {
                         <span className="text-lg font-bold">
                           KES {product.basePrice.toLocaleString()}
                         </span>
-                        {/* Remove averageRating references until properly typed */}
                       </div>
 
                       <div className="space-y-2">
@@ -540,7 +909,11 @@ export default function CustomerDashboardPage() {
                 <EmptyState
                   icon={ShoppingCart}
                   title="No Orders Yet"
-                  description="Start shopping to see your orders here."
+                  description={
+                    isUserNew
+                      ? "Place your first order to get started!"
+                      : "Start shopping to see your orders here."
+                  }
                   action={{
                     label: "Browse Products",
                     onClick: () => router.push("/dashboard/customer/browse"),
@@ -650,7 +1023,11 @@ export default function CustomerDashboardPage() {
                 <EmptyState
                   icon={Palette}
                   title="No Saved Designs"
-                  description="Create your first custom design to get started."
+                  description={
+                    isUserNew
+                      ? "Create your first custom design to get started!"
+                      : "Create your first custom design to get started."
+                  }
                   action={{
                     label: "Start Designing",
                     onClick: () =>

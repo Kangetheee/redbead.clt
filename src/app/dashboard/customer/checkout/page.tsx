@@ -1,14 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
-// Hooks
 import {
   useCheckoutSession,
   useValidateCheckout,
@@ -17,8 +16,6 @@ import {
 import { useAddresses, useDefaultAddress } from "@/hooks/use-address";
 import { usePaymentMethods } from "@/hooks/use-payments";
 import { useCheckoutPersistence } from "@/hooks/use-checkout-persistence";
-
-// UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,10 +29,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckoutSteps } from "@/components/checkout/checkout-steps";
-import { AddressSelector } from "@/components/checkout/address-selector";
+import {
+  AddressSelector,
+  AddressSelectorSkeleton,
+} from "@/components/checkout/address-selector";
 import { ShippingCalculation } from "@/components/checkout/shipping-calculation";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { PaymentMethods } from "@/components/checkout/payment-methods";
@@ -50,12 +49,12 @@ import {
   AlertCircle,
   ArrowLeft,
   Clock,
+  RefreshCw,
 } from "lucide-react";
-
-// Types and Schemas
 import { completeCheckoutSchema } from "@/lib/checkout/dto/checkout.dto";
 import { ShippingOption } from "@/lib/checkout/types/checkout.types";
 import { AddressType } from "@/lib/address/types/address.types";
+import { toast } from "sonner";
 
 type FormData = z.infer<typeof completeCheckoutSchema>;
 type PaymentMethodType = "MPESA" | "BANK_TRANSFER" | "CARD";
@@ -69,27 +68,82 @@ const steps = [
   { id: 5, name: "Confirmation", icon: CheckCircle },
 ];
 
+// Helper function to safely render customizations
+const renderCustomization = (custom: any, index: number) => {
+  let displayText = "";
+
+  if (typeof custom === "string") {
+    // If it's already a string, use it directly
+    displayText = custom;
+  } else if (typeof custom === "object" && custom !== null) {
+    // If it's an object, try to extract meaningful display text
+    if ("displayName" in custom) {
+      displayText = custom.displayName;
+    } else if ("value" in custom) {
+      displayText = custom.value;
+    } else if ("optionName" in custom && "valueName" in custom) {
+      displayText = `${custom.optionName}: ${custom.valueName}`;
+    } else if ("customValue" in custom && custom.customValue) {
+      displayText = custom.customValue;
+    } else if ("valueId" in custom && "optionId" in custom) {
+      // Handle the case where we have IDs but need to show meaningful text
+      displayText = `Customization ${index + 1}`;
+    } else {
+      // Fallback: create a readable representation
+      try {
+        const keys = Object.keys(custom);
+        if (keys.length > 0) {
+          displayText = `${keys[0]}: ${custom[keys[0]]}`;
+        } else {
+          displayText = `Customization ${index + 1}`;
+        }
+      } catch {
+        displayText = `Customization ${index + 1}`;
+      }
+    }
+  } else {
+    // Fallback for other types
+    displayText = String(custom);
+  }
+
+  return (
+    <Badge key={index} variant="outline" className="text-xs">
+      {displayText}
+    </Badge>
+  );
+};
+
 export default function CheckoutPage() {
   // Router and URL handling
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session");
+  const sessionIdRaw = searchParams.get("session");
+  const sessionId = sessionIdRaw ? sessionIdRaw.split("?")[0] : null;
 
   // Local state
   const [currentStep, setCurrentStep] = useState(1);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [validationResult, setValidationResult] = useState<any>(null);
+  const [isStepTransitioning, setIsStepTransitioning] = useState(false);
 
   // Persistence hook
-  const { clearStoredSession } = useCheckoutPersistence(sessionId || undefined);
+  const { clearStoredSession, persistStep, getStoredStep } =
+    useCheckoutPersistence(sessionId || undefined);
 
   // Data fetching hooks
   const {
     data: checkoutSession,
     isLoading: sessionLoading,
     error: sessionError,
+    refetch: refetchSession,
   } = useCheckoutSession(sessionId || "", !!sessionId);
-  const { data: addresses } = useAddresses();
+
+  const {
+    data: addressesResponse,
+    isLoading: addressesLoading,
+    refetch: refetchAddresses,
+  } = useAddresses();
+
   const { data: defaultShipping } = useDefaultAddress("SHIPPING");
   const { data: defaultBilling } = useDefaultAddress("BILLING");
   const { data: paymentMethods } = usePaymentMethods();
@@ -108,8 +162,37 @@ export default function CheckoutPage() {
       paymentMethod: "MPESA",
       notes: "",
       specialInstructions: "",
+      selectedShippingOption: "",
+      customerPhone: "",
     },
   });
+
+  // Extract addresses safely
+  const addresses = addressesResponse?.success
+    ? addressesResponse.data.items
+    : [];
+
+  // Session validation and redirection
+  useEffect(() => {
+    if (!sessionId) {
+      router.push("/dashboard/customer/cart");
+      return;
+    }
+
+    // Restore saved step if available
+    const savedStep = getStoredStep();
+    if (savedStep && savedStep !== currentStep) {
+      setCurrentStep(savedStep);
+    }
+  }, [sessionId, router, getStoredStep, currentStep]);
+
+  // Handle session expiry
+  useEffect(() => {
+    if (checkoutSession && new Date(checkoutSession.expiresAt) < new Date()) {
+      clearStoredSession();
+      router.push("/dashboard/customer/cart");
+    }
+  }, [checkoutSession, clearStoredSession, router]);
 
   // Set default addresses when data loads
   useEffect(() => {
@@ -121,48 +204,78 @@ export default function CheckoutPage() {
     }
   }, [defaultShipping, defaultBilling, form]);
 
-  // Redirect if no session
-  useEffect(() => {
-    if (!sessionId) {
-      router.push("/dashboard/customer/cart");
-    }
-  }, [sessionId, router]);
+  // Auto-progression logic with proper step validation
+  const watchedValues = form.watch([
+    "shippingAddressId",
+    "selectedShippingOption",
+    "paymentMethod",
+  ]);
+  const [shippingAddressId, selectedShippingOption, paymentMethod] =
+    watchedValues;
 
-  // Handle session expiry
-  useEffect(() => {
-    if (checkoutSession && new Date(checkoutSession.expiresAt) < new Date()) {
-      clearStoredSession();
-      router.push("/dashboard/customer/cart");
-    }
-  }, [checkoutSession, clearStoredSession, router]);
+  const advanceStep = useCallback(
+    (newStep: number) => {
+      setIsStepTransitioning(true);
+      setTimeout(() => {
+        setCurrentStep(newStep);
+        persistStep(newStep);
+        setIsStepTransitioning(false);
+      }, 300);
+    },
+    [persistStep]
+  );
 
-  // Auto-advance to shipping options when address is selected
-  const watchShippingAddress = form.watch("shippingAddressId");
   useEffect(() => {
-    if (watchShippingAddress && sessionId && currentStep === 2) {
-      setCurrentStep(3);
+    if (isStepTransitioning) return;
+
+    // Auto-advance from step 2 to 3 when shipping address is selected
+    if (currentStep === 2 && shippingAddressId && sessionId) {
+      advanceStep(3);
     }
-  }, [watchShippingAddress, sessionId, currentStep]);
+    // Auto-advance from step 3 to 4 when shipping option is selected
+    else if (currentStep === 3 && shippingAddressId && selectedShippingOption) {
+      advanceStep(4);
+    }
+  }, [
+    currentStep,
+    shippingAddressId,
+    selectedShippingOption,
+    sessionId,
+    advanceStep,
+    isStepTransitioning,
+  ]);
+
+  // Handle address selection with refetch
+  const handleAddressSelect = useCallback(
+    async (addressId: string) => {
+      form.setValue("shippingAddressId", addressId);
+      // Refetch addresses to ensure we have the latest data
+      await refetchAddresses();
+    },
+    [form, refetchAddresses]
+  );
 
   // Navigation handlers
   const handleNext = async () => {
     if (currentStep === 4) {
       await handleValidateCheckout();
     } else {
-      setCurrentStep(Math.min(currentStep + 1, steps.length));
+      const nextStep = Math.min(currentStep + 1, steps.length);
+      advanceStep(nextStep);
     }
   };
 
   const handlePrevious = () => {
-    setCurrentStep(Math.max(1, currentStep - 1));
+    const prevStep = Math.max(1, currentStep - 1);
+    advanceStep(prevStep);
   };
 
   // Validation handler
   const handleValidateCheckout = async () => {
     const formData = form.getValues();
-    const shippingAddress = addresses?.success
-      ? addresses.data.items.find((a) => a.id === formData.shippingAddressId)
-      : null;
+    const shippingAddress = addresses.find(
+      (a) => a.id === formData.shippingAddressId
+    );
 
     if (!shippingAddress || !formData.selectedShippingOption) {
       return;
@@ -190,16 +303,40 @@ export default function CheckoutPage() {
         onSuccess: (data) => {
           if (data.success) {
             setValidationResult(data.data);
-            setCurrentStep(5);
+            advanceStep(5);
           }
         },
       }
     );
   };
 
-  // Order completion handler
   const handleCompleteOrder = async (data: FormData) => {
-    completeCheckoutMutation.mutate(data, {
+    const shippingAddress = addresses.find(
+      (addr) => addr.id === data.shippingAddressId
+    );
+
+    if (!shippingAddress) {
+      toast.error("Shipping address not found");
+      return;
+    }
+
+    const completeCheckoutData = {
+      ...data,
+      shippingAddressId: data.shippingAddressId,
+      shippingAddress: {
+        recipientName: shippingAddress.recipientName,
+        companyName: shippingAddress.companyName || undefined,
+        street: shippingAddress.street,
+        street2: shippingAddress.street2 || undefined,
+        city: shippingAddress.city,
+        state: shippingAddress.state || undefined,
+        postalCode: shippingAddress.postalCode,
+        country: shippingAddress.country,
+        phone: shippingAddress.phone || undefined,
+      },
+    };
+
+    completeCheckoutMutation.mutate(completeCheckoutData, {
       onSuccess: (result) => {
         if (result.success) {
           clearStoredSession();
@@ -207,6 +344,10 @@ export default function CheckoutPage() {
             `/dashboard/customer/checkout/confirmation/${result.data.orderId}`
           );
         }
+      },
+      onError: (error) => {
+        console.error("Checkout error:", error);
+        toast.error("Failed to complete checkout. Please try again.");
       },
     });
   };
@@ -218,6 +359,12 @@ export default function CheckoutPage() {
     if (options.length > 0 && !form.getValues("selectedShippingOption")) {
       form.setValue("selectedShippingOption", options[0].id);
     }
+  };
+
+  // Refresh session handler
+  const handleRefreshSession = async () => {
+    await refetchSession();
+    await refetchAddresses();
   };
 
   // Loading state
@@ -232,7 +379,7 @@ export default function CheckoutPage() {
         <CheckoutError
           error={sessionError || "Checkout session not found"}
           showBackToCart={true}
-          onRetry={() => window.location.reload()}
+          onRetry={handleRefreshSession}
         />
       </div>
     );
@@ -248,18 +395,38 @@ export default function CheckoutPage() {
     (currentStep === 2 && !form.watch("shippingAddressId")) ||
     (currentStep === 3 && !form.watch("selectedShippingOption")) ||
     (currentStep === 4 && !form.watch("paymentMethod")) ||
-    validateCheckoutMutation.isPending;
+    validateCheckoutMutation.isPending ||
+    isStepTransitioning;
 
   const isSubmitDisabled =
-    !validationResult?.isValid || completeCheckoutMutation.isPending;
+    !validationResult?.isValid ||
+    completeCheckoutMutation.isPending ||
+    isStepTransitioning;
 
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Checkout</h1>
-          <p className="text-muted-foreground">Complete your order securely</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Checkout</h1>
+              <p className="text-muted-foreground">
+                Complete your order securely
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshSession}
+              disabled={sessionLoading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${sessionLoading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Session expiry warning */}
@@ -275,7 +442,16 @@ export default function CheckoutPage() {
         )}
 
         {/* Progress Steps */}
-        <CheckoutSteps steps={steps} currentStep={currentStep} />
+        <CheckoutSteps
+          steps={steps}
+          currentStep={currentStep}
+          onStepClick={(step) => {
+            // Allow navigation to previous completed steps
+            if (step < currentStep) {
+              advanceStep(step);
+            }
+          }}
+        />
 
         <Form {...form}>
           <form
@@ -312,19 +488,15 @@ export default function CheckoutPage() {
                                 Quantity: {item.quantity} × KES{" "}
                                 {item.unitPrice.toLocaleString()}
                               </div>
-                              {item.customizations.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {item.customizations.map((custom, idx) => (
-                                    <Badge
-                                      key={idx}
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      {custom}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
+                              {item.customizations &&
+                                Array.isArray(item.customizations) &&
+                                item.customizations.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {item.customizations.map((custom, idx) =>
+                                      renderCustomization(custom, idx)
+                                    )}
+                                  </div>
+                                )}
                             </div>
                             <div className="text-right">
                               <div className="font-medium">
@@ -348,24 +520,26 @@ export default function CheckoutPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <AddressSelector
-                        addresses={
-                          addresses?.success ? addresses.data.items : []
-                        }
-                        selectedAddressId={
-                          form.watch("shippingAddressId") || ""
-                        }
-                        onAddressSelect={(addressId: string) =>
-                          form.setValue("shippingAddressId", addressId)
-                        }
-                        addressType="SHIPPING"
-                      />
+                      {addressesLoading ? (
+                        <AddressSelectorSkeleton />
+                      ) : (
+                        <AddressSelector
+                          addresses={addresses}
+                          selectedAddressId={
+                            form.watch("shippingAddressId") || ""
+                          }
+                          onAddressSelect={handleAddressSelect}
+                          addressType="SHIPPING"
+                          sessionId={sessionId}
+                          disabled={isStepTransitioning}
+                        />
+                      )}
                     </CardContent>
                   </Card>
                 )}
 
                 {/* Step 3: Delivery Options */}
-                {currentStep === 3 && watchShippingAddress && (
+                {currentStep === 3 && shippingAddressId && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -375,11 +549,9 @@ export default function CheckoutPage() {
                     </CardHeader>
                     <CardContent>
                       {(() => {
-                        const address = addresses?.success
-                          ? addresses.data.items.find(
-                              (a) => a.id === watchShippingAddress
-                            )
-                          : null;
+                        const address = addresses.find(
+                          (a) => a.id === shippingAddressId
+                        );
 
                         if (!address) {
                           return (
@@ -590,7 +762,7 @@ export default function CheckoutPage() {
                     type="button"
                     variant="outline"
                     onClick={handlePrevious}
-                    disabled={currentStep === 1}
+                    disabled={currentStep === 1 || isStepTransitioning}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Previous
@@ -609,7 +781,9 @@ export default function CheckoutPage() {
                       >
                         {validateCheckoutMutation.isPending
                           ? "Validating..."
-                          : "Continue"}
+                          : isStepTransitioning
+                            ? "Loading..."
+                            : "Continue"}
                       </Button>
                     ) : (
                       <Button type="submit" disabled={isSubmitDisabled}>

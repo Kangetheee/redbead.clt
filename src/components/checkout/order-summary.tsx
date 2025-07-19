@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 "use client";
 
 import { CheckoutSession } from "@/lib/checkout/types/checkout.types";
@@ -31,6 +33,28 @@ export function OrderSummary({
     total: session.subtotal + session.estimatedTax + shippingCost,
   };
 
+  // Helper function to safely display customization
+  const getCustomizationLabel = (customization: any) => {
+    // If customization is a string, return it directly
+    if (typeof customization === "string") {
+      return customization;
+    }
+
+    // If customization is an object with valueId and optionId
+    if (customization && typeof customization === "object") {
+      // Return a readable property if available, or a fallback
+      return (
+        customization.label ||
+        customization.name ||
+        customization.value ||
+        `Option ${customization.name}: ${customization.value}`
+      );
+    }
+
+    // Fallback for any other case
+    return "Custom option";
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -53,7 +77,7 @@ export function OrderSummary({
                   <div className="flex flex-wrap gap-1 mt-1">
                     {item.customizations.slice(0, 2).map((custom, idx) => (
                       <Badge key={idx} variant="outline" className="text-xs">
-                        {custom}
+                        {getCustomizationLabel(custom)}
                       </Badge>
                     ))}
                     {item.customizations.length > 2 && (

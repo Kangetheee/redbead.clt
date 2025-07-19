@@ -88,14 +88,14 @@ interface TimelineEvent {
 
 interface OrderTimelineProps {
   order: OrderResponse;
-  showFilters?: boolean;
-  maxHeight?: string;
+  showEstimates?: boolean;
+  compact?: boolean;
 }
 
 export default function OrderTimeline({
   order,
-  showFilters = true,
-  maxHeight = "600px",
+  showEstimates = true,
+  compact = false,
 }: OrderTimelineProps) {
   const [filterType, setFilterType] = useState<string>("all");
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
@@ -104,6 +104,37 @@ export default function OrderTimeline({
   // Fetch notes using the hook
   const { data: notesData } = useOrderNotes(order.id);
   const notes: OrderNote[] = notesData?.success ? notesData.data || [] : [];
+
+  // Helper functions - moved before useMemo
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "DELIVERED":
+        return CheckCircle;
+      case "SHIPPED":
+        return Truck;
+      case "CANCELLED":
+        return XCircle;
+      case "PROCESSING":
+        return Package;
+      default:
+        return Clock;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "DELIVERED":
+        return "text-green-500";
+      case "SHIPPED":
+        return "text-blue-500";
+      case "CANCELLED":
+        return "text-red-500";
+      case "PROCESSING":
+        return "text-purple-500";
+      default:
+        return "text-yellow-500";
+    }
+  };
 
   // Generate timeline events from order data
   const timelineEvents: TimelineEvent[] = useMemo(() => {
@@ -322,36 +353,6 @@ export default function OrderTimeline({
     );
   }, [timelineEvents, filterType]);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "DELIVERED":
-        return CheckCircle;
-      case "SHIPPED":
-        return Truck;
-      case "CANCELLED":
-        return XCircle;
-      case "PROCESSING":
-        return Package;
-      default:
-        return Clock;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "DELIVERED":
-        return "text-green-500";
-      case "SHIPPED":
-        return "text-blue-500";
-      case "CANCELLED":
-        return "text-red-500";
-      case "PROCESSING":
-        return "text-purple-500";
-      default:
-        return "text-yellow-500";
-    }
-  };
-
   const toggleEventExpansion = (eventId: string) => {
     const newExpanded = new Set(expandedEvents);
     if (newExpanded.has(eventId)) {
@@ -387,7 +388,7 @@ export default function OrderTimeline({
             </CardDescription>
           </div>
 
-          {showFilters && (
+          {showEstimates && (
             <div className="flex items-center gap-2">
               <Select value={filterType} onValueChange={setFilterType}>
                 <SelectTrigger className="w-[150px]">
@@ -424,10 +425,7 @@ export default function OrderTimeline({
             </AlertDescription>
           </Alert>
         ) : (
-          <div
-            className="relative space-y-4 overflow-y-auto pr-2"
-            style={{ maxHeight }}
-          >
+          <div className={compact ? "compact-class" : "regular-class"}>
             {/* Timeline line */}
             <div className="absolute left-6 top-0 bottom-0 w-px bg-border" />
 

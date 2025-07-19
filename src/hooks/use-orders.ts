@@ -23,11 +23,20 @@ import {
 } from "@/lib/orders/dto/orders.dto";
 import { toast } from "sonner";
 
-// Get Orders with pagination and filters
 export function useOrders(params?: GetOrdersDto) {
   return useQuery({
     queryKey: ["orders", params],
     queryFn: () => getOrdersAction(params),
+    select: (response) => {
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error,
+          data: { items: [], meta: {} },
+        };
+      }
+      return response;
+    },
   });
 }
 

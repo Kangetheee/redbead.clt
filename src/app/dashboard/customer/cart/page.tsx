@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState } from "react";
@@ -27,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ShoppingCart, Trash2, ArrowRight, Plus, Minus } from "lucide-react";
+import { ShoppingCart, Trash2, ArrowRight } from "lucide-react";
 import { CartItem } from "@/components/cart/cart-item";
 import CartSummary from "@/components/cart/cart-summary";
 

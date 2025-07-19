@@ -37,7 +37,7 @@ export default function CartSummary({
       <div className="flex items-center justify-between">
         <span>Subtotal</span>
         <span className="font-medium">
-          KES {summary.subtotal.toLocaleString()}
+          KSH {summary.subtotal.toLocaleString()}
         </span>
       </div>
 

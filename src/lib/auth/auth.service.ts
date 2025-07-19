@@ -126,6 +126,7 @@ export class AuthService {
   async signUp(data: SignUpDto) {
     const res = await this.fetcher.request<SignUpResponse>(
       "/v1/auth/sign-up",
+      // TODO: throw error in instance where email exists
       { data, method: "POST" },
       { auth: false }
     );

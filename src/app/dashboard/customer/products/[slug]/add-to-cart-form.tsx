@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Minus, Plus, ShoppingCart, Heart } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
 
 interface AddToCartFormProps {
   product: ProductResponse;
@@ -112,13 +113,6 @@ export default function AddToCartForm({
     toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist");
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
-  };
-
   const calculateCustomizationTotal = () => {
     return customizations.reduce((total, customization) => {
       const option = product.availableOptions?.find(
@@ -147,7 +141,7 @@ export default function AddToCartForm({
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">Base Price:</span>
-            <span className="font-medium">{formatPrice(basePrice)}</span>
+            <span className="font-medium">{formatCurrency(basePrice)}</span>
           </div>
 
           {customizationAdjustment !== 0 && (
@@ -156,14 +150,14 @@ export default function AddToCartForm({
               <span
                 className={`font-medium ${customizationAdjustment > 0 ? "text-blue-600" : "text-green-600"}`}
               >
-                {formatPrice(customizationAdjustment)}
+                {formatCurrency(customizationAdjustment)}
               </span>
             </div>
           )}
 
           <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
             <span>Unit Price:</span>
-            <span>{formatPrice(unitPrice)}</span>
+            <span>{formatCurrency(unitPrice)}</span>
           </div>
         </div>
 
@@ -219,11 +213,11 @@ export default function AddToCartForm({
         <div className="text-center py-4 border rounded-lg bg-gray-50">
           <div className="text-sm text-gray-600 mb-1">Total Price</div>
           <div className="text-2xl font-bold text-blue-600">
-            {isPriceLoading ? "Calculating..." : formatPrice(totalPrice)}
+            {isPriceLoading ? "Calculating..." : formatCurrency(totalPrice)}
           </div>
           {quantity > 1 && (
             <div className="text-sm text-gray-600">
-              {formatPrice(totalPrice / quantity)} per item
+              {formatCurrency(totalPrice / quantity)} per item
             </div>
           )}
         </div>

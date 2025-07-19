@@ -40,12 +40,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
-// Import our order components
 import OrderTimeline from "@/components/orders/order-timeline";
 import OrderStatusBadge from "@/components/orders/order-status-badge";
 import { useOrder } from "@/hooks/use-orders";
 
-// FIXED: Change this to a default export instead of named export
 export default function OrderConfirmationPage() {
   const params = useParams();
   const orderId = params.id as string;
