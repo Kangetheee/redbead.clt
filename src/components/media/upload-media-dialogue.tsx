@@ -50,10 +50,19 @@ export default function UploadMediaDialogue({ folderId }: Props) {
     console.log(values);
   }
 
+  const folderItems = folders?.results || [];
+
+  // Add debug info to help troubleshoot API issues
+  const debugApiInfo = () => {
+    console.log("API Endpoints Debug:");
+    console.log("Current API response structure:", folders);
+    console.log("Available folders:", folderItems);
+  };
+
   return (
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger asChild>
-        <Button>
+        <Button onClick={debugApiInfo}>
           <Upload className="mr-2 size-4" />
           Upload Files
         </Button>
@@ -79,7 +88,7 @@ export default function UploadMediaDialogue({ folderId }: Props) {
                   placeholder="Select folder"
                   className="max-w-sm"
                   options={
-                    folders?.items.map(({ id, name }) => ({
+                    folderItems.map(({ id, name }) => ({
                       label: name,
                       value: id,
                     })) ?? []
@@ -89,15 +98,22 @@ export default function UploadMediaDialogue({ folderId }: Props) {
               )}
 
               {!!watchedFolderId && (
-                <FileInput
-                  folderId={watchedFolderId}
-                  onUploadComplete={() => {
-                    queryClient.invalidateQueries({
-                      queryKey: [tags.UPLOADS, { folderId: watchedFolderId }],
-                    });
-                    setOpen(false);
-                  }}
-                />
+                <div className="space-y-4">
+                  {/* <div className="text-sm text-muted-foreground">
+                    <p>If upload is failing, check browser console for API errors.</p>
+                    <p>Ensure your API endpoints are correctly set up.</p>
+                  </div>
+                   */}
+                  <FileInput
+                    folderId={watchedFolderId}
+                    onUploadComplete={() => {
+                      queryClient.invalidateQueries({
+                        queryKey: [tags.UPLOADS, { folderId: watchedFolderId }],
+                      });
+                      setOpen(false);
+                    }}
+                  />
+                </div>
               )}
             </div>
           </DialogContent>

@@ -318,7 +318,7 @@ export function CategoryBrowsePage() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
-      {/* Debug info in development */}
+      {/* Debug info in development
       {process.env.NODE_ENV === "development" && (
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-sm">
           <p>
@@ -336,7 +336,7 @@ export function CategoryBrowsePage() {
               : "⚠️ Extracted from slug"}
           </p>
         </div>
-      )}
+      )} */}
 
       {/* Breadcrumb Navigation */}
       <Breadcrumb>

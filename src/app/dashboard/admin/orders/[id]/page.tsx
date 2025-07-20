@@ -1,493 +1,396 @@
-// app/dashboard/admin/orders/[id]/page.tsx
-"use client";
-
-import React, { useState } from "react";
-import { useParams } from "next/navigation";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   Edit,
-  MoreHorizontal,
   Package,
-  User,
-  Clock,
-  MessageSquare,
-  Settings,
-  Download,
-  Mail,
-  Phone,
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle,
+  Truck,
+  MapPin,
+  CreditCard,
+  FileText,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { getOrderAction } from "@/lib/orders/orders.action";
+import { formatDate } from "@/lib/utils";
 
-// Import our order components
-import OrderDetailView from "@/components/orders/order-detail-view";
-import OrderTimeline from "@/components/orders/order-timeline";
-import OrderStatusUpdate from "@/components/orders/order-status-update";
-import NotesList from "@/components/orders/order-notes/notes-list";
-import { AddNoteDialog } from "@/components/orders/order-notes/add-note-dialog";
-import { useOrder } from "@/hooks/use-orders";
-
-export default function AdminOrderDetailsPage() {
-  const params = useParams();
-  const orderId = params.id as string;
-  const [activeTab, setActiveTab] = useState("overview");
-
-  // Fetch order data
-  const { data: orderData, isLoading, refetch } = useOrder(orderId);
-  const order = orderData?.success ? orderData.data : null;
-
-  const handleStatusUpdated = () => {
-    refetch();
+interface OrderDetailPageProps {
+  params: {
+    id: string;
   };
+}
 
-  const handleNoteAdded = () => {
-    refetch();
-  };
+function formatOrderStatus(status: string): string {
+  return status
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
 
-  if (isLoading) {
+function getOrderStatusVariant(
+  status: string
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (status) {
+    case "PENDING":
+    case "PAYMENT_PENDING":
+      return "secondary";
+    case "PROCESSING":
+    case "PRODUCTION":
+    case "PAYMENT_CONFIRMED":
+      return "default";
+    case "SHIPPED":
+    case "DELIVERED":
+      return "outline";
+    case "CANCELLED":
+    case "REFUNDED":
+      return "destructive";
+    default:
+      return "secondary";
+  }
+}
+
+export default async function OrderDetailPage({
+  params,
+}: OrderDetailPageProps) {
+  const result = await getOrderAction(params.id);
+
+  if (!result.success) {
+    if (result.error?.includes("not found")) {
+      notFound();
+    }
+
     return (
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-          <span>Loading order details...</span>
+      <div className="container mx-auto py-10">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-destructive mb-4">
+            Error Loading Order
+          </h1>
+          <p className="text-muted-foreground mb-4">{result.error}</p>
+          <Button asChild>
+            <Link href="/dashboard/admin/orders">Return to Orders</Link>
+          </Button>
         </div>
       </div>
     );
   }
 
-  if (!order) {
-    return (
-      <div className="max-w-7xl mx-auto space-y-6">
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Order not found or you don&apos;t have permission to view it.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  const isUrgent =
-    order.urgencyLevel && ["RUSH", "EMERGENCY"].includes(order.urgencyLevel);
-  const needsAttention =
-    order.status === "DESIGN_PENDING" ||
-    (order.expectedDelivery && new Date(order.expectedDelivery) < new Date());
+  const order = result.data;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="container mx-auto py-10 space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" asChild>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
             <Link href="/dashboard/admin/orders">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Orders
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
             </Link>
-          </Button>
-
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Order #{order.orderNumber}
+            <h1 className="text-3xl font-bold tracking-tight">
+              Order {order.orderNumber}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline">Admin View</Badge>
-              {isUrgent && (
-                <Badge variant="destructive">{order.urgencyLevel}</Badge>
-              )}
-              {needsAttention && (
-                <Badge className="bg-yellow-100 text-yellow-800">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Needs Attention
-                </Badge>
-              )}
-            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={getOrderStatusVariant(order.status)}>
+              {formatOrderStatus(order.status)}
+            </Badge>
+            <span className="text-sm text-muted-foreground">
+              Created {formatDate(order.createdAt)}
+            </span>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Admin Actions</DropdownMenuLabel>
-              <DropdownMenuItem>
-                <Download className="mr-2 h-4 w-4" />
-                Download Invoice
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Mail className="mr-2 h-4 w-4" />
-                Email Customer
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Phone className="mr-2 h-4 w-4" />
-                Call Customer
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                Order Settings
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button asChild>
-            <Link href={`/dashboard/admin/orders/${order.id}/edit`}>
-              <Edit className="h-4 w-4 mr-2" />
+        <div className="flex gap-2">
+          <Link href={`/dashboard/admin/orders/${order.id}/edit`}>
+            <Button variant="outline">
+              <Edit className="mr-2 h-4 w-4" />
               Edit Order
-            </Link>
+            </Button>
+          </Link>
+          <Button>
+            <FileText className="mr-2 h-4 w-4" />
+            Print Invoice
           </Button>
         </div>
       </div>
 
-      {/* Alert Banner for urgent items */}
-      {isUrgent && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            <strong>Urgent Order:</strong> This{" "}
-            {order.urgencyLevel?.toLowerCase()} order requires immediate
-            attention and priority processing.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {order.designApprovalRequired &&
-        order.designApproval?.status === "PENDING" && (
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <Clock className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              <strong>Design Approval Pending:</strong> Customer review required
-              for design mockups.
-              <Button
-                variant="link"
-                size="sm"
-                className="ml-2 text-yellow-800 p-0 h-auto"
-              >
-                Send Reminder
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-      {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Column - Main Content */}
-        <div className="lg:col-span-3 space-y-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="items">Items</TabsTrigger>
-              <TabsTrigger value="timeline">Timeline</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview">
-              <OrderDetailView orderId={orderId} />
-            </TabsContent>
-
-            {/* Items Tab */}
-            <TabsContent value="items">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Order Items ({order.orderItems.length})
-                  </CardTitle>
-                  <CardDescription>
-                    Detailed breakdown of products and specifications
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {order.orderItems.map((item, index) => (
-                      <div key={item.id} className="border rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium">
-                                Product {item.productId}
-                              </h4>
-                              <Badge variant="outline">
-                                Qty: {item.quantity}
-                              </Badge>
-                            </div>
-
-                            {item.customizations &&
-                              Object.keys(item.customizations).length > 0 && (
-                                <div>
-                                  <label className="text-xs font-medium text-muted-foreground">
-                                    CUSTOMIZATIONS
-                                  </label>
-                                  <div className="mt-1 p-2 bg-muted rounded text-sm">
-                                    <pre className="text-xs whitespace-pre-wrap">
-                                      {JSON.stringify(
-                                        item.customizations,
-                                        null,
-                                        2
-                                      )}
-                                    </pre>
-                                  </div>
-                                </div>
-                              )}
-                          </div>
-
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">
-                              Item {index + 1}
-                            </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="mt-2"
-                            >
-                              Edit Item
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Timeline Tab */}
-            <TabsContent value="timeline">
-              <OrderTimeline
-                order={order}
-                showFilters={true}
-                maxHeight="700px"
-              />
-            </TabsContent>
-
-            {/* Notes Tab */}
-            <TabsContent value="notes">
-              <NotesList
-                orderId={orderId}
-                showAddButton={true}
-                maxHeight="600px"
-                showFilters={true}
-              />
-            </TabsContent>
-
-            {/* Settings Tab */}
-            <TabsContent value="settings">
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Order Settings</CardTitle>
-                    <CardDescription>
-                      Manage order-specific configurations
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Design Approval Required</span>
-                      <Badge
-                        variant={
-                          order.designApprovalRequired ? "default" : "secondary"
-                        }
-                      >
-                        {order.designApprovalRequired ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Urgency Level</span>
-                      <Badge variant="outline">
-                        {order.urgencyLevel || "NORMAL"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Expected Production Days</span>
-                      <span className="text-sm font-medium">
-                        {order.expectedProductionDays || "Not set"}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Admin Tools</CardTitle>
-                    <CardDescription>
-                      Administrative actions for this order
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Mail className="h-4 w-4 mr-2" />
-                      Send Customer Notification
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Download className="h-4 w-4 mr-2" />
-                      Generate Invoice
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Package className="h-4 w-4 mr-2" />
-                      Create Production Ticket
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Advanced Settings
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Right Column - Status & Quick Actions */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Status Update */}
-          <OrderStatusUpdate
-            order={order}
-            onStatusUpdated={handleStatusUpdated}
-          />
-
-          {/* Quick Notes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Order Items */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Quick Actions
+                <Package className="h-5 w-5" />
+                Order Items
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <AddNoteDialog
-                orderId={orderId}
-                onNoteAdded={handleNoteAdded}
-                trigger={
-                  <Button variant="outline" className="w-full justify-start">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Add Note
-                  </Button>
-                }
-              />
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Unit Price</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {order.items?.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {item.product?.images && (
+                            <div className="h-12 w-12 rounded border bg-muted flex items-center justify-center">
+                              <Package className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-medium">
+                              {item.product?.name || "Unknown Product"}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              SKU: {item.productId}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>${item.unitPrice.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">
+                        ${item.totalPrice.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-              <Button variant="outline" className="w-full justify-start">
-                <Mail className="h-4 w-4 mr-2" />
-                Email Customer
-              </Button>
+          {/* Shipping Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                Shipping Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {order.trackingNumber && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Tracking Number</p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.trackingNumber}
+                    </p>
+                  </div>
+                  {/* <div>
+                    <p className="text-sm font-medium">Carrier</p>
+                    <p className="text-sm text-muted-foreground">{order.shippingCarrier || "N/A"}</p>
+                  </div> */}
+                </div>
+              )}
 
-              <Button variant="outline" className="w-full justify-start">
-                <Phone className="h-4 w-4 mr-2" />
-                Call Customer
-              </Button>
+              {order.expectedDelivery && (
+                <div>
+                  <p className="text-sm font-medium">Expected Delivery</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(order.expectedDelivery)}
+                  </p>
+                </div>
+              )}
 
-              <Button variant="outline" className="w-full justify-start">
-                <Download className="h-4 w-4 mr-2" />
-                Download Files
-              </Button>
+              {order.shippingAddress && (
+                <div>
+                  <p className="text-sm font-medium">Shipping Address</p>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>
+                      {order.shippingAddress.name ||
+                        order.shippingAddress.recipientName}
+                    </p>
+                    <p>{order.shippingAddress.street}</p>
+                    <p>
+                      {order.shippingAddress.city},{" "}
+                      {order.shippingAddress.state}{" "}
+                      {order.shippingAddress.postalCode}
+                    </p>
+                    <p>{order.shippingAddress.country}</p>
+                    {order.shippingAddress.phone && (
+                      <p>Phone: {order.shippingAddress.phone}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Order Notes */}
+          {order.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Order Notes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">{order.notes}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Order Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Order Summary</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>${order.subtotalAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Shipping:</span>
+                  <span>${order.shippingAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Tax:</span>
+                  <span>${order.taxAmount.toFixed(2)}</span>
+                </div>
+                {order.discountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount:</span>
+                    <span>-${order.discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex justify-between font-semibold">
+                  <span>Total:</span>
+                  <span>${order.totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Payment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-medium">Payment Method</p>
+                <p className="text-sm text-muted-foreground">{order.payment}</p>
+              </div>
+
+              {order.payment && (
+                <>
+                  <div>
+                    <p className="text-sm font-medium">Amount Paid</p>
+                    <p className="text-sm text-muted-foreground">
+                      ${order.payment.amount.toFixed(2)}
+                    </p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
           {/* Customer Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Customer Details
-              </CardTitle>
+              <CardTitle>Customer Information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  CUSTOMER ID
-                </label>
-                <p className="font-medium">{order.customerId}</p>
+                <p className="text-sm font-medium">Customer ID</p>
+                <p className="text-sm text-muted-foreground">
+                  {order.customerId || "Guest"}
+                </p>
               </div>
 
-              {/* Add more customer fields as available */}
-
-              <div className="pt-2">
-                <Button variant="outline" size="sm" className="w-full">
-                  View Customer Profile
-                </Button>
-              </div>
+              {order.billingAddress && (
+                <div>
+                  <p className="text-sm font-medium">Billing Address</p>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>
+                      {order.billingAddress.name ||
+                        order.billingAddress.recipientName}
+                    </p>
+                    <p>{order.billingAddress.street}</p>
+                    <p>
+                      {order.billingAddress.city}, {order.billingAddress.state}{" "}
+                      {order.billingAddress.postalCode}
+                    </p>
+                    <p>{order.billingAddress.country}</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Order Progress */}
+          {/* Order Timeline */}
           <Card>
             <CardHeader>
-              <CardTitle>Order Progress</CardTitle>
+              <CardTitle>Order Timeline</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Created</span>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Order Created</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(order.createdAt)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Payment</span>
-                  {order.payment ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-yellow-500" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Production</span>
-                  {[
-                    "PROCESSING",
-                    "PRODUCTION",
-                    "SHIPPED",
-                    "DELIVERED",
-                  ].includes(order.status) ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-gray-400" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Shipped</span>
-                  {["SHIPPED", "DELIVERED"].includes(order.status) ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-gray-400" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Delivered</span>
-                  {order.status === "DELIVERED" ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-gray-400" />
-                  )}
-                </div>
+
+                {order.status !== "PENDING" && (
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Status Updated</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(order.updatedAt)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Status: {formatOrderStatus(order.status)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {order.status === "DELIVERED" && order.expectedDelivery && (
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Delivered</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(order.expectedDelivery)}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

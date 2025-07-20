@@ -72,7 +72,7 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const { uploadToS3, progress } = useUploadToS3(folderId, maxFileSize);
+    const { uploadFile1, progress } = useUploadToS3(folderId, maxFileSize);
     const [dragActive, setDragActive] = useState<boolean>(false);
     const [input, dispatch] = useReducer((state: State, action: Action) => {
       switch (action.type) {
@@ -113,38 +113,6 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
     const noInput = input.length === 0;
 
     // Get file type based on MIME type
-    // const getFileType = (file: File): MediaTypeEnum => {
-    //   const mimeType = file.type.toLowerCase();
-
-    //   if (mimeType.startsWith('image/')) return MediaTypeEnum.IMAGE;
-    //   if (mimeType.startsWith('video/')) return MediaTypeEnum.VIDEO;
-    //   if (mimeType.startsWith('audio/')) return MediaTypeEnum.AUDIO;
-
-    //   // Handle document types explicitly
-    //   if (mimeType.startsWith('application/') || mimeType.startsWith('text/')) {
-    //     return MediaTypeEnum.DOCUMENT;
-    //   }
-
-    //   // Handle specific document MIME types
-    //   const documentTypes = [
-    //     'application/pdf',
-    //     'application/msword',
-    //     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    //     'application/vnd.ms-excel',
-    //     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    //     'application/vnd.ms-powerpoint',
-    //     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    //     'text/plain',
-    //     'text/csv'
-    //   ];
-
-    //   if (documentTypes.includes(mimeType)) {
-    //     return MediaTypeEnum.DOCUMENT;
-    //   }
-
-    //   return MediaTypeEnum.DOCUMENT;
-    // };
-
     const getFileType = (file: File): MediaTypeEnum => {
       const mimeType = file.type.toLowerCase();
 
@@ -241,7 +209,15 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
     };
 
     const updateFilesInState = (files: FileWithUrl[]) => {
-      onUploadComplete?.(files.map(({ id, src, type }) => ({ id, src, type })));
+      // Filter out files with errors before calling onUploadComplete
+      const successfulFiles = files.filter(
+        (file) => !file.error && file.id && file.src
+      );
+      if (successfulFiles.length > 0) {
+        onUploadComplete?.(
+          successfulFiles.map(({ id, src, type }) => ({ id, src, type }))
+        );
+      }
       dispatch({ type: "UPDATE_FILE_IN_INPUT", payload: files });
     };
 
@@ -261,24 +237,54 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
       if (validFiles.length === 0) return;
 
       try {
-        const filesWithUrl = await Promise.all(
-          validFiles.map(async (file) => {
-            const key = uuidV4();
-            const { name, size } = file;
-            const type = getFileType(file);
+        // Add placeholder files to show upload progress
+        const placeholderFiles: FileWithUrl[] = validFiles.map((file) => ({
+          key: uuidV4(),
+          id: "",
+          name: file.name,
+          src: "",
+          size: file.size,
+          type: getFileType(file),
+        }));
 
-            addFilesToState([{ key, id: "", name, src: "", size, type }]);
-            const { id, src, error } = await uploadToS3(file);
+        addFilesToState(placeholderFiles);
 
-            if (!src || !id || error)
-              return { key, id: "", name, size, src: "", type, error };
-            return { key, id, name, size, src, type };
-          })
-        );
+        // Upload files one by one
+        const uploadPromises = validFiles.map(async (file, index) => {
+          const placeholderFile = placeholderFiles[index];
 
-        updateFilesInState(filesWithUrl);
+          try {
+            const result = await uploadFile1(file);
+
+            if (result.error) {
+              return {
+                ...placeholderFile,
+                error: true,
+              };
+            }
+
+            return {
+              ...placeholderFile,
+              id: result.id,
+              src: result.src,
+              error: false,
+            };
+          } catch (error) {
+            console.error(`Error uploading file ${file.name}:`, error);
+            return {
+              ...placeholderFile,
+              error: true,
+            };
+          }
+        });
+
+        const uploadedFiles = await Promise.all(uploadPromises);
+        updateFilesInState(uploadedFiles);
       } catch (error) {
-        console.error("Error uploading files:", error);
+        console.error("Error processing files:", error);
+        toast.error("Upload failed", {
+          description: "An error occurred while uploading files.",
+        });
       }
     };
 

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import axios, { AxiosError, AxiosHeaders, AxiosRequestConfig } from "axios";
 import "server-only";
 
@@ -6,7 +8,7 @@ import env from "@/config/server.env";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { getErrorMessage } from "../get-error-message";
-import { getSession } from "../session/session";
+import { getSession, destroySession, createSession } from "../session/session";
 
 type BaseOptions = {
   headers?: AxiosHeaders | Record<string, string>;
@@ -14,14 +16,22 @@ type BaseOptions = {
 
 type RequestOptions = BaseOptions & {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   data?: Record<string, any> | FormData;
+};
+
+type RefreshTokenResponse = {
+  accessToken: string;
+  refreshToken: string;
+  user: any;
 };
 
 export class Fetcher {
   constructor(private apiUri = axios.create({ baseURL: env.API_URL })) {}
 
   private isDev = env.NODE_ENV === "development";
+  private isRefreshing = false;
+  private refreshPromise: Promise<RefreshTokenResponse> | null = null;
 
   private async getClientHeaders() {
     const headersList = await headers();
@@ -70,26 +80,73 @@ export class Fetcher {
     return clientHeaders;
   }
 
+  private async refreshAccessToken(): Promise<RefreshTokenResponse> {
+    // Prevent multiple simultaneous refresh attempts
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.isRefreshing = true;
+
+    try {
+      const session = await getSession();
+      if (!session?.refreshToken) {
+        throw new Error("No refresh token available");
+      }
+
+      this.refreshPromise = this.apiUri
+        .request<RefreshTokenResponse>({
+          url: "/v1/auth/refresh",
+          method: "POST",
+          data: { refreshToken: session.refreshToken },
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+        .then((response) => response.data);
+
+      const result = await this.refreshPromise;
+
+      // Update session with new tokens
+      await createSession({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user,
+      });
+
+      return result;
+    } catch (error) {
+      // Refresh failed, destroy session
+      await destroySession();
+      throw new Error("Session expired. Please log in again.");
+    } finally {
+      this.isRefreshing = false;
+      this.refreshPromise = null;
+    }
+  }
+
   public request = cache(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async <T = any>(
       url: string,
       options: RequestOptions = {},
-      authOptions: { auth: boolean } = { auth: true }
+      authOptions: { auth: boolean; skipRefresh?: boolean } = { auth: true }
     ): Promise<T> => {
       try {
         const headersList = await this.getClientHeaders();
         const hasAuth = authOptions.auth;
+        const skipRefresh = authOptions.skipRefresh || false;
         const {
           headers: otherHeaders,
           method = "GET",
           ...restOptions
         } = options;
 
-        const accessToken = (await getSession())?.accessToken ?? null;
+        const session = await getSession();
+        const accessToken = session?.accessToken ?? null;
 
-        if (hasAuth && !accessToken)
+        if (hasAuth && !accessToken) {
           throw new Error("No active session found. Please login to continue");
+        }
 
         // Build headers object, handling FormData specially
         const baseHeaders: Record<string, string> = {
@@ -118,8 +175,6 @@ export class Fetcher {
           headers: finalHeaders,
         };
 
-        console.log(requestOptions);
-
         if (this.isDev) {
           console.dir({ requestOptions }, { depth: null });
         }
@@ -135,6 +190,36 @@ export class Fetcher {
         return resp;
       } catch (error) {
         if (error instanceof AxiosError) {
+          // Handle 401 Unauthorized - token might be expired
+          if (
+            error.response?.status === 401 &&
+            authOptions.auth &&
+            !authOptions.skipRefresh &&
+            !url.includes("/auth/refresh") // Don't refresh on refresh endpoint
+          ) {
+            try {
+              if (this.isDev) {
+                console.log("Access token expired, attempting refresh...");
+              }
+
+              // Attempt to refresh the token
+              await this.refreshAccessToken();
+
+              // Retry the original request with skipRefresh to avoid infinite loop
+              return this.request<T>(url, options, {
+                auth: authOptions.auth,
+                skipRefresh: true,
+              });
+            } catch (refreshError) {
+              if (this.isDev) {
+                console.error("Token refresh failed:", refreshError);
+              }
+              // Refresh failed, throw original error
+              throw new Error("Session expired. Please log in again.");
+            }
+          }
+
+          // Handle other network errors
           if (error.code === "ETIMEDOUT") {
             console.error("Request timed out. Server might be unresponsive.");
             throw new Error("Request timed out. Please try again later.");

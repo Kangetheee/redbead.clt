@@ -30,9 +30,8 @@ export function useOrders(params?: GetOrdersDto) {
     select: (response) => {
       if (!response.success) {
         return {
-          success: false,
+          success: false as const, // ✅ ensure this is literal `false`
           error: response.error,
-          data: { items: [], meta: {} },
         };
       }
       return response;

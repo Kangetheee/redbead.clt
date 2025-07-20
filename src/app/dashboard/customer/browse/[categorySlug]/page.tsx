@@ -27,7 +27,6 @@ export async function generateMetadata({
 }: {
   params: Promise<{ categorySlug: string }>;
 }): Promise<Metadata> {
-  // ✅ Await the params
   const { categorySlug } = await params;
 
   // Format the slug for display

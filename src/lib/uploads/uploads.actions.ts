@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use server";
 
 import { getErrorMessage } from "../get-error-message";
@@ -5,6 +6,7 @@ import { ActionResponse } from "../shared/types";
 import { CreateUploadFolderDto } from "./dto/create-upload-folder.dto";
 import { CreateUploadDto } from "./dto/create-upload.dto";
 import { UpdateUploadDto } from "./dto/update-upload.dto";
+import { MediaTypeEnum } from "./enums/uploads.enum";
 import { uploadService } from "./uploads.service";
 
 export async function createUploadFolderAction(data: CreateUploadFolderDto) {
@@ -45,15 +47,6 @@ export async function getUploadFolderDetailsAction(id: string, query?: string) {
   }
 }
 
-export async function createUploadAction(data: CreateUploadDto) {
-  try {
-    const res = await uploadService.create(data);
-    return { status: "success" as const, ...res };
-  } catch (error) {
-    return { status: "error" as const, message: getErrorMessage(error) };
-  }
-}
-
 export async function getUploadAction(id: string) {
   try {
     const data = await uploadService.findOne(id);
@@ -87,5 +80,25 @@ export async function deleteMediaAction(id: string) {
     return { success: true as const, ...res };
   } catch (error) {
     return { success: false as const, message: getErrorMessage(error) };
+  }
+}
+
+// Original action for JSON data (S3 workflow)
+export async function createUploadAction(data: CreateUploadDto) {
+  try {
+    const res = await uploadService.create(data);
+    return { status: "success" as const, ...res };
+  } catch (error) {
+    return { status: "error" as const, message: getErrorMessage(error) };
+  }
+}
+
+// New action for file upload with FormData
+export async function uploadFileAction(formData: FormData) {
+  try {
+    const res = await uploadService.uploadFile(formData);
+    return { status: "success" as const, ...res };
+  } catch (error) {
+    return { status: "error" as const, message: getErrorMessage(error) };
   }
 }
