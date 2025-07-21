@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 "use client";
 
 import {
@@ -24,7 +26,13 @@ export default function RevenueChart() {
       return [];
     }
 
-    const orders: OrderResponse[] = ordersData?.data?.items || [];
+    let orders: OrderResponse[] = [];
+    if (ordersData && "success" in ordersData && ordersData.success) {
+      orders = ordersData.data?.items || [];
+    } else if (ordersData && "items" in ordersData) {
+      // Fallback for direct items access
+      orders = (ordersData as any).items || [];
+    }
 
     if (orders.length === 0) {
       return []; // Return empty array - no fallback data
