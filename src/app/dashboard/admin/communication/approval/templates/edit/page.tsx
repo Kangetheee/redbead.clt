@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @next/next/no-html-link-for-pages */
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -58,6 +60,13 @@ import {
   emailTemplateCategoryEnum,
 } from "@/lib/communications/dto/email-template.dto";
 
+// Updated interface to match Next.js app router structure
+interface PageProps {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
 interface TemplateFormData {
   name: string;
   subject: string;
@@ -100,14 +109,13 @@ const categoryOptions = [
   { value: "CUSTOM", label: "Custom" },
 ];
 
-interface TemplateEditPageProps {
-  templateId: string;
-}
-
-export default function TemplateEditPage({
-  templateId,
-}: TemplateEditPageProps) {
+export default function TemplateEditPage({ params }: PageProps) {
   const router = useRouter();
+
+  // State to hold the resolved params
+  const [templateId, setTemplateId] = useState<string>("");
+  const [paramsLoaded, setParamsLoaded] = useState(false);
+
   const [activeTab, setActiveTab] = useState("content");
   const [showPreview, setShowPreview] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -129,11 +137,32 @@ export default function TemplateEditPage({
     priority: "normal",
   });
 
-  // TanStack Query hooks
-  const { data: template, isLoading, error } = useEmailTemplate(templateId);
+  // Resolve async params
+  useEffect(() => {
+    const resolveParams = async () => {
+      try {
+        const resolvedParams = await params;
+        setTemplateId(resolvedParams.id);
+        setParamsLoaded(true);
+      } catch (error) {
+        console.error("Error resolving params:", error);
+      }
+    };
 
-  const { data: usageStats, isLoading: statsLoading } =
-    useTemplateUsageStats(templateId);
+    resolveParams();
+  }, [params]);
+
+  // TanStack Query hooks - only run when params are loaded
+  const {
+    data: template,
+    isLoading,
+    error,
+  } = useEmailTemplate(templateId, paramsLoaded);
+
+  const { data: usageStats, isLoading: statsLoading } = useTemplateUsageStats(
+    templateId,
+    paramsLoaded
+  );
 
   const updateTemplateMutation = useUpdateEmailTemplate();
   const previewEmailMutation = usePreviewEmailTemplate();
@@ -249,7 +278,7 @@ export default function TemplateEditPage({
       });
 
       setHasChanges(false);
-      router.push("/dashboard/admin/communication/approvals/templates");
+      router.push("/dashboard/admin/communication/approval/templates");
     } catch (error) {
       console.error("Error updating template:", error);
     }
@@ -265,7 +294,8 @@ export default function TemplateEditPage({
     }
   };
 
-  if (isLoading) {
+  // Show loading skeleton while params are being resolved or data is loading
+  if (!paramsLoaded || isLoading) {
     return (
       <div className="container mx-auto py-10 space-y-8">
         <div className="flex items-center gap-2 mb-6">
@@ -308,7 +338,7 @@ export default function TemplateEditPage({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Button variant="ghost" size="sm" asChild>
-              <a href="/dashboard/admin/communication/approvals/templates">
+              <a href="/dashboard/admin/communication/approval/templates">
                 <ArrowLeft className="h-4 w-4" />
               </a>
             </Button>
