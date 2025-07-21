@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -37,10 +38,11 @@ import { formatDate } from "@/lib/utils";
 import { useOrder, useDesignApproval } from "@/hooks/use-orders";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
 
-interface OrderDetailPageProps {
-  params: {
+// Updated interface to match Next.js app router structure
+interface PageProps {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 function formatOrderStatus(status: string): string {
@@ -124,12 +126,12 @@ function DesignApprovalSection({ order }: { order: OrderResponse }) {
   };
 
   const handleSendApproval = () => {
-    window.location.href = `/dashboard/admin/communication/approvals/create?orderId=${order.id}`;
+    window.location.href = `/dashboard/admin/communication/approval/create?orderId=${order.id}`;
   };
 
   const handleViewApproval = () => {
     if (order.designApproval?.id) {
-      window.location.href = `/dashboard/admin/communication/approvals/${order.designApproval.id}`;
+      window.location.href = `/dashboard/admin/communication/approval/${order.designApproval.id}`;
     }
   };
 
@@ -257,10 +259,31 @@ function OrderDetailSkeleton() {
   );
 }
 
-export default function OrderDetailPage({ params }: OrderDetailPageProps) {
-  const { data: orderResult, isLoading, error } = useOrder(params.id);
+export default function OrderDetailPage({ params }: PageProps) {
+  // State to hold the resolved params
+  const [orderId, setOrderId] = useState<string>("");
+  const [paramsLoaded, setParamsLoaded] = useState(false);
 
-  if (isLoading) {
+  // Resolve async params
+  useEffect(() => {
+    const resolveParams = async () => {
+      try {
+        const resolvedParams = await params;
+        setOrderId(resolvedParams.id);
+        setParamsLoaded(true);
+      } catch (error) {
+        console.error("Error resolving params:", error);
+      }
+    };
+
+    resolveParams();
+  }, [params]);
+
+  // TanStack Query hooks - only run when params are loaded
+  const { data: orderResult, isLoading, error } = useOrder(orderId);
+
+  // Show loading skeleton while params are being resolved or data is loading
+  if (!paramsLoaded || isLoading) {
     return <OrderDetailSkeleton />;
   }
 
