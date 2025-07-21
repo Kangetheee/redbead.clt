@@ -240,18 +240,14 @@ function UrgencyCard({
   );
 }
 
-interface CreateOrderPageProps {
-  showHeader?: boolean;
-  returnPath?: string;
-}
-
-export default function CreateOrderPage({
-  showHeader = true,
-  returnPath = "/dashboard/admin/orders",
-}: CreateOrderPageProps) {
+// Main component with no props - standard Next.js page structure
+export default function CreateOrderPage() {
   const router = useRouter();
   const [selectedOrderType, setSelectedOrderType] = useState<string>("");
   const [activeTab, setActiveTab] = useState("basic");
+
+  // Fixed values for page-specific behavior
+  const returnPath = "/dashboard/admin/orders";
 
   // Hooks
   const createOrderMutation = useCreateOrder();
@@ -337,46 +333,44 @@ export default function CreateOrderPage({
   return (
     <div className="container mx-auto py-10 space-y-8">
       {/* Header */}
-      {showHeader && (
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Link href={returnPath}>
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
-              <h1 className="text-3xl font-bold tracking-tight">
-                Create New Order
-              </h1>
-            </div>
-            <p className="text-muted-foreground">
-              Design and place a custom printing order
-            </p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Link href={returnPath}>
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Create New Order
+            </h1>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button
-              onClick={form.handleSubmit(onSubmit)}
-              disabled={createOrderMutation.isPending || !isFormValid()}
-            >
-              {createOrderMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Create Order
-                </>
-              )}
-            </Button>
-          </div>
+          <p className="text-muted-foreground">
+            Design and place a custom printing order
+          </p>
         </div>
-      )}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
+          <Button
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={createOrderMutation.isPending || !isFormValid()}
+          >
+            {createOrderMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Create Order
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
 
       {/* Quick Info Cards */}
       <div className="grid gap-4 md:grid-cols-3">
