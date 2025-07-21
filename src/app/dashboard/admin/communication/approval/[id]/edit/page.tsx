@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -38,7 +39,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Import TanStack Query hooks
 import {
   useEmailLog,
   useEmailTemplates,
@@ -47,8 +47,11 @@ import {
 } from "@/hooks/use-communication";
 import { EmailTemplateCategory } from "@/lib/communications/dto/email-template.dto";
 
-interface EditApprovalPageProps {
-  approvalId: string;
+// Updated interface to handle async params
+interface PageProps {
+  params: Promise<{
+    id: string;
+  }>;
 }
 
 interface ApprovalFormData {
@@ -93,10 +96,13 @@ function EditApprovalSkeleton() {
   );
 }
 
-export default function EditApprovalPage({
-  approvalId,
-}: EditApprovalPageProps) {
+export default function EditApprovalPage({ params }: PageProps) {
   const router = useRouter();
+
+  // State to hold the resolved params
+  const [approvalId, setApprovalId] = useState<string>("");
+  const [paramsLoaded, setParamsLoaded] = useState(false);
+
   const [hasChanges, setHasChanges] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -112,12 +118,28 @@ export default function EditApprovalPage({
     previewImages: [],
   });
 
-  // TanStack Query hooks
+  // Resolve async params
+  useEffect(() => {
+    const resolveParams = async () => {
+      try {
+        const resolvedParams = await params;
+        setApprovalId(resolvedParams.id);
+        setParamsLoaded(true);
+      } catch (error) {
+        console.error("Error resolving params:", error);
+        // Handle error appropriately
+      }
+    };
+
+    resolveParams();
+  }, [params]);
+
+  // TanStack Query hooks - only run when params are loaded
   const {
     data: emailLog,
     isLoading: emailLogLoading,
     error: emailLogError,
-  } = useEmailLog(approvalId);
+  } = useEmailLog(approvalId, paramsLoaded);
 
   const { data: templatesData, isLoading: templatesLoading } =
     useEmailTemplates({
@@ -153,12 +175,6 @@ export default function EditApprovalPage({
   const updateFormData = (updates: Partial<ApprovalFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
     setHasChanges(true);
-  };
-
-  // Helper function to format dates for datetime-local input
-  const formatDateForInput = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toISOString().slice(0, 16);
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,7 +253,8 @@ export default function EditApprovalPage({
     }
   };
 
-  if (emailLogLoading || templatesLoading) {
+  // Show loading skeleton while params are being resolved or data is loading
+  if (!paramsLoaded || emailLogLoading || templatesLoading) {
     return <EditApprovalSkeleton />;
   }
 
@@ -440,7 +457,7 @@ export default function EditApprovalPage({
                     <SelectValue placeholder="Select email template" />
                   </SelectTrigger>
                   <SelectContent>
-                    {templates.map((template) => (
+                    {templates.map((template: any) => (
                       <SelectItem key={template.id} value={template.id}>
                         {template.name}
                       </SelectItem>
