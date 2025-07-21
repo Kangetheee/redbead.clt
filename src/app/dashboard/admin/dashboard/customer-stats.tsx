@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import {
@@ -29,8 +30,17 @@ export default function CustomerStats() {
       return [];
     }
 
+    // Handle different response structures safely
     const customers: CustomerResponse[] = customersData?.items || [];
-    const orders: OrderResponse[] = ordersData?.data?.items || [];
+
+    // Handle orders data structure - check for success and extract items
+    let orders: OrderResponse[] = [];
+    if (ordersData && "success" in ordersData && ordersData.success) {
+      orders = ordersData.data?.items || [];
+    } else if (ordersData && "items" in ordersData) {
+      // Fallback for direct items access
+      orders = (ordersData as any).items || [];
+    }
 
     if (customers.length === 0 && orders.length === 0) {
       return []; // Return empty array - no fallback data
