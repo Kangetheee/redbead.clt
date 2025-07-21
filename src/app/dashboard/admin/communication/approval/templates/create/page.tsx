@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @next/next/no-html-link-for-pages */
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Save,
   Eye,
-  Copy,
-  TestTube,
   Code,
   FileText,
   Settings,
@@ -17,6 +17,7 @@ import {
   Loader2,
   AlertTriangle,
   Info,
+  TestTube,
 } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -42,27 +43,22 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 
 // Import TanStack Query hooks
 import {
-  useEmailTemplate,
-  useUpdateEmailTemplate,
+  useCreateEmailTemplate,
   usePreviewEmailTemplate,
-  useDuplicateEmailTemplate,
-  useTemplateUsageStats,
 } from "@/hooks/use-communication";
 import {
-  UpdateEmailTemplateDto,
+  CreateEmailTemplateDto,
   EmailTemplateCategory,
-  emailTemplateCategoryEnum,
 } from "@/lib/communications/dto/email-template.dto";
 
 interface TemplateFormData {
   name: string;
   subject: string;
   htmlContent: string;
-  textContent?: string;
+  textContent: string;
   category: EmailTemplateCategory;
   isActive: boolean;
   variables: string[];
@@ -87,6 +83,7 @@ const availableVariables = [
   { name: "designUrl", description: "Link to design preview" },
   { name: "supportEmail", description: "Support email address" },
   { name: "phoneNumber", description: "Support phone number" },
+  { name: "customMessage", description: "Custom message from sender" },
 ];
 
 const categoryOptions = [
@@ -100,17 +97,97 @@ const categoryOptions = [
   { value: "CUSTOM", label: "Custom" },
 ];
 
-interface TemplateEditPageProps {
-  templateId: string;
-}
+const defaultTemplates = {
+  DESIGN_APPROVAL_REQUEST: {
+    subject: "Design Approval Needed - Order #{orderNumber}",
+    htmlContent: `<h2>Hi {customerName},</h2>
 
-export default function TemplateEditPage({
-  templateId,
-}: TemplateEditPageProps) {
+<p>We're excited to move forward with your order <strong>#{orderNumber}</strong>!</p>
+
+<p>We've prepared your design and would love for you to review and approve it. Please take a moment to check the preview and let us know if everything looks perfect.</p>
+
+<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+  <p><strong>Order Details:</strong></p>
+  <ul>
+    <li>Product: {productName}</li>
+    <li>Quantity: {quantity}</li>
+    <li>Total: {totalAmount}</li>
+  </ul>
+</div>
+
+<p style="text-align: center; margin: 30px 0;">
+  <a href="{approvalLink}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+    Review & Approve Design
+  </a>
+</p>
+
+<p>If you have any questions or need changes, please don't hesitate to reach out to us.</p>
+
+<p>Best regards,<br>
+{companyName} Design Team</p>
+
+<hr style="margin: 30px 0;">
+<p style="font-size: 12px; color: #666;">
+  This approval request will expire on {expiryDate}. Please respond before this date to avoid delays.
+</p>`,
+    textContent: `Hi {customerName},
+
+We're excited to move forward with your order #{orderNumber}!
+
+We've prepared your design and would love for you to review and approve it. Please visit {approvalLink} to check the preview and let us know if everything looks perfect.
+
+Order Details:
+- Product: {productName}
+- Quantity: {quantity}
+- Total: {totalAmount}
+
+If you have any questions or need changes, please don't hesitate to reach out to us.
+
+Best regards,
+{companyName} Design Team
+
+---
+This approval request will expire on {expiryDate}. Please respond before this date to avoid delays.`,
+  },
+  ORDER_CONFIRMATION: {
+    subject: "Order Confirmation - #{orderNumber}",
+    htmlContent: `<h2>Thank you for your order, {customerName}!</h2>
+
+<p>We've received your order and it's being processed. Here are the details:</p>
+
+<div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+  <p><strong>Order #{orderNumber}</strong></p>
+  <ul>
+    <li>Product: {productName}</li>
+    <li>Quantity: {quantity}</li>
+    <li>Total: {totalAmount}</li>
+  </ul>
+</div>
+
+<p>We'll send you updates as your order progresses through production.</p>
+
+<p>Best regards,<br>
+{companyName} Team</p>`,
+    textContent: `Thank you for your order, {customerName}!
+
+We've received your order and it's being processed. Here are the details:
+
+Order #{orderNumber}
+- Product: {productName}
+- Quantity: {quantity}
+- Total: {totalAmount}
+
+We'll send you updates as your order progresses through production.
+
+Best regards,
+{companyName} Team`,
+  },
+};
+
+export default function CreateTemplatePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("content");
   const [showPreview, setShowPreview] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<TemplateFormData>({
@@ -130,52 +207,16 @@ export default function TemplateEditPage({
   });
 
   // TanStack Query hooks
-  const { data: template, isLoading, error } = useEmailTemplate(templateId);
-
-  const { data: usageStats, isLoading: statsLoading } =
-    useTemplateUsageStats(templateId);
-
-  const updateTemplateMutation = useUpdateEmailTemplate();
+  const createTemplateMutation = useCreateEmailTemplate();
   const previewEmailMutation = usePreviewEmailTemplate();
-  const duplicateTemplateMutation = useDuplicateEmailTemplate();
-
-  // Initialize form data when template loads
-  useEffect(() => {
-    if (template) {
-      setFormData({
-        name: template.name,
-        subject: template.subject,
-        htmlContent: template.htmlContent,
-        textContent: template.textContent || "",
-        category: template.category,
-        isActive: template.isActive,
-        variables: template.variables,
-      });
-
-      // Initialize settings if available in template data
-      if (
-        "trackOpens" in template ||
-        "trackClicks" in template ||
-        "priority" in template
-      ) {
-        setSettings({
-          trackOpens: (template as any).trackOpens ?? true,
-          trackClicks: (template as any).trackClicks ?? true,
-          priority: (template as any).priority ?? "normal",
-        });
-      }
-    }
-  }, [template]);
 
   // Helper function to update form data
   const updateFormData = (updates: Partial<TemplateFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
-    setHasChanges(true);
   };
 
   const updateSettings = (key: keyof TemplateSettings, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
-    setHasChanges(true);
   };
 
   const insertVariable = (variableName: string) => {
@@ -204,102 +245,137 @@ export default function TemplateEditPage({
     }
   };
 
+  const loadTemplate = (category: EmailTemplateCategory) => {
+    const template =
+      defaultTemplates[category as keyof typeof defaultTemplates];
+    if (template) {
+      updateFormData({
+        subject: template.subject,
+        htmlContent: template.htmlContent,
+        textContent: template.textContent,
+      });
+    }
+  };
+
+  const extractVariables = (content: string): string[] => {
+    const variableRegex = /{([^}]+)}/g;
+    const matches = content.match(variableRegex);
+    return matches ? matches.map((match) => match.slice(1, -1)) : [];
+  };
+
   const handlePreview = async () => {
-    if (!template) return;
+    if (!formData.name || !formData.htmlContent) return;
 
     try {
-      await previewEmailMutation.mutateAsync({
-        templateId: template.id,
-        variables: {
-          customerName: "John Doe",
-          customerEmail: "john@example.com",
-          orderNumber: "ORD-2024-001",
-          companyName: "Your Company",
-          approvalLink: "https://yoursite.com/approve/abc123",
-          expiryDate: "January 20, 2024 at 5:00 PM",
-          productName: "Custom T-Shirt",
-          quantity: 50,
-          totalAmount: "$485.00",
-        },
-        deviceType: "desktop",
+      // Create a temporary template for preview
+      const variables = extractVariables(
+        formData.htmlContent + formData.textContent
+      );
+
+      // Use sample data for preview
+      const sampleVariables: Record<string, any> = {
+        customerName: "John Doe",
+        customerEmail: "john@example.com",
+        orderNumber: "ORD-2024-001",
+        companyName: "Your Company",
+        approvalLink: "https://yoursite.com/approve/abc123",
+        expiryDate: "January 20, 2024 at 5:00 PM",
+        productName: "Custom T-Shirt",
+        quantity: 50,
+        totalAmount: "$485.00",
+        supportEmail: "support@yourcompany.com",
+        phoneNumber: "(555) 123-4567",
+        customMessage: "Thank you for choosing us!",
+      };
+
+      // For preview, we'll render the content locally since we don't have a template ID yet
+      let previewHtml = formData.htmlContent;
+      let previewSubject = formData.subject;
+
+      // Replace variables with sample data
+      variables.forEach((variable) => {
+        const value = sampleVariables[variable] || `{${variable}}`;
+        previewHtml = previewHtml.replace(
+          new RegExp(`{${variable}}`, "g"),
+          value
+        );
+        previewSubject = previewSubject.replace(
+          new RegExp(`{${variable}}`, "g"),
+          value
+        );
       });
+
+      // Show preview (we'll simulate the preview response)
       setShowPreview(true);
     } catch (error) {
       console.error("Error previewing template:", error);
     }
   };
 
+  const getPreviewContent = () => {
+    const variables = extractVariables(formData.htmlContent + formData.subject);
+
+    const sampleVariables: Record<string, any> = {
+      customerName: "John Doe",
+      customerEmail: "john@example.com",
+      orderNumber: "ORD-2024-001",
+      companyName: "Your Company",
+      approvalLink: "https://yoursite.com/approve/abc123",
+      expiryDate: "January 20, 2024 at 5:00 PM",
+      productName: "Custom T-Shirt",
+      quantity: 50,
+      totalAmount: "$485.00",
+      supportEmail: "support@yourcompany.com",
+      phoneNumber: "(555) 123-4567",
+      customMessage: "Thank you for choosing us!",
+    };
+
+    let previewHtml = formData.htmlContent;
+    let previewSubject = formData.subject;
+
+    variables.forEach((variable) => {
+      const value = sampleVariables[variable] || `{${variable}}`;
+      previewHtml = previewHtml.replace(
+        new RegExp(`{${variable}}`, "g"),
+        value
+      );
+      previewSubject = previewSubject.replace(
+        new RegExp(`{${variable}}`, "g"),
+        value
+      );
+    });
+
+    return { htmlContent: previewHtml, subject: previewSubject };
+  };
+
   const handleSubmit = async () => {
-    if (!template) return;
+    if (!formData.name || !formData.subject || !formData.htmlContent) {
+      return;
+    }
 
     try {
-      const updateData: UpdateEmailTemplateDto = {
+      const variables = extractVariables(
+        formData.htmlContent + formData.textContent + formData.subject
+      );
+
+      const templateData: CreateEmailTemplateDto = {
         name: formData.name,
         subject: formData.subject,
         htmlContent: formData.htmlContent,
         textContent: formData.textContent || undefined,
+        variables: Array.from(new Set(variables)), // Remove duplicates
         category: formData.category,
         isActive: formData.isActive,
-        variables: formData.variables,
       };
 
-      await updateTemplateMutation.mutateAsync({
-        templateId: template.id,
-        values: updateData,
-      });
-
-      setHasChanges(false);
-      router.push("/dashboard/admin/communication/approvals/templates");
+      await createTemplateMutation.mutateAsync(templateData);
+      router.push("/dashboard/admin/communication/approval/templates");
     } catch (error) {
-      console.error("Error updating template:", error);
+      console.error("Error creating template:", error);
     }
   };
 
-  const handleDuplicate = async () => {
-    if (!template) return;
-
-    try {
-      await duplicateTemplateMutation.mutateAsync(template.id);
-    } catch (error) {
-      console.error("Error duplicating template:", error);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-10 space-y-8">
-        <div className="flex items-center gap-2 mb-6">
-          <Skeleton className="h-10 w-10" />
-          <div>
-            <Skeleton className="h-8 w-64 mb-2" />
-            <Skeleton className="h-4 w-48" />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <Skeleton className="h-96 w-full" />
-          </div>
-          <div>
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !template) {
-    return (
-      <div className="container mx-auto py-10">
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            Failed to load template. Please check if the template exists and try
-            again.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  const isFormValid = formData.name && formData.subject && formData.htmlContent;
 
   return (
     <div className="container mx-auto py-10 space-y-8">
@@ -308,51 +384,27 @@ export default function TemplateEditPage({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Button variant="ghost" size="sm" asChild>
-              <a href="/dashboard/admin/communication/approvals/templates">
+              <a href="/dashboard/admin/communication/approval/templates">
                 <ArrowLeft className="h-4 w-4" />
               </a>
             </Button>
             <h1 className="text-3xl font-bold tracking-tight">
-              Edit Email Template
+              Create Email Template
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">{template.name}</Badge>
-            {template.isSystem && <Badge variant="default">System</Badge>}
-            {usageStats && (
-              <span className="text-sm text-muted-foreground">
-                Used {usageStats.totalSent} times
-              </span>
-            )}
-          </div>
+          <p className="text-muted-foreground">
+            Create a new email template for your communications
+          </p>
         </div>
 
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={handleDuplicate}
-            disabled={duplicateTemplateMutation.isPending}
-          >
-            <Copy className="mr-2 h-4 w-4" />
-            Duplicate
-          </Button>
-
-          <Button
-            variant="outline"
             onClick={handlePreview}
-            disabled={previewEmailMutation.isPending}
+            disabled={!isFormValid}
           >
             <Eye className="mr-2 h-4 w-4" />
-            {previewEmailMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Previewing...
-              </>
-            ) : showPreview ? (
-              "Hide Preview"
-            ) : (
-              "Preview"
-            )}
+            {showPreview ? "Hide Preview" : "Preview"}
           </Button>
         </div>
       </div>
@@ -404,11 +456,11 @@ export default function TemplateEditPage({
                       <Label htmlFor="templateCategory">Category</Label>
                       <Select
                         value={formData.category}
-                        onValueChange={(value) =>
-                          updateFormData({
-                            category: value as EmailTemplateCategory,
-                          })
-                        }
+                        onValueChange={(value) => {
+                          const category = value as EmailTemplateCategory;
+                          updateFormData({ category });
+                          loadTemplate(category);
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -421,6 +473,9 @@ export default function TemplateEditPage({
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Selecting a category will load a default template
+                      </p>
                     </div>
                   </div>
 
@@ -505,7 +560,7 @@ export default function TemplateEditPage({
               </Card>
 
               {/* Preview */}
-              {showPreview && previewEmailMutation.data && (
+              {showPreview && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Email Preview</CardTitle>
@@ -521,13 +576,13 @@ export default function TemplateEditPage({
                             Subject:
                           </p>
                           <p className="font-medium">
-                            {previewEmailMutation.data.subject}
+                            {getPreviewContent().subject}
                           </p>
                         </div>
                         <div
                           className="prose prose-sm max-w-none"
                           dangerouslySetInnerHTML={{
-                            __html: previewEmailMutation.data.htmlContent,
+                            __html: getPreviewContent().htmlContent,
                           }}
                         />
                       </div>
@@ -551,7 +606,7 @@ export default function TemplateEditPage({
                     <div>
                       <h4 className="font-medium">Active Template</h4>
                       <p className="text-sm text-muted-foreground">
-                        Make this template available for use
+                        Make this template available for use immediately
                       </p>
                     </div>
                     <Switch
@@ -654,8 +709,8 @@ export default function TemplateEditPage({
                     <Info className="h-4 w-4 text-blue-600" />
                     <AlertDescription className="text-blue-800">
                       Variables are automatically replaced with actual values
-                      when emails are sent. Make sure to use the exact variable
-                      names shown above.
+                      when emails are sent. Variables will be auto-detected from
+                      your content.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
@@ -669,7 +724,7 @@ export default function TemplateEditPage({
           {/* Template Info */}
           <Card>
             <CardHeader>
-              <CardTitle>Template Info</CardTitle>
+              <CardTitle>Template Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
@@ -687,38 +742,16 @@ export default function TemplateEditPage({
                   {formData.isActive ? "Active" : "Inactive"}
                 </Badge>
               </div>
-              {usageStats && (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Times Used:</span>
-                    <span className="text-sm font-medium">
-                      {usageStats.totalSent}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Delivery Rate:</span>
-                    <span className="text-sm font-medium">
-                      {usageStats.deliveryRate}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Open Rate:</span>
-                    <span className="text-sm font-medium">
-                      {usageStats.openRate}%
-                    </span>
-                  </div>
-                </>
-              )}
               <div className="flex justify-between">
-                <span className="text-sm">Created:</span>
+                <span className="text-sm">Variables:</span>
                 <span className="text-sm font-medium">
-                  {new Date(template.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Last Modified:</span>
-                <span className="text-sm font-medium">
-                  {new Date(template.updatedAt).toLocaleDateString()}
+                  {
+                    extractVariables(
+                      formData.htmlContent +
+                        formData.textContent +
+                        formData.subject
+                    ).length
+                  }
                 </span>
               </div>
             </CardContent>
@@ -731,17 +764,17 @@ export default function TemplateEditPage({
                 <Button
                   onClick={handleSubmit}
                   className="w-full"
-                  disabled={!hasChanges || updateTemplateMutation.isPending}
+                  disabled={!isFormValid || createTemplateMutation.isPending}
                 >
-                  {updateTemplateMutation.isPending ? (
+                  {createTemplateMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving Template...
+                      Creating Template...
                     </>
                   ) : (
                     <>
                       <Save className="h-4 w-4 mr-2" />
-                      Save Changes
+                      Create Template
                     </>
                   )}
                 </Button>
@@ -755,10 +788,14 @@ export default function TemplateEditPage({
                 </Button>
               </div>
 
-              {!hasChanges && (
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Make changes to enable saving
-                </p>
+              {!isFormValid && (
+                <Alert className="mt-4 border-yellow-200 bg-yellow-50">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800">
+                    Please fill in all required fields: name, subject, and HTML
+                    content.
+                  </AlertDescription>
+                </Alert>
               )}
             </CardContent>
           </Card>
@@ -773,8 +810,8 @@ export default function TemplateEditPage({
               <p>• Include all necessary variables</p>
               <p>• Test with preview feature</p>
               <p>• Keep subject lines under 50 characters</p>
-              <p>• Always include approval links</p>
-              <p>• Provide plain text fallback</p>
+              <p>• Always provide plain text fallback</p>
+              <p>• Use HTML for better formatting</p>
             </CardContent>
           </Card>
         </div>

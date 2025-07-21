@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { ArrowLeft, Loader2, Save, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,22 +38,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { getOrderAction } from "@/lib/orders/orders.action";
-
-// Update order schema - focusing on editable fields
-const updateOrderSchema = z.object({
-  status: z.string().min(1, "Status is required"),
-  trackingNumber: z.string().optional(),
-  trackingUrl: z.string().optional(),
-  expectedDelivery: z.string().optional(),
-  notes: z.string().optional(),
-  shippingCarrier: z.string().optional(),
-});
-
-type UpdateOrderDto = z.infer<typeof updateOrderSchema>;
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { useOrder, useUpdateOrder } from "@/hooks/use-orders";
+import { updateOrderSchema, UpdateOrderDto } from "@/lib/orders/dto/orders.dto";
+import { OrderResponse } from "@/lib/orders/types/orders.types";
 
 const ORDER_STATUSES = [
   { value: "PENDING", label: "Pending" },
+  { value: "DESIGN_PENDING", label: "Design Pending" },
+  { value: "DESIGN_APPROVED", label: "Design Approved" },
+  { value: "DESIGN_REJECTED", label: "Design Rejected" },
   { value: "PAYMENT_PENDING", label: "Payment Pending" },
   { value: "PAYMENT_CONFIRMED", label: "Payment Confirmed" },
   { value: "PROCESSING", label: "Processing" },
@@ -65,153 +59,105 @@ const ORDER_STATUSES = [
   { value: "REFUNDED", label: "Refunded" },
 ];
 
-const SHIPPING_CARRIERS = [
-  { value: "ups", label: "UPS" },
-  { value: "fedex", label: "FedEx" },
-  { value: "usps", label: "USPS" },
-  { value: "dhl", label: "DHL" },
-  { value: "amazon", label: "Amazon Logistics" },
-  { value: "other", label: "Other" },
+const URGENCY_LEVELS = [
+  { value: "NORMAL", label: "Normal" },
+  { value: "EXPEDITED", label: "Expedited" },
+  { value: "RUSH", label: "Rush" },
+  { value: "EMERGENCY", label: "Emergency" },
 ];
+
+function EditOrderSkeleton() {
+  return (
+    <div className="container mx-auto py-10 space-y-8">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-10 w-10" />
+        <Skeleton className="h-8 w-64" />
+      </div>
+
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-full max-w-md" />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
 
 export default function EditOrderPage() {
   const router = useRouter();
   const params = useParams();
   const orderId = params.id as string;
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [order, setOrder] = useState<any>(null);
+  const { data: orderResult, isLoading, error } = useOrder(orderId);
+  const updateOrderMutation = useUpdateOrder(orderId);
 
   const form = useForm<UpdateOrderDto>({
     resolver: zodResolver(updateOrderSchema),
     defaultValues: {
-      status: "",
+      status: undefined,
       trackingNumber: "",
       trackingUrl: "",
       expectedDelivery: "",
       notes: "",
-      shippingCarrier: "",
+      urgencyLevel: undefined,
+      expectedProductionDays: undefined,
+      specialInstructions: "",
     },
   });
 
-  // Load order data
+  // Load order data and populate form
   useEffect(() => {
-    const loadOrder = async () => {
-      setIsLoading(true);
-      setError(null);
+    if (orderResult?.success && orderResult.data) {
+      const order = orderResult.data as OrderResponse;
 
-      try {
-        const result = await getOrderAction(orderId);
-
-        if (!result.success) {
-          setError(result.error || "Order not found");
-          return;
-        }
-
-        const orderData = result.data;
-        setOrder(orderData);
-
-        // Populate form with existing data
-        form.reset({
-          status: orderData.status,
-          trackingNumber: orderData.trackingNumber || "",
-          trackingUrl: orderData.trackingUrl || "",
-          expectedDelivery: orderData.expectedDelivery
-            ? new Date(orderData.expectedDelivery).toISOString().split("T")[0]
-            : "",
-          notes: orderData.notes || "",
-          shippingCarrier: orderData.shippingCarrier || "",
-        });
-      } catch (err) {
-        setError("Failed to load order data");
-        console.error("Error loading order:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (orderId) {
-      loadOrder();
+      form.reset({
+        status: order.status as any,
+        trackingNumber: order.trackingNumber || "",
+        trackingUrl: order.trackingUrl || "",
+        expectedDelivery: order.expectedDelivery
+          ? new Date(order.expectedDelivery).toISOString().split("T")[0]
+          : "",
+        notes: order.notes || "",
+        urgencyLevel: order.urgencyLevel as any,
+        expectedProductionDays: order.expectedProductionDays,
+        specialInstructions: order.specialInstructions || "",
+      });
     }
-  }, [orderId, form]);
+  }, [orderResult, form]);
 
   const onSubmit = async (data: UpdateOrderDto) => {
-    setIsSubmitting(true);
-
     try {
-      // Mock update - replace with actual API call
-      console.log("Updating order with data:", data);
-
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // For now, just show success message
-      toast.success("Order updated successfully!", {
-        description: "The order information has been updated.",
-        duration: 3000,
-      });
-
-      router.push(`/admin/orders/${orderId}`);
+      await updateOrderMutation.mutateAsync(data);
+      router.push(`/dashboard/admin/orders/${orderId}`);
     } catch (error) {
+      // Error handling is done in the mutation
       console.error("Error updating order:", error);
-
-      if (error instanceof Error) {
-        if (error.message.includes("not found")) {
-          toast.error("Order Not Found", {
-            description: "The order you're trying to update doesn't exist.",
-            duration: 5000,
-          });
-        } else if (error.message.includes("permission")) {
-          toast.error("Permission Denied", {
-            description: "You don't have permission to update this order.",
-            duration: 5000,
-          });
-        } else if (error.message.includes("status")) {
-          toast.error("Invalid Status Transition", {
-            description: "The status change is not allowed for this order.",
-            duration: 5000,
-          });
-        } else {
-          toast.error("Update Failed", {
-            description: error.message || "An unexpected error occurred.",
-            duration: 5000,
-          });
-        }
-      } else {
-        toast.error("System Error", {
-          description:
-            "A system error occurred. Please try again or contact support.",
-          duration: 5000,
-        });
-      }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   if (isLoading) {
-    return (
-      <div className="container mx-auto py-10">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading order...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <EditOrderSkeleton />;
   }
 
-  if (error) {
+  if (error || !orderResult?.success) {
     return (
       <div className="container mx-auto py-10">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {error}
-            <Link href="/admin/orders" className="ml-2 underline">
+            {error?.message || "Order not found"}
+            <Link href="/dashboard/admin/orders" className="ml-2 underline">
               Return to orders
             </Link>
           </AlertDescription>
@@ -220,30 +166,41 @@ export default function EditOrderPage() {
     );
   }
 
+  const order = orderResult.data as OrderResponse;
+
   return (
     <div className="container mx-auto py-10 space-y-8">
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <Link href={`/admin/orders/${orderId}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Link href={`/dashboard/admin/orders/${orderId}`}>
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
             <h1 className="text-3xl font-bold tracking-tight">
-              Edit Order {order?.orderNumber}
+              Edit Order {order.orderNumber}
             </h1>
           </div>
-          <p className="text-muted-foreground">
-            Update order status and shipping information
-          </p>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">
+              Current Status: {order.status.replace("_", " ")}
+            </Badge>
+            {order.urgencyLevel && order.urgencyLevel !== "NORMAL" && (
+              <Badge variant="destructive">{order.urgencyLevel}</Badge>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
-          <Link href={`/admin/orders/${orderId}`}>
+          <Link href={`/dashboard/admin/orders/${orderId}`}>
             <Button variant="outline">Cancel</Button>
           </Link>
-          <Button onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
-            {isSubmitting ? (
+          <Button
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={updateOrderMutation.isPending}
+          >
+            {updateOrderMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Updating...
@@ -258,76 +215,179 @@ export default function EditOrderPage() {
         </div>
       </div>
 
+      {/* Order Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="font-medium">Total Amount</p>
+              <p className="text-muted-foreground">
+                ${order.totalAmount.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Items</p>
+              <p className="text-muted-foreground">
+                {order.orderItems?.length || 0}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Customer</p>
+              <p className="text-muted-foreground">
+                {order.customerId || "Guest"}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Created</p>
+              <p className="text-muted-foreground">
+                {new Date(order.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Form */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <Tabs defaultValue="status" className="space-y-4">
             <TabsList className="grid grid-cols-3 lg:w-[400px]">
-              <TabsTrigger value="status">Status</TabsTrigger>
+              <TabsTrigger value="status">Status & Details</TabsTrigger>
               <TabsTrigger value="shipping">Shipping</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
+              <TabsTrigger value="notes">Notes & Instructions</TabsTrigger>
             </TabsList>
 
-            {/* Status Tab */}
+            {/* Status & Details Tab */}
             <TabsContent value="status">
               <Card>
                 <CardHeader>
-                  <CardTitle>Order Status</CardTitle>
+                  <CardTitle>Order Status & Details</CardTitle>
                   <CardDescription>
-                    Update the current status of this order.
+                    Update the order status and priority settings.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Current Status</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select order status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {ORDER_STATUSES.map((status) => (
-                              <SelectItem
-                                key={status.value}
-                                value={status.value}
-                              >
-                                {status.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          Update the order status to reflect its current state
-                          in the fulfillment process.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Order Status</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select order status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {ORDER_STATUSES.map((status) => (
+                                <SelectItem
+                                  key={status.value}
+                                  value={status.value}
+                                >
+                                  {status.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Update the order status to reflect its current state
+                            in the fulfillment process.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="expectedDelivery"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Expected Delivery Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          Set the expected delivery date for this order.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="urgencyLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Urgency Level</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select urgency level" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {URGENCY_LEVELS.map((level) => (
+                                <SelectItem
+                                  key={level.value}
+                                  value={level.value}
+                                >
+                                  {level.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Set the priority level for this order.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="expectedDelivery"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Expected Delivery Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Set the expected delivery date for this order.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="expectedProductionDays"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Expected Production Days</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="1"
+                              placeholder="Number of days"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? parseInt(e.target.value)
+                                    : undefined
+                                )
+                              }
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Estimated number of days for production.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -342,41 +402,6 @@ export default function EditOrderPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="shippingCarrier"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Shipping Carrier</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select shipping carrier" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {SHIPPING_CARRIERS.map((carrier) => (
-                              <SelectItem
-                                key={carrier.value}
-                                value={carrier.value}
-                              >
-                                {carrier.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          Select the carrier responsible for shipping this
-                          order.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <FormField
                     control={form.control}
                     name="trackingNumber"
@@ -417,17 +442,32 @@ export default function EditOrderPage() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Display current shipping info */}
+                  {order.shippingAddress && (
+                    <div className="p-4 bg-muted rounded-lg">
+                      <h4 className="font-medium mb-2">
+                        Current Shipping Address
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        Address ID: {order.shippingAddress.id}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        To update the shipping address, please contact support.
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* Notes Tab */}
+            {/* Notes & Instructions Tab */}
             <TabsContent value="notes">
               <Card>
                 <CardHeader>
-                  <CardTitle>Order Notes</CardTitle>
+                  <CardTitle>Notes & Instructions</CardTitle>
                   <CardDescription>
-                    Add or update internal notes for this order.
+                    Add or update notes and special instructions for this order.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -439,8 +479,8 @@ export default function EditOrderPage() {
                         <FormLabel>Internal Notes</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Add any notes about this order..."
-                            className="min-h-[150px]"
+                            placeholder="Add any internal notes about this order..."
+                            className="min-h-[100px]"
                             {...field}
                           />
                         </FormControl>
@@ -452,19 +492,42 @@ export default function EditOrderPage() {
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="specialInstructions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Special Instructions</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Add any special instructions for production..."
+                            className="min-h-[100px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Special instructions for production, handling, or
+                          delivery.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
 
+          {/* Submit Actions */}
           <div className="flex justify-end gap-4">
-            <Link href={`/admin/orders/${orderId}`}>
+            <Link href={`/dashboard/admin/orders/${orderId}`}>
               <Button type="button" variant="outline">
                 Cancel
               </Button>
             </Link>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
+            <Button type="submit" disabled={updateOrderMutation.isPending}>
+              {updateOrderMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Updating...
@@ -479,6 +542,56 @@ export default function EditOrderPage() {
           </div>
         </form>
       </Form>
+
+      {/* Design Approval Quick Actions */}
+      {order.designApprovalRequired && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Design Approval Actions</CardTitle>
+            <CardDescription>
+              Quick actions for managing design approval for this order.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm">
+                  <strong>Status:</strong>{" "}
+                  {order.designApproval?.status || "Not Requested"}
+                </p>
+                {order.designApproval?.requestedAt && (
+                  <p className="text-sm text-muted-foreground">
+                    Requested:{" "}
+                    {new Date(
+                      order.designApproval.requestedAt
+                    ).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {!order.designApproval ? (
+                  <Link
+                    href={`/dashboard/admin/communication/approvals/create?orderId=${order.id}`}
+                  >
+                    <Button variant="outline" size="sm">
+                      Send Approval Request
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/dashboard/admin/communication/approvals/${order.designApproval.id}`}
+                  >
+                    <Button variant="outline" size="sm">
+                      View Approval Details
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

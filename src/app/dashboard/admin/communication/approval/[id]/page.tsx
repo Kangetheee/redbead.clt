@@ -1,5 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState } from "react";
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Edit,
@@ -9,17 +14,16 @@ import {
   XCircle,
   AlertTriangle,
   Mail,
-  Calendar,
   User,
   Package,
   FileText,
-  Download,
   Eye,
-  MoreHorizontal,
   RefreshCw,
   MessageSquare,
-  Badge,
+  Download,
+  Loader2,
 } from "lucide-react";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
@@ -28,95 +32,164 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@radix-ui/react-avatar";
-import { Separator } from "@radix-ui/react-dropdown-menu";
-import { Button } from "react-day-picker";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Mock approval data
-const mockApproval = {
-  id: "1",
-  orderNumber: "ORD-2024-001",
-  orderId: "order-123",
-  status: "PENDING",
-  customerName: "John Doe",
-  customerEmail: "john@example.com",
+// Import TanStack Query hooks
+import {
+  useEmailLog,
+  useEmailLogs,
+  useSendEmail,
+} from "@/hooks/use-communication";
+import { EmailStatus } from "@/lib/communications/dto/email-logs.dto";
+
+interface ApprovalDetailsPageProps {
+  approvalId: string;
+}
+
+interface CommunicationEvent {
+  id: string;
+  type: "EMAIL_SENT" | "EMAIL_OPENED" | "EMAIL_CLICKED" | "EMAIL_BOUNCED";
+  timestamp: string;
+  details: string;
+  recipient: string;
+  metadata?: Record<string, any>;
+}
+
+interface ApprovalData {
+  id: string;
+  orderNumber: string;
+  orderId: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+  customerName: string;
+  customerEmail: string;
   designSummary: {
-    productName: "Custom T-Shirt",
-    quantity: 50,
-    material: "Cotton",
-    text: "Company Logo Design",
-    colors: ["Navy Blue", "White"],
-    dimensions: '12" x 8"',
-    printType: "Screen Print",
-  },
-  previewImages: [
-    "/images/preview1.jpg",
-    "/images/preview2.jpg",
-    "/images/preview3.jpg",
-  ],
-  requestedAt: "2024-01-15T10:00:00Z",
-  expiresAt: "2024-01-18T10:00:00Z",
-  respondedAt: null,
-  approvedBy: null,
-  rejectedBy: null,
-  rejectionReason: null,
-  comments: null,
-  emailsSent: 2,
-  lastEmailSentAt: "2024-01-16T14:30:00Z",
+    productName: string;
+    quantity: number;
+    material: string;
+    text: string;
+    colors: string[];
+    dimensions: string;
+    printType: string;
+  };
+  previewImages: string[];
+  requestedAt: string;
+  expiresAt: string;
+  respondedAt?: string;
+  approvedBy?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
+  comments?: string;
+  emailsSent: number;
+  lastEmailSentAt?: string;
   orderDetails: {
-    totalAmount: 485.0,
-    itemCount: 1,
-    expectedDelivery: "2024-01-25T00:00:00Z",
-  },
-  communicationHistory: [
-    {
-      id: "1",
-      type: "EMAIL_SENT",
-      timestamp: "2024-01-15T10:00:00Z",
-      details: "Initial approval request sent",
-      recipient: "john@example.com",
-    },
-    {
-      id: "2",
-      type: "EMAIL_SENT",
-      timestamp: "2024-01-16T14:30:00Z",
-      details: "Reminder email sent",
-      recipient: "john@example.com",
-    },
-  ],
-};
+    totalAmount: number;
+    itemCount: number;
+    expectedDelivery: string;
+    customer: {
+      name: string;
+      email: string;
+    };
+  };
+}
 
-const formatDistanceToNow = (dateString) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
+function ApprovalDetailsSkeleton() {
+  return (
+    <div className="container mx-auto py-10 space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Skeleton className="h-10 w-10" />
+            <Skeleton className="h-8 w-64" />
+          </div>
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+        <div className="space-y-6">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  if (diffHours < 1) return "just now";
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  return `${diffDays} days ago`;
-};
-
-const getTimeRemaining = (expiresAt) => {
-  const expires = new Date(expiresAt);
-  const now = new Date();
-  const diffMs = expires - now;
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMs <= 0) return "Expired";
-  if (diffHours < 1) return "Less than 1 hour";
-  if (diffHours < 24) return `${diffHours} hours`;
-  return `${diffDays} days, ${diffHours % 24} hours`;
-};
-
-export default function ApprovalDetailsPage() {
+export default function ApprovalDetailsPage({
+  approvalId,
+}: ApprovalDetailsPageProps) {
+  const router = useRouter();
   const [isResending, setIsResending] = useState(false);
 
-  const approval = mockApproval;
+  // TanStack Query hooks
+  const { data: emailLog, isLoading, error, refetch } = useEmailLog(approvalId);
 
-  const getStatusBadge = (status) => {
+  const { data: relatedEmailsData } = useEmailLogs({
+    orderId: emailLog?.orderId,
+    limit: 10,
+  });
+
+  const sendEmailMutation = useSendEmail();
+
+  const relatedEmails = relatedEmailsData?.items || [];
+
+  // Mock function to convert email log to approval data
+  // In real implementation, you'd have a separate approvals API
+  const mockApprovalFromEmailLog = (
+    log: typeof emailLog
+  ): ApprovalData | null => {
+    if (!log) return null;
+
+    return {
+      id: log.id,
+      orderNumber: log.orderId || "N/A",
+      orderId: log.orderId || "",
+      status: log.status === "DELIVERED" ? "PENDING" : "EXPIRED",
+      customerName: log.recipientName || "Unknown Customer",
+      customerEmail: log.recipientEmail,
+      designSummary: {
+        productName: "Custom Product",
+        quantity: 1,
+        material: "Unknown",
+        text: "Design approval request",
+        colors: ["Unknown"],
+        dimensions: "Unknown",
+        printType: "Unknown",
+      },
+      previewImages: [],
+      requestedAt: log.createdAt,
+      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+      emailsSent: relatedEmails.length,
+      lastEmailSentAt: log.sentAt,
+      orderDetails: {
+        totalAmount: 0,
+        itemCount: 1,
+        expectedDelivery: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000
+        ).toISOString(),
+        customer: {
+          name: log.recipientName || "Unknown Customer",
+          email: log.recipientEmail,
+        },
+      },
+    };
+  };
+
+  const approval = mockApprovalFromEmailLog(emailLog);
+
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case "PENDING":
         return (
@@ -151,15 +224,61 @@ export default function ApprovalDetailsPage() {
     }
   };
 
-  const isExpired = new Date(approval.expiresAt) < new Date();
-  const isPending = approval.status === "PENDING" && !isExpired;
+  const getTimeRemaining = (expiresAt: string) => {
+    const expires = new Date(expiresAt);
+    const now = new Date();
+    const diffMs = expires.getTime() - now.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMs <= 0) return "Expired";
+    if (diffHours < 1) return "Less than 1 hour";
+    if (diffHours < 24) return `${diffHours} hours`;
+    return `${diffDays} days, ${diffHours % 24} hours`;
+  };
+
+  const formatDistanceToNow = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 1) return "just now";
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    return `${diffDays} days ago`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const handleResendEmail = async () => {
+    if (!emailLog) return;
+
     setIsResending(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      console.log("Resending approval email");
+      await sendEmailMutation.mutateAsync({
+        templateId: emailLog.templateId,
+        recipientEmail: emailLog.recipientEmail,
+        recipientName: emailLog.recipientName || undefined,
+        variables: {
+          orderNumber: emailLog.orderId || "",
+          customerName: emailLog.recipientName || "",
+        },
+        orderId: emailLog.orderId || undefined,
+        priority: "normal",
+        trackOpens: true,
+        trackClicks: true,
+        tags: ["resend", "design-approval"],
+      });
+      refetch();
     } catch (error) {
       console.error("Error resending email:", error);
     } finally {
@@ -167,25 +286,45 @@ export default function ApprovalDetailsPage() {
     }
   };
 
+  if (isLoading) {
+    return <ApprovalDetailsSkeleton />;
+  }
+
+  if (error || !emailLog || !approval) {
+    return (
+      <div className="container mx-auto py-10">
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            Failed to load approval details. Please check if the approval exists
+            and try again.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const isExpired = new Date(approval.expiresAt) < new Date();
+  const isPending = approval.status === "PENDING" && !isExpired;
+
   return (
     <div className="container mx-auto py-10 space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <a
-              href="/dashboard/admin/communication/approvals"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-gray-100 h-10 w-10"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </a>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/admin/communication/approvals">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Button>
             <h1 className="text-3xl font-bold tracking-tight">
               Design Approval Details
             </h1>
           </div>
           <div className="flex items-center gap-2">
             {getStatusBadge(approval.status)}
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               Order {approval.orderNumber}
             </span>
           </div>
@@ -195,30 +334,32 @@ export default function ApprovalDetailsPage() {
             <Button
               variant="outline"
               onClick={handleResendEmail}
-              disabled={isResending}
+              disabled={isResending || sendEmailMutation.isPending}
             >
-              {isResending ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              {isResending || sendEmailMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Send className="mr-2 h-4 w-4" />
               )}
               Resend Email
             </Button>
           )}
-          <a
-            href={`/dashboard/admin/communication/approvals/${approval.id}/edit`}
-          >
-            <Button variant="outline">
+          <Button variant="outline" asChild>
+            <Link
+              href={`/dashboard/admin/communication/approvals/${approval.id}/edit`}
+            >
               <Edit className="mr-2 h-4 w-4" />
               Edit Settings
+            </Link>
+          </Button>
+          {approval.orderId && (
+            <Button asChild>
+              <Link href={`/dashboard/admin/orders/${approval.orderId}`}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Order
+              </Link>
             </Button>
-          </a>
-          <a href={`/dashboard/admin/orders/${approval.orderId}`}>
-            <Button>
-              <Eye className="mr-2 h-4 w-4" />
-              View Order
-            </Button>
-          </a>
+          )}
         </div>
       </div>
 
@@ -249,7 +390,7 @@ export default function ApprovalDetailsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {approval.previewImages.map((image, index) => (
                     <div key={index} className="relative group">
-                      <div className="aspect-square rounded-lg overflow-hidden border bg-gray-100">
+                      <div className="aspect-square rounded-lg overflow-hidden border bg-muted">
                         <img
                           src={image}
                           alt={`Design preview ${index + 1}`}
@@ -270,7 +411,7 @@ export default function ApprovalDetailsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-600">
+                <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No preview images available</p>
                 </div>
@@ -278,72 +419,93 @@ export default function ApprovalDetailsPage() {
             </CardContent>
           </Card>
 
-          {/* Design Summary */}
+          {/* Email Content */}
           <Card>
             <CardHeader>
-              <CardTitle>Design Summary</CardTitle>
+              <CardTitle>Email Details</CardTitle>
               <CardDescription>
-                Details about the design requiring approval
+                Details about the sent approval email
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-medium mb-1">Product</h4>
-                    <p className="text-sm text-gray-600">
-                      {approval.designSummary.productName}
+                    <h4 className="font-medium mb-1">Template</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {emailLog.templateName}
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-medium mb-1">Quantity</h4>
-                    <p className="text-sm text-gray-600">
-                      {approval.designSummary.quantity} pieces
+                    <h4 className="font-medium mb-1">Subject</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {emailLog.subject}
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-medium mb-1">Material</h4>
-                    <p className="text-sm text-gray-600">
-                      {approval.designSummary.material}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-1">Print Type</h4>
-                    <p className="text-sm text-gray-600">
-                      {approval.designSummary.printType}
-                    </p>
+                    <h4 className="font-medium mb-1">Status</h4>
+                    <Badge
+                      variant={
+                        emailLog.status === "DELIVERED" ? "default" : "outline"
+                      }
+                      className={
+                        emailLog.status === "DELIVERED"
+                          ? "bg-green-100 text-green-800"
+                          : emailLog.status === "FAILED" ||
+                              emailLog.status === "BOUNCED"
+                            ? "bg-red-100 text-red-800"
+                            : ""
+                      }
+                    >
+                      {emailLog.status}
+                    </Badge>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-medium mb-1">Design Text</h4>
-                    <p className="text-sm text-gray-600">
-                      {approval.designSummary.text}
+                    <h4 className="font-medium mb-1">Sent At</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {emailLog.sentAt
+                        ? formatDate(emailLog.sentAt)
+                        : "Not sent"}
                     </p>
                   </div>
-                  <div>
-                    <h4 className="font-medium mb-1">Colors</h4>
-                    <div className="flex gap-1">
-                      {approval.designSummary.colors.map((color, index) => (
-                        <Badge
-                          key={index}
-                          variant="outline"
-                          className="text-xs"
-                        >
-                          {color}
-                        </Badge>
-                      ))}
+                  {emailLog.deliveredAt && (
+                    <div>
+                      <h4 className="font-medium mb-1">Delivered At</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(emailLog.deliveredAt)}
+                      </p>
                     </div>
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-1">Dimensions</h4>
-                    <p className="text-sm text-gray-600">
-                      {approval.designSummary.dimensions}
-                    </p>
-                  </div>
+                  )}
+                  {emailLog.openedAt && (
+                    <div>
+                      <h4 className="font-medium mb-1">Opened At</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(emailLog.openedAt)}
+                      </p>
+                    </div>
+                  )}
+                  {emailLog.clickedAt && (
+                    <div>
+                      <h4 className="font-medium mb-1">Clicked At</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(emailLog.clickedAt)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {emailLog.errorMessage && (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    <strong>Error:</strong> {emailLog.errorMessage}
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
 
@@ -357,9 +519,9 @@ export default function ApprovalDetailsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {approval.communicationHistory.map((event, index) => (
+                {relatedEmails.map((email, index) => (
                   <div
-                    key={event.id}
+                    key={email.id}
                     className="flex items-start gap-3 pb-4 border-b last:border-b-0"
                   >
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100">
@@ -367,20 +529,48 @@ export default function ApprovalDetailsPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm">{event.details}</p>
-                        <span className="text-xs text-gray-600">
-                          {formatDistanceToNow(event.timestamp)}
+                        <p className="font-medium text-sm">
+                          {email.templateName}
+                        </p>
+                        <span className="text-xs text-muted-foreground">
+                          {email.sentAt
+                            ? formatDistanceToNow(email.sentAt)
+                            : "Not sent"}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">
-                        To: {event.recipient}
+                      <p className="text-sm text-muted-foreground">
+                        To: {email.recipientEmail}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {formatDate(event.timestamp)}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            email.status === "DELIVERED"
+                              ? "bg-green-100 text-green-800"
+                              : email.status === "FAILED" ||
+                                  email.status === "BOUNCED"
+                                ? "bg-red-100 text-red-800"
+                                : ""
+                          }`}
+                        >
+                          {email.status}
+                        </Badge>
+                        {email.sentAt && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(email.sentAt)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
+
+                {relatedEmails.length === 0 && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No communication history available</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -398,7 +588,7 @@ export default function ApprovalDetailsPage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     {getStatusBadge(approval.status)}
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-muted-foreground">
                       {approval.respondedAt &&
                         `on ${formatDate(approval.respondedAt)}`}
                     </span>
@@ -407,7 +597,7 @@ export default function ApprovalDetailsPage() {
                   {approval.status === "APPROVED" && approval.approvedBy && (
                     <div>
                       <h4 className="font-medium mb-1">Approved By</h4>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {approval.approvedBy}
                       </p>
                     </div>
@@ -418,7 +608,7 @@ export default function ApprovalDetailsPage() {
                       {approval.rejectedBy && (
                         <div>
                           <h4 className="font-medium mb-1">Rejected By</h4>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             {approval.rejectedBy}
                           </p>
                         </div>
@@ -426,7 +616,7 @@ export default function ApprovalDetailsPage() {
                       {approval.rejectionReason && (
                         <div>
                           <h4 className="font-medium mb-1">Rejection Reason</h4>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             {approval.rejectionReason}
                           </p>
                         </div>
@@ -437,7 +627,7 @@ export default function ApprovalDetailsPage() {
                   {approval.comments && (
                     <div>
                       <h4 className="font-medium mb-1">Comments</h4>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {approval.comments}
                       </p>
                     </div>
@@ -465,7 +655,9 @@ export default function ApprovalDetailsPage() {
                 <div className="flex justify-between">
                   <span className="text-sm">Time Remaining:</span>
                   <span
-                    className={`text-sm font-medium ${isExpired ? "text-red-600" : "text-gray-900"}`}
+                    className={`text-sm font-medium ${
+                      isExpired ? "text-red-600" : "text-foreground"
+                    }`}
                   >
                     {getTimeRemaining(approval.expiresAt)}
                   </span>
@@ -478,12 +670,14 @@ export default function ApprovalDetailsPage() {
                   </span>
                 </div>
 
-                <div className="flex justify-between">
-                  <span className="text-sm">Last Email:</span>
-                  <span className="text-sm text-gray-600">
-                    {formatDistanceToNow(approval.lastEmailSentAt)}
-                  </span>
-                </div>
+                {approval.lastEmailSentAt && (
+                  <div className="flex justify-between">
+                    <span className="text-sm">Last Email:</span>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDistanceToNow(approval.lastEmailSentAt)}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -505,7 +699,7 @@ export default function ApprovalDetailsPage() {
                 </Avatar>
                 <div>
                   <p className="font-medium">{approval.customerName}</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     {approval.customerEmail}
                   </p>
                 </div>
@@ -544,22 +738,29 @@ export default function ApprovalDetailsPage() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <a
-                href={`/dashboard/admin/orders/${approval.orderId}`}
-                className="block"
-              >
-                <Button variant="outline" className="w-full justify-start">
-                  <Package className="mr-2 h-4 w-4" />
-                  View Full Order
+              {approval.orderId && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  asChild
+                >
+                  <Link href={`/dashboard/admin/orders/${approval.orderId}`}>
+                    <Package className="mr-2 h-4 w-4" />
+                    View Full Order
+                  </Link>
                 </Button>
-              </a>
+              )}
 
-              <a href={`mailto:${approval.customerEmail}`} className="block">
-                <Button variant="outline" className="w-full justify-start">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                asChild
+              >
+                <a href={`mailto:${approval.customerEmail}`}>
                   <Mail className="mr-2 h-4 w-4" />
                   Email Customer
-                </Button>
-              </a>
+                </a>
+              </Button>
 
               <Button variant="outline" className="w-full justify-start">
                 <MessageSquare className="mr-2 h-4 w-4" />
@@ -582,20 +783,20 @@ export default function ApprovalDetailsPage() {
               <div className="text-sm space-y-2">
                 <div className="flex justify-between">
                   <span>Requested:</span>
-                  <span className="text-gray-600">
+                  <span className="text-muted-foreground">
                     {formatDate(approval.requestedAt)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Expires:</span>
-                  <span className="text-gray-600">
+                  <span className="text-muted-foreground">
                     {formatDate(approval.expiresAt)}
                   </span>
                 </div>
                 {approval.respondedAt && (
                   <div className="flex justify-between">
                     <span>Responded:</span>
-                    <span className="text-gray-600">
+                    <span className="text-muted-foreground">
                       {formatDate(approval.respondedAt)}
                     </span>
                   </div>

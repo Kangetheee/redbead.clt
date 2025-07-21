@@ -1,29 +1,25 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUpDown,
-  ChevronDown,
   Plus,
   Search,
   Edit,
   Trash2,
   Filter,
   Loader2,
-  AlertCircle,
   Clock,
   CheckCircle,
   AlertTriangle,
   XCircle,
   Mail,
-  Send,
-  Eye,
   RefreshCw,
   MoreHorizontal,
+  Eye,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -71,24 +67,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// Import the real hooks and types
+// Import the TanStack Query hooks
 import {
-  useDesignApprovalStats,
-  useUpdateDesignApproval,
-} from "@/hooks/use-design-approval";
-import { useOrders } from "@/hooks/use-orders";
-import { DesignApproval } from "@/lib/design-approval/types/design-approval.types";
-import { DesignApprovalStatus } from "@/lib/design-approval/enum/design-approval.enum";
+  useEmailLogs,
+  useEmailAnalytics,
+  useSendEmail,
+} from "@/hooks/use-communication";
+import {
+  GetEmailLogsDto,
+  EmailStatus,
+} from "@/lib/communications/dto/email-logs.dto";
 
 interface ApprovalFilters {
   page: number;
   limit: number;
   search: string;
-  status: string;
-  urgency: string;
+  status: EmailStatus | "";
   sortBy: string;
-  sortDirection: string;
+  sortOrder: "asc" | "desc";
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 function ApprovalTableSkeleton() {
@@ -99,12 +99,10 @@ function ApprovalTableSkeleton() {
           <TableRow>
             <TableHead>Order</TableHead>
             <TableHead>Customer</TableHead>
-            <TableHead>Design</TableHead>
+            <TableHead>Template</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Priority</TableHead>
-            <TableHead>Requested</TableHead>
-            <TableHead>Expires</TableHead>
-            <TableHead>Communication</TableHead>
+            <TableHead>Sent</TableHead>
+            <TableHead>Last Activity</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -112,9 +110,7 @@ function ApprovalTableSkeleton() {
           {[...Array(5)].map((_, i) => (
             <TableRow key={i}>
               <TableCell>
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-4 w-20" />
-                </div>
+                <Skeleton className="h-4 w-20" />
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
@@ -129,16 +125,10 @@ function ApprovalTableSkeleton() {
                 <Skeleton className="h-5 w-16" />
               </TableCell>
               <TableCell>
-                <Skeleton className="h-4 w-16" />
-              </TableCell>
-              <TableCell>
                 <Skeleton className="h-4 w-20" />
               </TableCell>
               <TableCell>
                 <Skeleton className="h-4 w-20" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-4 w-16" />
               </TableCell>
               <TableCell className="text-right">
                 <Skeleton className="h-8 w-8 ml-auto" />
@@ -154,107 +144,56 @@ function ApprovalTableSkeleton() {
 export default function ApprovalsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [deleteApprovalId, setDeleteApprovalId] = useState<string | null>(null);
+  const [deleteLogId, setDeleteLogId] = useState<string | null>(null);
 
   // Parse search params with defaults
   const [filters, setFilters] = useState<ApprovalFilters>({
     page: parseInt(searchParams.get("page") || "1"),
-    limit: parseInt(searchParams.get("limit") || "10"),
+    limit: parseInt(searchParams.get("limit") || "20"),
     search: searchParams.get("search") || "",
-    status: searchParams.get("status") || "",
-    urgency: searchParams.get("urgency") || "",
-    sortBy: searchParams.get("sortBy") || "requestedAt",
-    sortDirection: searchParams.get("sortDirection") || "desc",
+    status: (searchParams.get("status") as EmailStatus) || "",
+    sortBy: searchParams.get("sortBy") || "createdAt",
+    sortOrder: (searchParams.get("sortOrder") as "asc" | "desc") || "desc",
+    dateFrom: searchParams.get("dateFrom") || undefined,
+    dateTo: searchParams.get("dateTo") || undefined,
   });
 
-  // Use real hooks for data fetching
-  const { data: statsData, isLoading: statsLoading } = useDesignApprovalStats();
-
-  // Fix: Remove status field and use proper type for designApprovalStatus
+  // Use TanStack Query hooks for data fetching
   const {
-    data: ordersData,
-    isLoading: ordersLoading,
+    data: logsData,
+    isLoading: logsLoading,
+    error: logsError,
     refetch,
-  } = useOrders({
+  } = useEmailLogs({
     page: filters.page,
     limit: filters.limit,
-    search: filters.search || undefined,
-    // Remove this line as it causes type issues: status: filters.status || undefined,
-    // Filter for orders that need design approval - ensure the status is a valid DesignApprovalStatus
-    designApprovalStatus:
-      filters.status &&
-      ["PENDING", "APPROVED", "REJECTED", "EXPIRED"].includes(filters.status)
-        ? (filters.status as DesignApprovalStatus)
-        : undefined,
+    recipientEmail: filters.search || undefined,
+    status: filters.status || undefined,
+    sortBy: filters.sortBy,
+    sortOrder: filters.sortOrder,
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
   });
 
-  const updateApprovalMutation = useUpdateDesignApproval();
+  const { data: analyticsData, isLoading: analyticsLoading } =
+    useEmailAnalytics();
+
+  const sendEmailMutation = useSendEmail();
 
   // Extract data from responses
-  const stats = statsData || {
-    total: 0,
-    pending: 0,
-    overdue: 0,
-    approved: 0,
-    rejected: 0,
+  const logs = logsData?.items || [];
+  const pagination = logsData?.meta;
+
+  const analytics = analyticsData || {
+    totalSent: 0,
+    totalDelivered: 0,
+    totalOpened: 0,
+    totalBounced: 0,
+    deliveryRate: 0,
+    openRate: 0,
   };
 
-  const orders = ordersData?.success ? ordersData.data?.items || [] : [];
-  const pagination = ordersData?.success ? ordersData.data?.meta : null;
-
-  // Convert orders to approvals format for compatibility
-  // Fix: Properly type the conversion and handle potential type mismatches
-  const approvals: DesignApproval[] = useMemo(() => {
-    return orders
-      .filter((order) => order.designApproval)
-      .map((order) => {
-        const orderDesignApproval = order.designApproval!;
-        // Convert order DesignApproval to design-approval DesignApproval format
-        // Use optional chaining and fallbacks for properties that might not exist in orders module
-        return {
-          id: orderDesignApproval.id,
-          orderId: orderDesignApproval.orderId,
-          orderNumber: orderDesignApproval.orderNumber,
-          designId: orderDesignApproval.designId,
-          status: orderDesignApproval.status as DesignApprovalStatus,
-          customerEmail: orderDesignApproval.customerEmail,
-          previewImages: orderDesignApproval.previewImages,
-          designSummary: orderDesignApproval.designSummary,
-          requestedAt: orderDesignApproval.requestedAt,
-          respondedAt: orderDesignApproval.respondedAt,
-          approvedBy: orderDesignApproval.approvedBy,
-          rejectedBy: (orderDesignApproval as any).rejectedBy,
-          rejectionReason: orderDesignApproval.rejectionReason,
-          expiresAt: orderDesignApproval.expiresAt,
-          isExpired: orderDesignApproval.isExpired,
-          canApprove: orderDesignApproval.canApprove,
-          canReject: orderDesignApproval.canReject,
-          timeRemaining: orderDesignApproval.timeRemaining,
-          comments: (orderDesignApproval as any).comments,
-          requestRevision: (orderDesignApproval as any).requestRevision,
-          message: (orderDesignApproval as any).message,
-          orderDetails: (orderDesignApproval as any).orderDetails,
-          metadata: (orderDesignApproval as any).metadata,
-        } as DesignApproval;
-      })
-      .filter((approval) => {
-        // Apply filters
-        if (filters.status && approval.status !== filters.status) return false;
-        if (filters.search) {
-          const searchLower = filters.search.toLowerCase();
-          return (
-            approval.orderNumber.toLowerCase().includes(searchLower) ||
-            approval.customerEmail.toLowerCase().includes(searchLower) ||
-            approval.orderDetails?.customer.name
-              .toLowerCase()
-              .includes(searchLower)
-          );
-        }
-        return true;
-      });
-  }, [orders, filters]);
-
-  const isLoading = ordersLoading || statsLoading;
+  const isLoading = logsLoading || analyticsLoading;
 
   // Update URL when filters change
   useEffect(() => {
@@ -285,20 +224,15 @@ export default function ApprovalsPage() {
 
   // Handle status filter
   const handleStatusFilter = (status: string) => {
-    updateFilters({ status: status === "all" ? "" : status });
-  };
-
-  // Handle urgency filter
-  const handleUrgencyFilter = (urgency: string) => {
-    updateFilters({ urgency: urgency === "all" ? "" : urgency });
+    updateFilters({ status: status === "all" ? "" : (status as EmailStatus) });
   };
 
   // Handle sort
   const handleSort = (sortValue: string) => {
-    const [sortBy, sortDirection] = sortValue.split("-");
+    const [sortBy, sortOrder] = sortValue.split("-");
     updateFilters({
       sortBy: sortBy,
-      sortDirection: sortDirection,
+      sortOrder: sortOrder as "asc" | "desc",
     });
   };
 
@@ -307,25 +241,27 @@ export default function ApprovalsPage() {
     updateFilters({ page });
   };
 
-  // Handle delete
-  const handleDelete = async (approvalId: string) => {
+  // Handle resend email
+  const handleResendEmail = async (logId: string) => {
+    const log = logs.find((l) => l.id === logId);
+    if (!log) return;
+
     try {
-      // Find the order ID for this approval
-      const order = orders.find((o) => o.designApproval?.id === approvalId);
-      if (order) {
-        await updateApprovalMutation.mutateAsync({
-          orderId: order.id,
-          data: { status: "CANCELLED" as DesignApprovalStatus },
-        });
-      }
-      setDeleteApprovalId(null);
-      refetch();
+      await sendEmailMutation.mutateAsync({
+        templateId: log.templateId,
+        recipientEmail: log.recipientEmail,
+        recipientName: log.recipientName,
+        variables: {},
+        orderId: log.orderId,
+        trackOpens: true, // Add required trackOpens property
+        trackClicks: true,
+      });
     } catch (error) {
-      console.error("Error cancelling approval:", error);
+      console.error("Error resending email:", error);
     }
   };
 
-  const getStatusBadge = (status: DesignApprovalStatus) => {
+  const getStatusBadge = (status: EmailStatus) => {
     switch (status) {
       case "PENDING":
         return (
@@ -334,25 +270,40 @@ export default function ApprovalsPage() {
             Pending
           </Badge>
         );
-      case "APPROVED":
+      case "DELIVERED":
         return (
           <Badge className="bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Approved
+            Delivered
           </Badge>
         );
-      case "REJECTED":
+      case "OPENED":
+        return (
+          <Badge className="bg-blue-100 text-blue-800">
+            <Eye className="h-3 w-3 mr-1" />
+            Opened
+          </Badge>
+        );
+      case "CLICKED":
+        return (
+          <Badge className="bg-purple-100 text-purple-800">
+            <Eye className="h-3 w-3 mr-1" />
+            Clicked
+          </Badge>
+        );
+      case "BOUNCED":
+      case "FAILED":
         return (
           <Badge className="bg-red-100 text-red-800">
             <XCircle className="h-3 w-3 mr-1" />
-            Rejected
+            {status === "BOUNCED" ? "Bounced" : "Failed"}
           </Badge>
         );
-      case "EXPIRED":
+      case "SPAM":
         return (
           <Badge className="bg-gray-100 text-gray-800">
             <AlertTriangle className="h-3 w-3 mr-1" />
-            Expired
+            Spam
           </Badge>
         );
       default:
@@ -360,38 +311,18 @@ export default function ApprovalsPage() {
     }
   };
 
-  const getUrgencyBadge = (urgency?: string) => {
-    switch (urgency) {
-      case "EMERGENCY":
-        return (
-          <Badge variant="destructive" className="text-xs">
-            Emergency
-          </Badge>
-        );
-      case "RUSH":
-        return (
-          <Badge className="bg-orange-100 text-orange-800 text-xs">Rush</Badge>
-        );
-      case "EXPEDITED":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-            Expedited
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline" className="text-xs">
-            Normal
-          </Badge>
-        );
-    }
-  };
+  const formatDistanceToNow = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
 
-  // Calculate overdue count
-  const overdueCount = approvals.filter(
-    (approval) =>
-      approval.status === "PENDING" && new Date(approval.expiresAt) < new Date()
-  ).length;
+    if (diffHours < 1) return "just now";
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
 
   if (isLoading) {
     return (
@@ -402,7 +333,7 @@ export default function ApprovalsPage() {
               Design Approvals
             </h1>
             <p className="text-muted-foreground">
-              Manage customer design approval requests
+              Manage customer design approval communications
             </p>
           </div>
           <div className="flex gap-2">
@@ -416,6 +347,26 @@ export default function ApprovalsPage() {
     );
   }
 
+  if (logsError) {
+    return (
+      <div className="container mx-auto py-10">
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            Failed to load approval data. Please try again.
+            <Button
+              variant="link"
+              onClick={() => refetch()}
+              className="ml-2 p-0 h-auto"
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -424,7 +375,7 @@ export default function ApprovalsPage() {
             Design Approvals
           </h1>
           <p className="text-muted-foreground">
-            Manage customer design approval requests
+            Manage customer design approval communications
           </p>
         </div>
         <div className="flex gap-2">
@@ -448,15 +399,15 @@ export default function ApprovalsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Total
+                  Total Sent
                 </p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-2xl font-bold">{analytics.totalSent}</p>
               </div>
               <Mail className="h-8 w-8 text-blue-500" />
             </div>
@@ -468,42 +419,10 @@ export default function ApprovalsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Pending
-                </p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {stats.pending}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Overdue
-                </p>
-                <p className="text-2xl font-bold text-red-600">
-                  {overdueCount}
-                </p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Approved
+                  Delivery Rate
                 </p>
                 <p className="text-2xl font-bold text-green-600">
-                  {stats.approved}
+                  {analytics.deliveryRate}%
                 </p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
@@ -516,44 +435,41 @@ export default function ApprovalsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Rejected
+                  Open Rate
                 </p>
-                <p className="text-2xl font-bold text-gray-600">
-                  {stats.rejected}
+                <p className="text-2xl font-bold text-blue-600">
+                  {analytics.openRate}%
                 </p>
               </div>
-              <XCircle className="h-8 w-8 text-gray-500" />
+              <Eye className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Bounced
+                </p>
+                <p className="text-2xl font-bold text-red-600">
+                  {analytics.totalBounced}
+                </p>
+              </div>
+              <XCircle className="h-8 w-8 text-red-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Critical Alerts */}
-      {overdueCount > 0 && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            <strong>{overdueCount} approvals are overdue</strong> - These
-            require immediate attention to prevent delivery delays.
-            <Button
-              variant="link"
-              size="sm"
-              className="ml-2 text-red-800 p-0 h-auto"
-              onClick={() => handleStatusFilter("PENDING")}
-            >
-              View overdue approvals
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle>Design Approval Requests</CardTitle>
+          <CardTitle>Email Communications</CardTitle>
           <CardDescription>
-            View and manage all design approval requests.
-            {approvals.length > 0 && (
-              <span className="ml-2">Showing {approvals.length} requests</span>
+            View and manage all design approval email communications.
+            {logs.length > 0 && (
+              <span className="ml-2">Showing {logs.length} emails</span>
             )}
           </CardDescription>
         </CardHeader>
@@ -564,7 +480,7 @@ export default function ApprovalsPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search by order number, customer name, or email..."
+                placeholder="Search by recipient email..."
                 className="w-full pl-8"
                 value={filters.search}
                 onChange={(e) => handleSearch(e.target.value)}
@@ -584,14 +500,16 @@ export default function ApprovalsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="APPROVED">Approved</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                  <SelectItem value="EXPIRED">Expired</SelectItem>
+                  <SelectItem value="DELIVERED">Delivered</SelectItem>
+                  <SelectItem value="OPENED">Opened</SelectItem>
+                  <SelectItem value="CLICKED">Clicked</SelectItem>
+                  <SelectItem value="BOUNCED">Bounced</SelectItem>
+                  <SelectItem value="FAILED">Failed</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select
-                value={`${filters.sortBy}-${filters.sortDirection}`}
+                value={`${filters.sortBy}-${filters.sortOrder}`}
                 onValueChange={handleSort}
               >
                 <SelectTrigger className="w-[180px]">
@@ -601,26 +519,28 @@ export default function ApprovalsPage() {
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="requestedAt-desc">Newest First</SelectItem>
-                  <SelectItem value="requestedAt-asc">Oldest First</SelectItem>
-                  <SelectItem value="expiresAt-asc">Expires Soon</SelectItem>
+                  <SelectItem value="createdAt-desc">Newest First</SelectItem>
+                  <SelectItem value="createdAt-asc">Oldest First</SelectItem>
                   <SelectItem value="status-asc">Status</SelectItem>
+                  <SelectItem value="recipientEmail-asc">Recipient</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {approvals.length === 0 ? (
+          {logs.length === 0 ? (
             <div className="text-center py-10">
+              <Mail className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">No emails found</h3>
               <p className="text-muted-foreground mb-4">
                 {filters.search || filters.status
-                  ? "No approvals found matching your criteria"
-                  : "No approval requests found"}
+                  ? "Try adjusting your filters"
+                  : "No approval emails have been sent yet"}
               </p>
               <Link href="/dashboard/admin/communication/approvals/create">
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Send First Approval Request
+                  Send First Approval
                 </Button>
               </Link>
             </div>
@@ -631,105 +551,108 @@ export default function ApprovalsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Order</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Design</TableHead>
+                      <TableHead>Recipient</TableHead>
+                      <TableHead>Template</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Requested</TableHead>
-                      <TableHead>Expires</TableHead>
+                      <TableHead>Sent</TableHead>
+                      <TableHead>Last Activity</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {approvals.map((approval) => (
-                      <TableRow key={approval.id}>
+                    {logs.map((log) => (
+                      <TableRow key={log.id}>
                         {/* Order */}
                         <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
+                          {log.orderId ? (
                             <Link
-                              href={`/dashboard/admin/orders/${approval.orderId}`}
+                              href={`/dashboard/admin/orders/${log.orderId}`}
                               className="hover:underline"
                             >
-                              {approval.orderNumber}
+                              {log.orderId}
                             </Link>
-                          </div>
-                          {approval.orderDetails && (
-                            <div className="text-xs text-muted-foreground">
-                              ${approval.orderDetails.totalAmount.toFixed(2)}
-                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
 
-                        {/* Customer */}
+                        {/* Recipient */}
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="h-6 w-6 relative rounded-full overflow-hidden bg-muted">
-                              <div className="flex h-full w-full items-center justify-center rounded-full bg-gray-100 text-xs">
-                                {approval.orderDetails?.customer.name
-                                  ? approval.orderDetails.customer.name
+                            <Avatar className="h-6 w-6">
+                              <AvatarFallback className="text-xs">
+                                {log.recipientName
+                                  ? log.recipientName
                                       .split(" ")
                                       .map((n) => n[0])
                                       .join("")
-                                  : "U"}
-                              </div>
-                            </div>
+                                  : log.recipientEmail[0].toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
                             <div>
-                              <p className="font-medium text-sm">
-                                {approval.orderDetails?.customer.name ||
-                                  "Unknown Customer"}
-                              </p>
+                              {log.recipientName && (
+                                <p className="font-medium text-sm">
+                                  {log.recipientName}
+                                </p>
+                              )}
                               <p className="text-xs text-muted-foreground">
-                                {approval.customerEmail}
+                                {log.recipientEmail}
                               </p>
                             </div>
                           </div>
                         </TableCell>
 
-                        {/* Design */}
+                        {/* Template */}
                         <TableCell>
                           <div>
                             <p className="font-medium text-sm">
-                              {approval.designSummary.productName}
+                              {log.templateName}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              Qty: {approval.designSummary.quantity}
-                              {approval.designSummary.material &&
-                                ` • ${approval.designSummary.material}`}
+                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                              {log.subject}
                             </p>
                           </div>
                         </TableCell>
 
                         {/* Status */}
-                        <TableCell>{getStatusBadge(approval.status)}</TableCell>
+                        <TableCell>{getStatusBadge(log.status)}</TableCell>
 
-                        {/* Requested */}
+                        {/* Sent */}
                         <TableCell>
                           <div>
                             <p className="text-sm">
-                              {new Date(
-                                approval.requestedAt
-                              ).toLocaleDateString()}
+                              {log.sentAt
+                                ? new Date(log.sentAt).toLocaleDateString()
+                                : "—"}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(
-                                approval.requestedAt
-                              ).toLocaleTimeString()}
-                            </p>
+                            {log.sentAt && (
+                              <p className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(log.sentAt)}
+                              </p>
+                            )}
                           </div>
                         </TableCell>
 
-                        {/* Expires */}
+                        {/* Last Activity */}
                         <TableCell>
                           <div>
-                            <p className="text-sm">
-                              {new Date(
-                                approval.expiresAt
-                              ).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(
-                                approval.expiresAt
-                              ).toLocaleTimeString()}
-                            </p>
+                            {log.openedAt ? (
+                              <p className="text-sm">
+                                Opened {formatDistanceToNow(log.openedAt)}
+                              </p>
+                            ) : log.clickedAt ? (
+                              <p className="text-sm">
+                                Clicked {formatDistanceToNow(log.clickedAt)}
+                              </p>
+                            ) : log.deliveredAt ? (
+                              <p className="text-sm">
+                                Delivered {formatDistanceToNow(log.deliveredAt)}
+                              </p>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">
+                                —
+                              </span>
+                            )}
                           </div>
                         </TableCell>
 
@@ -746,38 +669,27 @@ export default function ApprovalsPage() {
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
                                 <Link
-                                  href={`/dashboard/admin/communication/approvals/${approval.id}`}
+                                  href={`/dashboard/admin/emails/logs/${log.id}`}
                                 >
                                   <Eye className="mr-2 h-4 w-4" />
                                   View details
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link
-                                  href={`/dashboard/admin/communication/approvals/${approval.id}/edit`}
-                                >
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit settings
-                                </Link>
-                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem asChild>
-                                <Link
-                                  href={`/dashboard/admin/orders/${approval.orderId}`}
-                                >
-                                  View order
-                                </Link>
+                              <DropdownMenuItem
+                                onClick={() => handleResendEmail(log.id)}
+                                disabled={sendEmailMutation.isPending}
+                              >
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Resend email
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {approval.status === "PENDING" && (
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onSelect={() =>
-                                    setDeleteApprovalId(approval.id)
-                                  }
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Cancel request
+                              {log.orderId && (
+                                <DropdownMenuItem asChild>
+                                  <Link
+                                    href={`/dashboard/admin/orders/${log.orderId}`}
+                                  >
+                                    View order
+                                  </Link>
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
@@ -788,35 +700,42 @@ export default function ApprovalsPage() {
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Pagination */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {pagination.currentPage} of {pagination.totalPages}{" "}
+                    pages ({pagination.totalItems} total emails)
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage - 1)
+                      }
+                      disabled={pagination.currentPage <= 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage + 1)
+                      }
+                      disabled={pagination.currentPage >= pagination.totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </CardContent>
       </Card>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={!!deleteApprovalId}
-        onOpenChange={() => setDeleteApprovalId(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently cancel the
-              approval request and notify the customer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteApprovalId && handleDelete(deleteApprovalId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Cancel Request
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

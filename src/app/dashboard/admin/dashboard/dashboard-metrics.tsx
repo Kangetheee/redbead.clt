@@ -37,9 +37,11 @@ export default function DashboardMetrics() {
       productsGrowth: 0,
     };
 
-    const orders = ordersData?.data?.data || [];
-    const products = productsData?.data || [];
-    const customers = customersData?.data || [];
+    const orders = Array.isArray(ordersData?.success) ? ordersData.success : [];
+    const products = productsData?.items || [];
+    const customers = Array.isArray(customersData?.items)
+      ? customersData.items
+      : [];
 
     if (
       orders.length === 0 &&

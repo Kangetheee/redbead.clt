@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Mail,
@@ -35,6 +35,13 @@ import {
 } from "@/components/ui/table";
 import { formatDistanceToNow, format } from "date-fns";
 import Link from "next/link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  useEmailAnalytics,
+  useEmailLogs,
+  useEmailTemplates,
+} from "@/hooks/use-communication";
+import { EmailStatus } from "@/lib/communications/dto/email-logs.dto";
 
 // Types
 interface CommunicationStats {
@@ -85,111 +92,135 @@ interface QuickStat {
 
 export default function CommunicationsPage() {
   const router = useRouter();
-  const [stats, setStats] = useState<CommunicationStats | null>(null);
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  // Mock data - replace with actual API calls
-  const mockStats: CommunicationStats = {
-    emails: {
-      totalSent: 2347,
-      deliveryRate: 98.2,
-      openRate: 24.8,
-      clickRate: 12.4,
-      recentSent: 156,
-    },
-    designApprovals: {
-      totalRequests: 184,
-      pending: 23,
-      approved: 142,
-      rejected: 19,
-      overdue: 8,
-    },
-    templates: {
-      total: 12,
-      active: 10,
-      categories: 6,
-    },
-  };
+  // Use the actual hooks to fetch real data
+  const {
+    data: emailAnalytics,
+    isLoading: analyticsLoading,
+    error: analyticsError,
+    refetch: refetchAnalytics,
+  } = useEmailAnalytics();
 
-  const mockRecentActivity: RecentActivity[] = [
-    {
-      id: "1",
-      type: "EMAIL_SENT",
-      title: "Design Approval Request Sent",
-      description: "Order ORD-2024-0156 - Custom T-Shirt Design",
-      timestamp: "2024-01-20T14:30:00.000Z",
-      status: "DELIVERED",
-      recipient: "john.doe@example.com",
-    },
-    {
-      id: "2",
-      type: "APPROVAL_APPROVED",
-      title: "Design Approved",
-      description: "Order ORD-2024-0155 approved by customer",
-      timestamp: "2024-01-20T13:45:00.000Z",
-      recipient: "jane.smith@example.com",
-    },
-    {
-      id: "3",
-      type: "TEMPLATE_CREATED",
-      title: "New Email Template Created",
-      description: "Shipping Notification template added",
-      timestamp: "2024-01-20T11:20:00.000Z",
-    },
-    {
-      id: "4",
-      type: "EMAIL_SENT",
-      title: "Order Confirmation Sent",
-      description: "Order ORD-2024-0157 confirmation email",
-      timestamp: "2024-01-20T10:15:00.000Z",
-      status: "OPENED",
-      recipient: "bob.wilson@example.com",
-    },
-    {
-      id: "5",
-      type: "APPROVAL_REJECTED",
-      title: "Design Revision Requested",
-      description: "Order ORD-2024-0154 - Customer requested changes",
-      timestamp: "2024-01-20T09:30:00.000Z",
-      recipient: "alice.johnson@example.com",
-    },
-  ];
+  const {
+    data: recentEmailLogs,
+    isLoading: logsLoading,
+    error: logsError,
+    refetch: refetchLogs,
+  } = useEmailLogs({
+    page: 1,
+    limit: 10,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+  });
 
-  useEffect(() => {
-    fetchStats();
-    fetchRecentActivity();
-  }, []);
+  const {
+    data: templatesData,
+    isLoading: templatesLoading,
+    error: templatesError,
+    refetch: refetchTemplates,
+  } = useEmailTemplates({
+    page: 1,
+    limit: 100, // Get all templates for counting
+  });
 
-  const fetchStats = async () => {
-    setLoading(true);
-    try {
-      // Replace with actual API calls
-      // const [emailStats, approvalStats, templateStats] = await Promise.all([
-      //   fetch('/api/emails/stats'),
-      //   fetch('/api/design-approvals/stats'),
-      //   fetch('/api/email-templates/stats')
-      // ]);
+  const { data: approvalTemplatesData, isLoading: approvalTemplatesLoading } =
+    useEmailTemplates({
+      category: "DESIGN_APPROVAL_REQUEST",
+      limit: 100,
+    });
 
-      setStats(mockStats);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Calculate design approval stats from email logs
+  const { data: approvalLogs, isLoading: approvalLogsLoading } = useEmailLogs({
+    page: 1,
+    limit: 100,
+    // Filter for approval-related templates if possible
+  });
 
-  const fetchRecentActivity = async () => {
-    try {
-      // Replace with actual API call
-      // const response = await fetch('/api/communications/activity?limit=5');
-      // const data = await response.json();
+  const isLoading =
+    analyticsLoading ||
+    logsLoading ||
+    templatesLoading ||
+    approvalTemplatesLoading ||
+    approvalLogsLoading;
+  const hasError = analyticsError || logsError || templatesError;
 
-      setRecentActivity(mockRecentActivity);
-    } catch (error) {
-      console.error("Error fetching recent activity:", error);
-    }
-  };
+  // Transform real data into component state
+  const stats: CommunicationStats | null = useMemo(() => {
+    if (!emailAnalytics || !templatesData) return null;
+
+    // Calculate recent sent (last 24 hours) from daily stats
+    const today = new Date().toISOString().split("T")[0];
+    const todayStats = emailAnalytics.dailyStats?.find(
+      (stat) => stat.date === today
+    );
+    const recentSent = todayStats?.sent || 0;
+
+    // Calculate design approval stats from approval logs
+    const approvalStats = {
+      totalRequests: approvalLogs?.items?.length || 0,
+      pending:
+        approvalLogs?.items?.filter(
+          (log) => log.status === "PENDING" || log.status === "SENT"
+        )?.length || 0,
+      approved:
+        approvalLogs?.items?.filter(
+          (log) => log.status === "DELIVERED" || log.status === "OPENED"
+        )?.length || 0,
+      rejected:
+        approvalLogs?.items?.filter(
+          (log) => log.status === "FAILED" || log.status === "BOUNCED"
+        )?.length || 0,
+      overdue: 0, // This would need additional logic based on business rules
+    };
+
+    return {
+      emails: {
+        totalSent: emailAnalytics.totalSent,
+        deliveryRate: emailAnalytics.deliveryRate,
+        openRate: emailAnalytics.openRate,
+        clickRate: emailAnalytics.clickRate,
+        recentSent,
+      },
+      designApprovals: approvalStats,
+      templates: {
+        total: templatesData.meta?.totalItems || 0,
+        active: templatesData.items?.filter((t) => t.isActive)?.length || 0,
+        categories:
+          new Set(templatesData.items?.map((t) => t.category)).size || 0,
+      },
+    };
+  }, [emailAnalytics, templatesData, approvalLogs]);
+
+  // Transform email logs into recent activity
+  const recentActivity: RecentActivity[] = useMemo(() => {
+    if (!recentEmailLogs?.items) return [];
+
+    return recentEmailLogs.items.slice(0, 5).map((log) => {
+      let type: RecentActivity["type"] = "EMAIL_SENT";
+      let title = "Email Sent";
+
+      // Determine activity type based on template category or status
+      if (log.templateName?.toLowerCase().includes("approval")) {
+        if (log.status === "DELIVERED" || log.status === "OPENED") {
+          type = "APPROVAL_REQUEST";
+          title = "Design Approval Request Sent";
+        } else if (log.status === "CLICKED") {
+          type = "APPROVAL_APPROVED";
+          title = "Design Approved";
+        }
+      }
+
+      return {
+        id: log.id,
+        type,
+        title,
+        description: `${log.templateName} - ${log.orderId || "Direct Email"}`,
+        timestamp: log.createdAt,
+        status: log.status,
+        recipient: log.recipientEmail,
+      };
+    });
+  }, [recentEmailLogs]);
 
   const getActivityIcon = (type: RecentActivity["type"]) => {
     switch (type) {
@@ -216,6 +247,9 @@ export default function CommunicationsPage() {
       OPENED: { label: "Opened", color: "bg-blue-100 text-blue-800" },
       CLICKED: { label: "Clicked", color: "bg-purple-100 text-purple-800" },
       FAILED: { label: "Failed", color: "bg-red-100 text-red-800" },
+      PENDING: { label: "Pending", color: "bg-yellow-100 text-yellow-800" },
+      SENT: { label: "Sent", color: "bg-blue-100 text-blue-800" },
+      BOUNCED: { label: "Bounced", color: "bg-red-100 text-red-800" },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig];
@@ -224,42 +258,52 @@ export default function CommunicationsPage() {
     return <Badge className={config.color}>{config.label}</Badge>;
   };
 
-  const quickStats: QuickStat[] = [
-    {
-      title: "Emails Sent Today",
-      value: stats?.emails.recentSent.toString() || "0",
-      change: "+12%",
-      trend: "up",
-      icon: Send,
-      color: "text-blue-600",
-    },
-    {
-      title: "Pending Approvals",
-      value: stats?.designApprovals.pending.toString() || "0",
-      change: "-5%",
-      trend: "down",
-      icon: Clock,
-      color: "text-yellow-600",
-    },
-    {
-      title: "Email Open Rate",
-      value: `${stats?.emails.openRate || 0}%`,
-      change: "+2.3%",
-      trend: "up",
-      icon: Eye,
-      color: "text-green-600",
-    },
-    {
-      title: "Overdue Approvals",
-      value: stats?.designApprovals.overdue.toString() || "0",
-      change: stats?.designApprovals.overdue ? "+3" : "0",
-      trend: stats?.designApprovals.overdue ? "up" : "neutral",
-      icon: AlertTriangle,
-      color: "text-red-600",
-    },
-  ];
+  const quickStats: QuickStat[] = useMemo(() => {
+    if (!stats) return [];
 
-  if (loading) {
+    return [
+      {
+        title: "Emails Sent Today",
+        value: stats.emails.recentSent.toString(),
+        change: "+12%", // This could be calculated from comparing with yesterday
+        trend: "up",
+        icon: Send,
+        color: "text-blue-600",
+      },
+      {
+        title: "Pending Approvals",
+        value: stats.designApprovals.pending.toString(),
+        change: "-5%",
+        trend: "down",
+        icon: Clock,
+        color: "text-yellow-600",
+      },
+      {
+        title: "Email Open Rate",
+        value: `${stats.emails.openRate.toFixed(1)}%`,
+        change: "+2.3%",
+        trend: "up",
+        icon: Eye,
+        color: "text-green-600",
+      },
+      {
+        title: "Overdue Approvals",
+        value: stats.designApprovals.overdue.toString(),
+        change: stats.designApprovals.overdue > 0 ? "+3" : "0",
+        trend: stats.designApprovals.overdue > 0 ? "up" : "neutral",
+        icon: AlertTriangle,
+        color: "text-red-600",
+      },
+    ];
+  }, [stats]);
+
+  const handleRefresh = () => {
+    refetchAnalytics();
+    refetchLogs();
+    refetchTemplates();
+  };
+
+  if (isLoading) {
     return (
       <div className="container mx-auto py-10 space-y-8">
         <div className="animate-pulse">
@@ -278,6 +322,26 @@ export default function CommunicationsPage() {
     );
   }
 
+  if (hasError) {
+    return (
+      <div className="container mx-auto py-10">
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            Failed to load communications data. Please try again.
+            <Button
+              variant="link"
+              onClick={handleRefresh}
+              className="ml-2 p-0 h-auto"
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-10 space-y-8">
       {/* Header */}
@@ -290,15 +354,11 @@ export default function CommunicationsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.location.reload()}
-          >
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          <Link href="/dashboard/admin/communication/approvals/create">
+          <Link href="/dashboard/admin/communication/approval/create">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Send Approval
@@ -373,7 +433,7 @@ export default function CommunicationsPage() {
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
-                    {stats?.emails.totalSent.toLocaleString()}
+                    {stats?.emails.totalSent.toLocaleString() || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Total Sent
@@ -381,7 +441,7 @@ export default function CommunicationsPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {stats?.emails.deliveryRate}%
+                    {stats?.emails.deliveryRate.toFixed(1) || 0}%
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Delivery Rate
@@ -389,13 +449,13 @@ export default function CommunicationsPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
-                    {stats?.emails.openRate}%
+                    {stats?.emails.openRate.toFixed(1) || 0}%
                   </div>
                   <div className="text-sm text-muted-foreground">Open Rate</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600">
-                    {stats?.emails.clickRate}%
+                    {stats?.emails.clickRate.toFixed(1) || 0}%
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Click Rate
@@ -423,7 +483,7 @@ export default function CommunicationsPage() {
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold">
-                    {stats?.designApprovals.totalRequests}
+                    {stats?.designApprovals.totalRequests || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Total Requests
@@ -431,30 +491,30 @@ export default function CommunicationsPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-yellow-600">
-                    {stats?.designApprovals.pending}
+                    {stats?.designApprovals.pending || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">Pending</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {stats?.designApprovals.approved}
+                    {stats?.designApprovals.approved || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">Approved</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-red-600">
-                    {stats?.designApprovals.overdue}
+                    {stats?.designApprovals.overdue || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">Overdue</div>
                 </div>
               </div>
 
-              {stats?.designApprovals.overdue > 0 && (
+              {(stats?.designApprovals.overdue ?? 0) > 0 && (
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex items-center gap-2 text-red-800">
                     <AlertTriangle className="h-4 w-4" />
                     <span className="font-medium">
-                      {stats.designApprovals.overdue} approvals are overdue
+                      {stats?.designApprovals.overdue} approvals are overdue
                     </span>
                   </div>
                   <p className="text-sm text-red-700 mt-1">
@@ -494,7 +554,7 @@ export default function CommunicationsPage() {
                     View Email Analytics
                   </Button>
                 </Link>
-                <Link href="/dashboard/admin/communication/templates">
+                <Link href="/dashboard/admin/communication/approval/templates">
                   <Button variant="outline" className="w-full justify-start">
                     <Settings className="mr-2 h-4 w-4" />
                     Manage Templates
@@ -517,32 +577,40 @@ export default function CommunicationsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                      {getActivityIcon(activity.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{activity.title}</p>
-                        {activity.status && getStatusBadge(activity.status)}
+                {recentActivity.length > 0 ? (
+                  recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                        {getActivityIcon(activity.type)}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {activity.description}
-                      </p>
-                      {activity.recipient && (
-                        <p className="text-xs text-muted-foreground">
-                          To: {activity.recipient}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">
+                            {activity.title}
+                          </p>
+                          {activity.status && getStatusBadge(activity.status)}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {activity.description}
                         </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(activity.timestamp), {
-                          addSuffix: true,
-                        })}
-                      </p>
+                        {activity.recipient && (
+                          <p className="text-xs text-muted-foreground">
+                            To: {activity.recipient}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(activity.timestamp), {
+                            addSuffix: true,
+                          })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No recent activity
+                  </p>
+                )}
                 <Button variant="ghost" className="w-full mt-4">
                   View All Activity
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -569,18 +637,20 @@ export default function CommunicationsPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Total Templates:</span>
-                  <span className="font-medium">{stats?.templates.total}</span>
+                  <span className="font-medium">
+                    {stats?.templates.total || 0}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Active:</span>
                   <span className="font-medium text-green-600">
-                    {stats?.templates.active}
+                    {stats?.templates.active || 0}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Categories:</span>
                   <span className="font-medium">
-                    {stats?.templates.categories}
+                    {stats?.templates.categories || 0}
                   </span>
                 </div>
               </div>
