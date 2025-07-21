@@ -90,6 +90,8 @@ interface OrderTimelineProps {
   order: OrderResponse;
   showEstimates?: boolean;
   compact?: boolean;
+  showFilters?: boolean;
+  maxHeight?: string;
 }
 
 export default function OrderTimeline({
