@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -45,8 +45,11 @@ import {
 } from "@/hooks/use-communication";
 import { EmailStatus } from "@/lib/communications/dto/email-logs.dto";
 
-interface ApprovalDetailsPageProps {
-  approvalId: string;
+// Updated interface to match Next.js app router structure
+interface PageProps {
+  params: Promise<{
+    id: string;
+  }>;
 }
 
 interface CommunicationEvent {
@@ -126,14 +129,36 @@ function ApprovalDetailsSkeleton() {
   );
 }
 
-export default function ApprovalDetailsPage({
-  approvalId,
-}: ApprovalDetailsPageProps) {
+export default function ApprovalDetailsPage({ params }: PageProps) {
   const router = useRouter();
+
+  // State to hold the resolved params
+  const [approvalId, setApprovalId] = useState<string>("");
+  const [paramsLoaded, setParamsLoaded] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
-  // TanStack Query hooks
-  const { data: emailLog, isLoading, error, refetch } = useEmailLog(approvalId);
+  // Resolve async params
+  useEffect(() => {
+    const resolveParams = async () => {
+      try {
+        const resolvedParams = await params;
+        setApprovalId(resolvedParams.id);
+        setParamsLoaded(true);
+      } catch (error) {
+        console.error("Error resolving params:", error);
+      }
+    };
+
+    resolveParams();
+  }, [params]);
+
+  // TanStack Query hooks - only run when params are loaded
+  const {
+    data: emailLog,
+    isLoading,
+    error,
+    refetch,
+  } = useEmailLog(approvalId, paramsLoaded);
 
   const { data: relatedEmailsData } = useEmailLogs({
     orderId: emailLog?.orderId,
@@ -285,7 +310,8 @@ export default function ApprovalDetailsPage({
     }
   };
 
-  if (isLoading) {
+  // Show loading skeleton while params are being resolved or data is loading
+  if (!paramsLoaded || isLoading) {
     return <ApprovalDetailsSkeleton />;
   }
 
@@ -345,7 +371,7 @@ export default function ApprovalDetailsPage({
           )}
           <Button variant="outline" asChild>
             <Link
-              href={`/dashboard/admin/communication/approvals/${approval.id}/edit`}
+              href={`/dashboard/admin/communication/approval/${approvalId}/edit`}
             >
               <Edit className="mr-2 h-4 w-4" />
               Edit Settings
@@ -518,7 +544,7 @@ export default function ApprovalDetailsPage({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {relatedEmails.map((email, index) => (
+                {relatedEmails.map((email: any, index: number) => (
                   <div
                     key={email.id}
                     className="flex items-start gap-3 pb-4 border-b last:border-b-0"
