@@ -161,7 +161,7 @@ const NewUserGuidance = ({
       title: "Browse Products",
       description: "Explore our catalog of corporate merchandise",
       action: "Browse Now",
-      href: "/dashboard/customer/browse",
+      href: "/dashboard/customer/products",
       priority: cartItemCount === 0 ? "high" : "medium",
     },
     {
@@ -473,7 +473,7 @@ export default function CustomerDashboardPage() {
               // For new users with empty cart, prioritize browsing
               <>
                 <Button asChild>
-                  <Link href="/dashboard/customer/browse">
+                  <Link href="/dashboard/customer/products">
                     <Package className="h-4 w-4 mr-2" />
                     Start Shopping
                   </Link>
