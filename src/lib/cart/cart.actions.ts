@@ -8,6 +8,9 @@ import { CartService } from "./cart.services";
 
 const cartService = new CartService();
 
+/**
+ * Get the current user's cart with all items and totals
+ */
 export async function getCartAction(): Promise<ActionResponse<CartResponse>> {
   try {
     const res = await cartService.getCart();
@@ -17,6 +20,9 @@ export async function getCartAction(): Promise<ActionResponse<CartResponse>> {
   }
 }
 
+/**
+ * Get a specific cart item by ID
+ */
 export async function getCartItemAction(
   cartItemId: string
 ): Promise<ActionResponse<CartItemResponse>> {
@@ -28,6 +34,9 @@ export async function getCartItemAction(
   }
 }
 
+/**
+ * Add a new item to the cart with template customizations
+ */
 export async function addToCartAction(
   values: CreateCartItemDto
 ): Promise<ActionResponse<CartItemResponse>> {
@@ -39,6 +48,9 @@ export async function addToCartAction(
   }
 }
 
+/**
+ * Update quantity, size variant, or customizations of a specific cart item
+ */
 export async function updateCartItemAction(
   cartItemId: string,
   values: UpdateCartItemDto
@@ -51,6 +63,9 @@ export async function updateCartItemAction(
   }
 }
 
+/**
+ * Remove a specific item from the cart
+ */
 export async function removeCartItemAction(
   cartItemId: string
 ): Promise<ActionResponse<void>> {
@@ -62,6 +77,9 @@ export async function removeCartItemAction(
   }
 }
 
+/**
+ * Remove all items from the current user's cart
+ */
 export async function clearCartAction(): Promise<ActionResponse<void>> {
   try {
     await cartService.clearCart();

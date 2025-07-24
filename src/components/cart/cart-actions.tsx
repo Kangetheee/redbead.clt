@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 "use client";
 
 import { useState } from "react";
@@ -24,7 +22,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Trash2, ShoppingCart, Mail } from "lucide-react";
 import { useClearCart } from "@/hooks/use-cart";
@@ -32,7 +29,6 @@ import { useInitializeCheckout } from "@/hooks/use-checkout";
 import { useUserProfile } from "@/hooks/use-users";
 import { useRouter } from "next/navigation";
 import { CartResponse } from "@/lib/cart/types/cart.types";
-import { toast } from "sonner";
 
 interface CartActionsProps {
   cart: CartResponse;
@@ -129,7 +125,7 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
         size="lg"
       >
         <ShoppingCart className="mr-2 h-5 w-5" />
-        Proceed to Checkout (${cart.summary.total.toFixed(2)})
+        Proceed to Checkout (KES {cart.summary.total.toLocaleString()})
       </Button>
 
       {/* Guest Email Dialog */}
@@ -226,7 +222,7 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
         Continue Shopping
       </Button>
 
-      {/* User Status Indicator (optional) */}
+      {/* User Status Indicator */}
       {!isProfileLoading && (
         <div className="text-center">
           <p className="text-sm text-muted-foreground">

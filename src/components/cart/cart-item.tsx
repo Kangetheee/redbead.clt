@@ -32,8 +32,8 @@ export function CartItem({ item, onEdit }: CartItemProps) {
           {/* Product Image */}
           <div className="relative w-20 h-20 flex-shrink-0">
             <Image
-              src={item.product.thumbnailImage || "/placeholder-product.jpg"}
-              alt={item.product.name}
+              src={item.template.previewImage || "/placeholder-product.jpg"}
+              alt={item.template.name}
               fill
               className="object-cover rounded-md"
             />
@@ -42,8 +42,13 @@ export function CartItem({ item, onEdit }: CartItemProps) {
           {/* Product Details */}
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-sm line-clamp-2">
-              {item.product.name}
+              {item.template.name}
             </h3>
+
+            {/* Size Variant */}
+            <div className="text-xs text-muted-foreground mt-1">
+              Size: {item.sizeVariant.displayName}
+            </div>
 
             {/* Customizations */}
             <div className="mt-2 space-y-1">
@@ -55,7 +60,7 @@ export function CartItem({ item, onEdit }: CartItemProps) {
                   {customization.customValue || customization.value.displayName}
                   {customization.value.priceAdjustment > 0 && (
                     <span className="text-green-600 ml-1">
-                      (+${customization.value.priceAdjustment.toFixed(2)})
+                      (+KES {customization.value.priceAdjustment.toFixed(2)})
                     </span>
                   )}
                 </div>
@@ -72,18 +77,20 @@ export function CartItem({ item, onEdit }: CartItemProps) {
 
           {/* Quantity and Price */}
           <div className="text-right space-y-2">
-            <div className="font-medium">${item.totalPrice.toFixed(2)}</div>
+            <div className="font-medium">
+              KES {item.totalPrice.toLocaleString()}
+            </div>
             <div className="text-xs text-muted-foreground">
-              ${(item.totalPrice / item.quantity).toFixed(2)} each
+              KES {(item.totalPrice / item.quantity).toFixed(2)} each
             </div>
 
             <QuantitySelector
               cartItemId={item.id}
               quantity={item.quantity}
-              minQuantity={item.product.minOrderQuantity}
+              minQuantity={item.template.minOrderQuantity}
               maxQuantity={Math.min(
-                item.product.maxOrderQuantity,
-                item.product.stock
+                item.template.maxOrderQuantity,
+                item.template.stock
               )}
             />
           </div>
@@ -95,6 +102,7 @@ export function CartItem({ item, onEdit }: CartItemProps) {
               size="sm"
               onClick={handleEdit}
               disabled={!onEdit}
+              title="Edit item"
             >
               <Edit className="h-4 w-4" />
             </Button>
@@ -103,6 +111,7 @@ export function CartItem({ item, onEdit }: CartItemProps) {
               size="sm"
               onClick={handleRemove}
               disabled={removeCartItem.isPending}
+              title="Remove item"
             >
               <Trash2 className="h-4 w-4" />
             </Button>

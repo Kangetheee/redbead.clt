@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Minus, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUpdateCartItem } from "@/hooks/use-cart";
-import { useDebounce } from "@/hooks/use-debounce";
 
 interface QuantitySelectorProps {
   cartItemId: string;
@@ -23,49 +22,46 @@ export function QuantitySelector({
   size = "sm",
 }: QuantitySelectorProps) {
   const [quantity, setQuantity] = useState(initialQuantity);
-  const debouncedQuantity = useDebounce(quantity, 500);
   const updateCartItem = useUpdateCartItem();
-
-  // Update quantity when debounced value changes
-  useEffect(() => {
-    if (
-      debouncedQuantity !== initialQuantity &&
-      debouncedQuantity >= minQuantity &&
-      debouncedQuantity <= maxQuantity
-    ) {
-      updateCartItem.mutate({
-        cartItemId,
-        values: { quantity: debouncedQuantity },
-      });
-    }
-  }, [
-    debouncedQuantity,
-    cartItemId,
-    initialQuantity,
-    minQuantity,
-    maxQuantity,
-    updateCartItem,
-  ]);
 
   // Sync with external quantity changes
   useEffect(() => {
     setQuantity(initialQuantity);
   }, [initialQuantity]);
 
+  const updateQuantity = (newQuantity: number) => {
+    if (
+      newQuantity !== initialQuantity &&
+      newQuantity >= minQuantity &&
+      newQuantity <= maxQuantity
+    ) {
+      updateCartItem.mutate({
+        cartItemId,
+        values: { quantity: newQuantity },
+      });
+    }
+  };
+
   const handleDecrease = () => {
     const newQuantity = Math.max(minQuantity, quantity - 1);
     setQuantity(newQuantity);
+    updateQuantity(newQuantity);
   };
 
   const handleIncrease = () => {
     const newQuantity = Math.min(maxQuantity, quantity + 1);
     setQuantity(newQuantity);
+    updateQuantity(newQuantity);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value) || minQuantity;
     const clampedValue = Math.max(minQuantity, Math.min(maxQuantity, value));
     setQuantity(clampedValue);
+  };
+
+  const handleInputBlur = () => {
+    updateQuantity(quantity);
   };
 
   const buttonSize =
@@ -88,6 +84,7 @@ export function QuantitySelector({
         type="number"
         value={quantity}
         onChange={handleInputChange}
+        onBlur={handleInputBlur}
         className={`w-16 text-center ${inputSize}`}
         min={minQuantity}
         max={maxQuantity}
