@@ -3,101 +3,100 @@
 import { getErrorMessage } from "../get-error-message";
 import { ActionResponse, PaginatedData } from "../shared/types";
 import {
-  CreateProductDto,
-  UpdateProductDto,
-  GetProductsDto,
-  PriceCalculationDto,
+  CreateProductTypeDto,
+  UpdateProductTypeDto,
+  GetProductTypesDto,
+  GetProductTypesByCategoryDto,
 } from "./dto/products.dto";
-import { ProductResponse, PriceBreakdown } from "./types/products.types";
-import { ProductService } from "./products.service";
+import { ProductTypeResponse } from "./types/products.types";
+import { ProductTypeService } from "./products.service";
 
-const productService = new ProductService();
+const productTypeService = new ProductTypeService();
 
-export async function getProductsAction(
-  params?: GetProductsDto
-): Promise<ActionResponse<PaginatedData<ProductResponse>>> {
+export async function getProductTypesAction(
+  params?: GetProductTypesDto
+): Promise<ActionResponse<PaginatedData<ProductTypeResponse>>> {
   try {
-    const res = await productService.findAll(params);
+    const res = await productTypeService.findAll(params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getFeaturedProductsAction(
+export async function getFeaturedProductTypesAction(
   limit?: number
-): Promise<ActionResponse<ProductResponse[]>> {
+): Promise<ActionResponse<ProductTypeResponse[]>> {
   try {
-    const res = await productService.findFeatured(limit);
+    const res = await productTypeService.findFeatured(limit);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getProductAction(
-  productId: string
-): Promise<ActionResponse<ProductResponse>> {
+export async function getProductTypeAction(
+  productTypeId: string
+): Promise<ActionResponse<ProductTypeResponse>> {
   try {
-    const res = await productService.findById(productId);
+    const res = await productTypeService.findById(productTypeId);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getProductBySlugAction(
+export async function getProductTypeBySlugAction(
   slug: string
-): Promise<ActionResponse<ProductResponse>> {
+): Promise<ActionResponse<ProductTypeResponse>> {
   try {
-    const res = await productService.findBySlug(slug);
+    const res = await productTypeService.findBySlug(slug);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function createProductAction(
-  values: CreateProductDto
-): Promise<ActionResponse<ProductResponse>> {
+export async function getProductTypesByCategoryAction(
+  params: GetProductTypesByCategoryDto
+): Promise<ActionResponse<PaginatedData<ProductTypeResponse>>> {
   try {
-    const res = await productService.create(values);
+    const res = await productTypeService.findByCategory(params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function updateProductAction(
-  productId: string,
-  values: UpdateProductDto
-): Promise<ActionResponse<ProductResponse>> {
+export async function createProductTypeAction(
+  values: CreateProductTypeDto
+): Promise<ActionResponse<ProductTypeResponse>> {
   try {
-    const res = await productService.update(productId, values);
+    const res = await productTypeService.create(values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function deleteProductAction(
-  productId: string
+export async function updateProductTypeAction(
+  productTypeId: string,
+  values: UpdateProductTypeDto
+): Promise<ActionResponse<ProductTypeResponse>> {
+  try {
+    const res = await productTypeService.update(productTypeId, values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function deleteProductTypeAction(
+  productTypeId: string
 ): Promise<ActionResponse<void>> {
   try {
-    await productService.delete(productId);
+    await productTypeService.delete(productTypeId);
     return { success: true, data: undefined };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function calculateProductPriceAction(
-  productId: string,
-  values: PriceCalculationDto
-): Promise<ActionResponse<PriceBreakdown>> {
-  try {
-    const res = await productService.calculatePrice(productId, values);
-    return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }

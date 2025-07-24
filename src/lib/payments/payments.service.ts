@@ -11,11 +11,14 @@ import {
 export class PaymentsService {
   constructor(private fetcher = new Fetcher()) {}
 
-  public async getPaymentMethods() {
+  public async getPaymentMethods(): Promise<PaymentMethod[]> {
     return this.fetcher.request<PaymentMethod[]>("/v1/payments/methods");
   }
 
-  public async initiatePayment(orderId: string, values?: InitiatePaymentDto) {
+  public async initiatePayment(
+    orderId: string,
+    values?: InitiatePaymentDto
+  ): Promise<PaymentInitiationResponse> {
     return this.fetcher.request<PaymentInitiationResponse>(
       `/v1/payments/initiate/${orderId}`,
       {
@@ -25,17 +28,20 @@ export class PaymentsService {
     );
   }
 
-  public async getPaymentStatus(orderId: string) {
+  public async getPaymentStatus(orderId: string): Promise<PaymentStatus> {
     return this.fetcher.request<PaymentStatus>(
       `/v1/payments/status/${orderId}`
     );
   }
 
-  public async getPaymentDetails(orderId: string) {
+  public async getPaymentDetails(orderId: string): Promise<PaymentDetails> {
     return this.fetcher.request<PaymentDetails>(`/v1/payments/${orderId}`);
   }
 
-  public async initiateRefund(orderId: string, values: RefundRequestDto) {
+  public async initiateRefund(
+    orderId: string,
+    values: RefundRequestDto
+  ): Promise<RefundResponse> {
     return this.fetcher.request<RefundResponse>(
       `/v1/payments/refund/${orderId}`,
       {
@@ -45,8 +51,7 @@ export class PaymentsService {
     );
   }
 
-  // Webhook handling (for internal use)
-  public async handleSqroolCallback(callbackData: object) {
+  public async handleSqroolCallback(callbackData: object): Promise<void> {
     return this.fetcher.request<void>("/v1/payments/callbacks/sqrool", {
       method: "POST",
       data: callbackData,

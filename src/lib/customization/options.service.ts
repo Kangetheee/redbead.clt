@@ -4,20 +4,28 @@ import {
   CreateCustomizationOptionDto,
   UpdateCustomizationOptionDto,
   GetCustomizationOptionsDto,
+  AssignOptionToTemplateDto,
   CreateCustomizationValueDto,
   UpdateCustomizationValueDto,
   GetCustomizationValuesDto,
+  CalculatePriceAdjustmentDto,
+  ValidateCustomizationsDto,
+  GetCustomizationValueStatsDto,
 } from "@/lib/customization/dto/options.dto";
 import {
   CustomizationOption,
   CustomizationOptionDetail,
   CustomizationValue,
+  CustomizationValueStats,
+  PriceAdjustmentResult,
+  CustomizationValidationResult,
 } from "@/lib/customization/types/options.types";
 
 export class CustomizationOptionsService {
   constructor(private fetcher = new Fetcher()) {}
 
-  // Customization Options
+  // ===== Customization Options =====
+
   public async findAllOptions(params?: GetCustomizationOptionsDto) {
     const queryParams = new URLSearchParams();
 
@@ -46,12 +54,6 @@ export class CustomizationOptionsService {
     );
   }
 
-  public async findOptionsByCategory(categoryId: string) {
-    return this.fetcher.request<CustomizationOption[]>(
-      `/v1/customization-options/category/${categoryId}`
-    );
-  }
-
   public async createOption(values: CreateCustomizationOptionDto) {
     return this.fetcher.request<CustomizationOptionDetail>(
       "/v1/customization-options",
@@ -76,15 +78,35 @@ export class CustomizationOptionsService {
   }
 
   public async deleteOption(optionId: string) {
-    return this.fetcher.request<{ message: string }>(
-      `/v1/customization-options/${optionId}`,
+    return this.fetcher.request<void>(`/v1/customization-options/${optionId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async assignOptionToTemplate(
+    optionId: string,
+    values: AssignOptionToTemplateDto
+  ) {
+    return this.fetcher.request<void>(
+      `/v1/customization-options/${optionId}/assign-to-template`,
+      {
+        method: "POST",
+        data: values,
+      }
+    );
+  }
+
+  public async removeOptionFromTemplate(optionId: string, templateId: string) {
+    return this.fetcher.request<void>(
+      `/v1/customization-options/${optionId}/remove-from-template/${templateId}`,
       {
         method: "DELETE",
       }
     );
   }
 
-  // Customization Values
+  // ===== Customization Values =====
+
   public async findAllValues(params?: GetCustomizationValuesDto) {
     const queryParams = new URLSearchParams();
 
@@ -116,6 +138,54 @@ export class CustomizationOptionsService {
     );
   }
 
+  public async findValuesByOption(optionId: string) {
+    return this.fetcher.request<CustomizationValue[]>(
+      `/v1/customization-values/by-option/${optionId}`
+    );
+  }
+
+  public async findValuesByTemplate(templateId: string) {
+    return this.fetcher.request<CustomizationValue[]>(
+      `/v1/customization-values/by-template/${templateId}`
+    );
+  }
+
+  public async getValueStats(params?: GetCustomizationValueStatsDto) {
+    const queryParams = new URLSearchParams();
+
+    if (params?.optionId) {
+      queryParams.append("optionId", params.optionId);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/v1/customization-values/stats${queryString ? `?${queryString}` : ""}`;
+
+    return this.fetcher.request<CustomizationValueStats>(url);
+  }
+
+  public async calculatePriceAdjustment(values: CalculatePriceAdjustmentDto) {
+    return this.fetcher.request<PriceAdjustmentResult>(
+      "/v1/customization-values/calculate-price-adjustment",
+      {
+        method: "POST",
+        data: values,
+      }
+    );
+  }
+
+  public async validateCustomizations(
+    templateId: string,
+    values: ValidateCustomizationsDto
+  ) {
+    return this.fetcher.request<CustomizationValidationResult>(
+      `/v1/customization-values/validate-customizations/${templateId}`,
+      {
+        method: "POST",
+        data: values,
+      }
+    );
+  }
+
   public async createValue(values: CreateCustomizationValueDto) {
     return this.fetcher.request<CustomizationValue>(
       "/v1/customization-values",
@@ -140,10 +210,16 @@ export class CustomizationOptionsService {
   }
 
   public async deleteValue(valueId: string) {
-    return this.fetcher.request<{ message: string }>(
-      `/v1/customization-values/${valueId}`,
+    return this.fetcher.request<void>(`/v1/customization-values/${valueId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async restoreValue(valueId: string) {
+    return this.fetcher.request<CustomizationValue>(
+      `/v1/customization-values/${valueId}/restore`,
       {
-        method: "DELETE",
+        method: "PATCH",
       }
     );
   }

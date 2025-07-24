@@ -1,148 +1,152 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  getProductsAction,
-  getFeaturedProductsAction,
-  getProductAction,
-  getProductBySlugAction,
-  createProductAction,
-  updateProductAction,
-  deleteProductAction,
-  calculateProductPriceAction,
+  getProductTypesAction,
+  getFeaturedProductTypesAction,
+  getProductTypeAction,
+  getProductTypeBySlugAction,
+  getProductTypesByCategoryAction,
+  createProductTypeAction,
+  updateProductTypeAction,
+  deleteProductTypeAction,
 } from "@/lib/products/products.actions";
 import {
-  CreateProductDto,
-  UpdateProductDto,
-  GetProductsDto,
-  PriceCalculationDto,
+  CreateProductTypeDto,
+  UpdateProductTypeDto,
+  GetProductTypesDto,
+  GetProductTypesByCategoryDto,
 } from "@/lib/products/dto/products.dto";
 
 // Query Keys
-export const productKeys = {
-  all: ["products"] as const,
-  lists: () => [...productKeys.all, "list"] as const,
-  list: (params?: GetProductsDto) => [...productKeys.lists(), params] as const,
+export const productTypeKeys = {
+  all: ["product-types"] as const,
+  lists: () => [...productTypeKeys.all, "list"] as const,
+  list: (params?: GetProductTypesDto) =>
+    [...productTypeKeys.lists(), params] as const,
   featured: (limit?: number) =>
-    [...productKeys.all, "featured", limit] as const,
-  details: () => [...productKeys.all, "detail"] as const,
-  detail: (id: string) => [...productKeys.details(), id] as const,
-  bySlug: (slug: string) => [...productKeys.all, "slug", slug] as const,
-  priceCalculation: (productId: string, params: PriceCalculationDto) =>
-    [...productKeys.all, "price", productId, params] as const,
+    [...productTypeKeys.all, "featured", limit] as const,
+  byCategory: (params: GetProductTypesByCategoryDto) =>
+    [...productTypeKeys.all, "category", params] as const,
+  details: () => [...productTypeKeys.all, "detail"] as const,
+  detail: (id: string) => [...productTypeKeys.details(), id] as const,
+  bySlug: (slug: string) => [...productTypeKeys.all, "slug", slug] as const,
 };
 
 // Queries
-export function useProducts(params?: GetProductsDto) {
+export function useProductTypes(params?: GetProductTypesDto) {
   return useQuery({
-    queryKey: productKeys.list(params),
-    queryFn: () => getProductsAction(params),
+    queryKey: productTypeKeys.list(params),
+    queryFn: () => getProductTypesAction(params),
     select: (data) => (data.success ? data.data : undefined),
   });
 }
 
-export function useFeaturedProducts(limit?: number) {
+export function useFeaturedProductTypes(limit?: number) {
   return useQuery({
-    queryKey: productKeys.featured(limit),
-    queryFn: () => getFeaturedProductsAction(limit),
+    queryKey: productTypeKeys.featured(limit),
+    queryFn: () => getFeaturedProductTypesAction(limit),
     select: (data) => (data.success ? data.data : undefined),
   });
 }
 
-export function useProduct(productId: string, enabled = true) {
+export function useProductType(productTypeId: string, enabled = true) {
   return useQuery({
-    queryKey: productKeys.detail(productId),
-    queryFn: () => getProductAction(productId),
+    queryKey: productTypeKeys.detail(productTypeId),
+    queryFn: () => getProductTypeAction(productTypeId),
     select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!productId,
+    enabled: enabled && !!productTypeId,
   });
 }
 
-export function useProductBySlug(slug: string, enabled = true) {
+export function useProductTypeBySlug(slug: string, enabled = true) {
   return useQuery({
-    queryKey: productKeys.bySlug(slug),
-    queryFn: () => getProductBySlugAction(slug),
+    queryKey: productTypeKeys.bySlug(slug),
+    queryFn: () => getProductTypeBySlugAction(slug),
     select: (data) => (data.success ? data.data : undefined),
     enabled: enabled && !!slug,
   });
 }
 
-export function useProductPriceCalculation(
-  productId: string,
-  params: PriceCalculationDto,
+export function useProductTypesByCategory(
+  params: GetProductTypesByCategoryDto,
   enabled = true
 ) {
   return useQuery({
-    queryKey: productKeys.priceCalculation(productId, params),
-    queryFn: () => calculateProductPriceAction(productId, params),
+    queryKey: productTypeKeys.byCategory(params),
+    queryFn: () => getProductTypesByCategoryAction(params),
     select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!productId && params.quantity > 0,
+    enabled: enabled && !!params.categoryId,
   });
 }
 
 // Mutations
-export function useCreateProduct() {
+export function useCreateProductType() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (values: CreateProductDto) => createProductAction(values),
+    mutationFn: (values: CreateProductTypeDto) =>
+      createProductTypeAction(values),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success("Product created successfully");
-        queryClient.invalidateQueries({ queryKey: productKeys.all });
+        toast.success("Product type created successfully");
+        queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
       } else {
         toast.error(data.error);
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create product");
+      toast.error(error.message || "Failed to create product type");
     },
   });
 }
 
-export function useUpdateProduct() {
+export function useUpdateProductType() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
-      productId,
+      productTypeId,
       values,
     }: {
-      productId: string;
-      values: UpdateProductDto;
-    }) => updateProductAction(productId, values),
+      productTypeId: string;
+      values: UpdateProductTypeDto;
+    }) => updateProductTypeAction(productTypeId, values),
     onSuccess: (data, variables) => {
       if (data.success) {
-        toast.success("Product updated successfully");
-        queryClient.invalidateQueries({ queryKey: productKeys.all });
+        toast.success("Product type updated successfully");
+        queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
         queryClient.invalidateQueries({
-          queryKey: productKeys.detail(variables.productId),
+          queryKey: productTypeKeys.detail(variables.productTypeId),
         });
       } else {
         toast.error(data.error);
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to update product");
+      toast.error(error.message || "Failed to update product type");
     },
   });
 }
 
-export function useDeleteProduct() {
+export function useDeleteProductType() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (productId: string) => deleteProductAction(productId),
-    onSuccess: (data, productId) => {
+    mutationFn: (productTypeId: string) =>
+      deleteProductTypeAction(productTypeId),
+    onSuccess: (data, productTypeId) => {
       if (data.success) {
-        toast.success("Product deleted successfully");
-        queryClient.invalidateQueries({ queryKey: productKeys.all });
-        queryClient.removeQueries({ queryKey: productKeys.detail(productId) });
+        toast.success("Product type deleted successfully");
+        queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
+        queryClient.removeQueries({
+          queryKey: productTypeKeys.detail(productTypeId),
+        });
       } else {
         toast.error(data.error);
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to delete product");
+      toast.error(error.message || "Failed to delete product type");
     },
   });
 }

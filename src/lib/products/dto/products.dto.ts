@@ -1,12 +1,9 @@
-import { z } from "zod";
-import {
-  requiredFloatSchema,
-  requiredNumberSchema,
-  floatSchema,
-  numberSchema,
-} from "@/lib/shared/common.dto";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
-export const createProductSchema = z.object({
+import { z } from "zod";
+import { requiredNumberSchema, numberSchema } from "@/lib/shared/common.dto";
+
+export const createProductTypeSchema = z.object({
   name: z.string().min(1, "Name is required").max(255, "Name too long"),
   slug: z
     .string()
@@ -16,33 +13,23 @@ export const createProductSchema = z.object({
       "Slug must only contain lowercase letters, numbers, and hyphens"
     ),
   description: z.string().min(1, "Description is required"),
-  basePrice: requiredFloatSchema.transform((val) => parseFloat(val)),
-  sku: z.string().optional(),
-  stock: requiredNumberSchema.transform((val) => parseInt(val)),
+  type: z.string().min(1, "Type is required"),
+  material: z.string().min(1, "Material is required"),
+  categoryId: z.string().min(1, "Category is required"),
   images: z
     .array(z.string().url("Invalid image URL"))
     .min(1, "At least one image is required"),
   thumbnailImage: z.string().url("Invalid thumbnail URL").optional(),
-  minOrderQuantity: requiredNumberSchema.transform((val) => parseInt(val)),
-  maxOrderQuantity: numberSchema
-    .transform((val) => (val ? parseInt(val) : undefined))
-    .optional(),
-  customizableAreas: z.object({}).optional(),
+  isActive: z.boolean().default(true),
+  isFeatured: z.boolean().default(false),
   metaTitle: z.string().max(200, "Meta title too long").optional(),
   metaDescription: z.string().max(500, "Meta description too long").optional(),
-  isFeatured: z.boolean().default(false),
-  isActive: z.boolean().default(true),
-  categoryId: z.string().min(1, "Category is required"),
-  templateId: z.string().optional(),
-  weight: floatSchema
-    .transform((val) => (val ? parseFloat(val) : undefined))
-    .optional(),
-  dimensions: z.object({}).optional(),
+  sortOrder: z.number().int().min(0).default(0),
 });
 
-export type CreateProductDto = z.infer<typeof createProductSchema>;
+export type CreateProductTypeDto = z.infer<typeof createProductTypeSchema>;
 
-export const updateProductSchema = z.object({
+export const updateProductTypeSchema = z.object({
   name: z
     .string()
     .min(1, "Name is required")
@@ -57,60 +44,48 @@ export const updateProductSchema = z.object({
     )
     .optional(),
   description: z.string().min(1, "Description is required").optional(),
-  basePrice: floatSchema
-    .transform((val) => (val ? parseFloat(val) : undefined))
-    .optional(),
-  sku: z.string().optional(),
-  stock: numberSchema
-    .transform((val) => (val ? parseInt(val) : undefined))
-    .optional(),
+  type: z.string().min(1, "Type is required").optional(),
+  material: z.string().min(1, "Material is required").optional(),
+  categoryId: z.string().min(1, "Category is required").optional(),
   images: z.array(z.string().url("Invalid image URL")).optional(),
   thumbnailImage: z.string().url("Invalid thumbnail URL").optional(),
-  minOrderQuantity: numberSchema
-    .transform((val) => (val ? parseInt(val) : undefined))
-    .optional(),
-  maxOrderQuantity: numberSchema
-    .transform((val) => (val ? parseInt(val) : undefined))
-    .optional(),
-  customizableAreas: z.object({}).optional(),
+  isActive: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
   metaTitle: z.string().max(200, "Meta title too long").optional(),
   metaDescription: z.string().max(500, "Meta description too long").optional(),
-  isFeatured: z.boolean().optional(),
-  isActive: z.boolean().optional(),
-  categoryId: z.string().optional(),
-  templateId: z.string().optional(),
-  weight: floatSchema
-    .transform((val) => (val ? parseFloat(val) : undefined))
-    .optional(),
-  dimensions: z.object({}).optional(),
+  sortOrder: z.number().int().min(0).optional(),
 });
 
-export type UpdateProductDto = z.infer<typeof updateProductSchema>;
+export type UpdateProductTypeDto = z.infer<typeof updateProductTypeSchema>;
 
-export const getProductsSchema = z.object({
+export const getProductTypesSchema = z.object({
   page: z.number().min(1).optional(),
   limit: z.number().min(1).max(100).optional(),
   categoryId: z.string().optional(),
-  minPrice: z.number().min(0).optional(),
-  maxPrice: z.number().min(0).optional(),
   search: z.string().optional(),
+  type: z.string().optional(),
+  material: z.string().optional(),
   isFeatured: z.boolean().optional(),
   isActive: z.boolean().optional(),
-  templateId: z.string().optional(),
-  sortBy: z.enum(["price", "name", "createdAt", "popularity"]).optional(),
+  sortBy: z.enum(["name", "createdAt", "sortOrder"]).optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 
-export type GetProductsDto = z.infer<typeof getProductsSchema>;
+export type GetProductTypesDto = z.infer<typeof getProductTypesSchema>;
 
-export const priceCalculationSchema = z.object({
-  quantity: requiredNumberSchema.transform((val) => parseInt(val)),
-  customizations: z.object({}).optional(),
-  selectedDimensions: z.object({}).optional(),
-  selectedMaterials: z.object({}).optional(),
-  urgencyLevel: z
-    .enum(["NORMAL", "EXPEDITED", "RUSH", "EMERGENCY"])
-    .default("NORMAL"),
+export const getProductTypesByCategorySchema = z.object({
+  categoryId: z.string().min(1, "Category ID is required"),
+  page: z.number().min(1).optional(),
+  limit: z.number().min(1).max(100).optional(),
+  search: z.string().optional(),
+  type: z.string().optional(),
+  material: z.string().optional(),
+  isFeatured: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  sortBy: z.enum(["name", "createdAt", "sortOrder"]).optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 
-export type PriceCalculationDto = z.infer<typeof priceCalculationSchema>;
+export type GetProductTypesByCategoryDto = z.infer<
+  typeof getProductTypesByCategorySchema
+>;

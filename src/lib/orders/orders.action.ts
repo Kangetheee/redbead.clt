@@ -10,15 +10,28 @@ import {
   CreateOrderNoteDto,
   RequestDesignApprovalDto,
   UpdateDesignApprovalDto,
+  UpdateOrderItemStatusDto,
+  BulkUpdateOrderItemStatusDto,
+  CalculateTimelineDto,
 } from "./dto/orders.dto";
-import { OrderResponse, OrderNote, DesignApproval } from "./types/orders.types";
+import {
+  OrderResponse,
+  OrderListItem,
+  OrderNote,
+  DesignApproval,
+  OrderItem,
+  PaymentStatus,
+  ProductionRequirements,
+  TimelineCalculation,
+} from "./types/orders.types";
 import { OrderService } from "./orders.service";
 
 const orderService = new OrderService();
 
+// Orders CRUD actions
 export async function getOrdersAction(
   params?: GetOrdersDto
-): Promise<ActionResponse<PaginatedData<OrderResponse>>> {
+): Promise<ActionResponse<PaginatedData<OrderListItem>>> {
   try {
     const res = await orderService.findAll(params);
     return { success: true, data: res };
@@ -73,6 +86,7 @@ export async function updateOrderStatusAction(
   }
 }
 
+// Order notes actions
 export async function getOrderNotesAction(
   orderId: string
 ): Promise<ActionResponse<OrderNote[]>> {
@@ -96,6 +110,7 @@ export async function addOrderNoteAction(
   }
 }
 
+// Design approval actions
 export async function requestDesignApprovalAction(
   orderId: string,
   values: RequestDesignApprovalDto
@@ -125,6 +140,100 @@ export async function updateDesignApprovalAction(
 ): Promise<ActionResponse<DesignApproval>> {
   try {
     const res = await orderService.updateDesignApproval(orderId, values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function completeDesignApprovalAction(
+  orderId: string
+): Promise<ActionResponse<void>> {
+  try {
+    await orderService.completeDesignApproval(orderId);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Payment actions
+export async function getPaymentStatusAction(
+  orderId: string
+): Promise<ActionResponse<PaymentStatus>> {
+  try {
+    const res = await orderService.getPaymentStatus(orderId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Order items actions
+export async function getOrderItemsAction(
+  orderId: string
+): Promise<ActionResponse<OrderItem[]>> {
+  try {
+    const res = await orderService.getOrderItems(orderId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function updateOrderItemStatusAction(
+  orderItemId: string,
+  values: UpdateOrderItemStatusDto
+): Promise<ActionResponse<void>> {
+  try {
+    await orderService.updateOrderItemStatus(orderItemId, values);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function bulkUpdateOrderItemStatusAction(
+  values: BulkUpdateOrderItemStatusDto
+): Promise<ActionResponse<void>> {
+  try {
+    await orderService.bulkUpdateOrderItemStatus(values);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function getOrderItemsByStatusAction(
+  status: string,
+  templateId: string
+): Promise<ActionResponse<OrderItem[]>> {
+  try {
+    const res = await orderService.getOrderItemsByStatus(status, templateId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Production and timeline actions
+export async function getProductionRequirementsAction(
+  orderId: string
+): Promise<ActionResponse<ProductionRequirements>> {
+  try {
+    const res = await orderService.getProductionRequirements(orderId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function calculateTimelineAction(
+  orderId: string,
+  values: CalculateTimelineDto
+): Promise<ActionResponse<TimelineCalculation>> {
+  try {
+    const res = await orderService.calculateTimeline(orderId, values.startDate);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };

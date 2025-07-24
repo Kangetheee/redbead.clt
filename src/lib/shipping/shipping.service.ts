@@ -1,9 +1,7 @@
 import { Fetcher } from "../api/api.service";
 import {
   CreateShippingZoneDto,
-  UpdateShippingZoneDto,
   CreateShippingRateDto,
-  UpdateShippingRateDto,
   ShippingCalculationDto,
 } from "./dto/shipping.dto";
 import {
@@ -15,39 +13,45 @@ import {
 export class ShippingService {
   constructor(private fetcher = new Fetcher()) {}
 
-  // Zone operations
-  public async getZones() {
+  /**
+   * Get all active shipping zones with their countries
+   * GET /v1/shipping/zones
+   */
+  public async getZones(): Promise<ShippingZone[]> {
     return this.fetcher.request<ShippingZone[]>("/v1/shipping/zones");
   }
 
-  public async createZone(values: CreateShippingZoneDto) {
+  /**
+   * Create a new shipping zone with countries
+   * POST /v1/shipping/zones
+   */
+  public async createZone(
+    values: CreateShippingZoneDto
+  ): Promise<ShippingZone> {
     return this.fetcher.request<ShippingZone>("/v1/shipping/zones", {
       method: "POST",
       data: values,
     });
   }
 
-  public async updateZone(zoneId: string, values: UpdateShippingZoneDto) {
-    return this.fetcher.request<ShippingZone>(`/v1/shipping/zones/${zoneId}`, {
-      method: "PATCH",
-      data: values,
-    });
-  }
-
-  public async deleteZone(zoneId: string) {
-    return this.fetcher.request<void>(`/v1/shipping/zones/${zoneId}`, {
-      method: "DELETE",
-    });
-  }
-
-  // Rate operations
-  public async getZoneRates(zoneId: string) {
+  /**
+   * Get all shipping rates for a specific zone
+   * GET /v1/shipping/zones/{id}/rates
+   */
+  public async getZoneRates(zoneId: string): Promise<ShippingRate[]> {
     return this.fetcher.request<ShippingRate[]>(
       `/v1/shipping/zones/${zoneId}/rates`
     );
   }
 
-  public async createRate(zoneId: string, values: CreateShippingRateDto) {
+  /**
+   * Create a new shipping rate for a specific zone
+   * POST /v1/shipping/zones/{id}/rates
+   */
+  public async createRate(
+    zoneId: string,
+    values: CreateShippingRateDto
+  ): Promise<ShippingRate> {
     return this.fetcher.request<ShippingRate>(
       `/v1/shipping/zones/${zoneId}/rates`,
       {
@@ -57,21 +61,13 @@ export class ShippingService {
     );
   }
 
-  public async updateRate(rateId: string, values: UpdateShippingRateDto) {
-    return this.fetcher.request<ShippingRate>(`/v1/shipping/rates/${rateId}`, {
-      method: "PATCH",
-      data: values,
-    });
-  }
-
-  public async deleteRate(rateId: string) {
-    return this.fetcher.request<void>(`/v1/shipping/rates/${rateId}`, {
-      method: "DELETE",
-    });
-  }
-
-  // Calculation
-  public async calculateShipping(values: ShippingCalculationDto) {
+  /**
+   * Calculate available shipping options and costs for a destination
+   * POST /v1/shipping/calculate
+   */
+  public async calculateShipping(
+    values: ShippingCalculationDto
+  ): Promise<ShippingOption[]> {
     return this.fetcher.request<ShippingOption[]>("/v1/shipping/calculate", {
       method: "POST",
       data: values,

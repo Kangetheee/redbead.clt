@@ -4,9 +4,7 @@ import { getErrorMessage } from "../get-error-message";
 import { ActionResponse } from "../shared/types";
 import {
   CreateShippingZoneDto,
-  UpdateShippingZoneDto,
   CreateShippingRateDto,
-  UpdateShippingRateDto,
   ShippingCalculationDto,
 } from "./dto/shipping.dto";
 import {
@@ -18,7 +16,10 @@ import { ShippingService } from "./shipping.service";
 
 const shippingService = new ShippingService();
 
-// Zone Actions
+/**
+ * Get all active shipping zones with their countries
+ * GET /v1/shipping/zones
+ */
 export async function getShippingZonesAction(): Promise<
   ActionResponse<ShippingZone[]>
 > {
@@ -30,6 +31,10 @@ export async function getShippingZonesAction(): Promise<
   }
 }
 
+/**
+ * Create a new shipping zone with countries
+ * POST /v1/shipping/zones
+ */
 export async function createShippingZoneAction(
   values: CreateShippingZoneDto
 ): Promise<ActionResponse<ShippingZone>> {
@@ -41,30 +46,10 @@ export async function createShippingZoneAction(
   }
 }
 
-export async function updateShippingZoneAction(
-  zoneId: string,
-  values: UpdateShippingZoneDto
-): Promise<ActionResponse<ShippingZone>> {
-  try {
-    const res = await shippingService.updateZone(zoneId, values);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function deleteShippingZoneAction(
-  zoneId: string
-): Promise<ActionResponse<void>> {
-  try {
-    await shippingService.deleteZone(zoneId);
-    return { success: true, data: undefined };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-// Rate Actions
+/**
+ * Get all shipping rates for a specific zone
+ * GET /v1/shipping/zones/{id}/rates
+ */
 export async function getZoneRatesAction(
   zoneId: string
 ): Promise<ActionResponse<ShippingRate[]>> {
@@ -76,6 +61,10 @@ export async function getZoneRatesAction(
   }
 }
 
+/**
+ * Create a new shipping rate for a specific zone
+ * POST /v1/shipping/zones/{id}/rates
+ */
 export async function createShippingRateAction(
   zoneId: string,
   values: CreateShippingRateDto
@@ -88,30 +77,10 @@ export async function createShippingRateAction(
   }
 }
 
-export async function updateShippingRateAction(
-  rateId: string,
-  values: UpdateShippingRateDto
-): Promise<ActionResponse<ShippingRate>> {
-  try {
-    const res = await shippingService.updateRate(rateId, values);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function deleteShippingRateAction(
-  rateId: string
-): Promise<ActionResponse<void>> {
-  try {
-    await shippingService.deleteRate(rateId);
-    return { success: true, data: undefined };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-// Calculation Actions
+/**
+ * Calculate available shipping options and costs for a destination
+ * POST /v1/shipping/calculate
+ */
 export async function calculateShippingAction(
   values: ShippingCalculationDto
 ): Promise<ActionResponse<ShippingOption[]>> {
