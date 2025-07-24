@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import React, { useState } from "react";
-import { useParams } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
@@ -24,6 +24,11 @@ import {
   Mail,
   MapPin,
   Calendar,
+  RefreshCw,
+  Copy,
+  Share2,
+  Shield,
+  AlertCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,45 +44,71 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 import OrderTimeline from "@/components/orders/order-timeline";
 import OrderStatusBadge from "@/components/orders/order-status-badge";
+import { useOrderConfirmation } from "@/hooks/use-checkout";
 import { useOrder } from "@/hooks/use-orders";
 
 export default function OrderConfirmationPage() {
   const params = useParams();
+  const router = useRouter();
   const orderId = params.id as string;
   const [isFavorited, setIsFavorited] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch order data
-  const { data: orderData, isLoading, refetch } = useOrder(orderId);
+  const {
+    data: confirmationData,
+    isLoading: confirmationLoading,
+    error: confirmationError,
+    refetch: refetchConfirmation,
+  } = useOrderConfirmation(orderId, !!orderId);
+
+  // Also fetch detailed order data
+  const {
+    data: orderData,
+    isLoading: orderLoading,
+    error: orderError,
+    refetch: refetchOrder,
+  } = useOrder(orderId);
+
   const order = orderData?.success ? orderData.data : null;
+  const confirmation = confirmationData;
 
-  if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-          <span>Loading order details...</span>
-        </div>
-      </div>
-    );
-  }
+  // Handle data refreshing
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchConfirmation(), refetchOrder()]);
+      toast.success("Order details refreshed");
+    } catch (error) {
+      toast.error("Failed to refresh order details");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-  if (!order) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Order not found or you don&apos;t have permission to view it.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  // Auto-refresh every 30 seconds for active orders
+  useEffect(() => {
+    if (order && isOrderActive(order.status)) {
+      const interval = setInterval(() => {
+        refetchOrder();
+        refetchConfirmation();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [order, refetchOrder, refetchConfirmation]);
+
+  const isOrderActive = (status: string) => {
+    return !["DELIVERED", "CANCELLED", "REFUNDED"].includes(status);
+  };
 
   const getProgressPercentage = () => {
+    if (!order) return 0;
+
     const statusFlow = [
       "PENDING",
       "DESIGN_PENDING",
@@ -94,25 +125,120 @@ export default function OrderConfirmationPage() {
       : 0;
   };
 
-  const canReorder = order.status === "DELIVERED";
-  const needsDesignApproval = order.status === "DESIGN_PENDING";
-  const needsPayment = order.status === "PAYMENT_PENDING";
-  const isActive = !["DELIVERED", "CANCELLED", "REFUNDED"].includes(
-    order.status
-  );
+  const handleCopyOrderNumber = () => {
+    if (confirmation?.orderNumber) {
+      navigator.clipboard.writeText(confirmation.orderNumber);
+      toast.success("Order number copied to clipboard");
+    }
+  };
+
+  const handleShare = async () => {
+    if (navigator.share && confirmation) {
+      try {
+        await navigator.share({
+          title: `Order #${confirmation.orderNumber}`,
+          text: `My order #${confirmation.orderNumber} - Total: KES ${confirmation.totalAmount.toLocaleString()}`,
+          url: window.location.href,
+        });
+      } catch (error) {
+        // Fallback to clipboard
+        navigator.clipboard.writeText(window.location.href);
+        toast.success("Order link copied to clipboard");
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Order link copied to clipboard");
+    }
+  };
 
   const handleReorder = () => {
-    // Implement reorder functionality
-    console.log("Reordering:", order.id);
+    if (order) {
+      // Implementation would depend on your reorder logic
+      router.push(`/dashboard/customer/reorder/${order.id}`);
+      toast.success("Redirecting to reorder...");
+    }
   };
 
   const handleFavoriteToggle = () => {
     setIsFavorited(!isFavorited);
+    toast.success(
+      isFavorited ? "Removed from favorites" : "Added to favorites"
+    );
   };
+
+  // Loading state
+  if (confirmationLoading || orderLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-32" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+            <Skeleton className="h-2 w-full" />
+            <div className="grid grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Error state
+  if (confirmationError || orderError || (!confirmation && !order)) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Order not found or you don&apos;t have permission to view it.
+            <Button
+              variant="link"
+              size="sm"
+              className="ml-2 p-0 h-auto"
+              onClick={() => router.push("/dashboard/customer/orders")}
+            >
+              View all orders
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Use confirmation data if available, otherwise fall back to order data
+  const displayData = confirmation || order;
+  if (!displayData) return null;
+
+  const canReorder = order?.status === "DELIVERED";
+  const needsDesignApproval = order?.status === "DESIGN_PENDING";
+  const needsPayment =
+    order?.status === "PAYMENT_PENDING" ||
+    confirmation?.paymentStatus === "PENDING";
+  const isActive = order
+    ? isOrderActive(order.status)
+    : confirmation?.status
+      ? isOrderActive(confirmation.status)
+      : false;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
+      {/* Enhanced Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" asChild>
@@ -123,23 +249,45 @@ export default function OrderConfirmationPage() {
           </Button>
 
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Order #{order.orderNumber}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">
+                Order #
+                {confirmation?.orderNumber || order?.orderNumber || orderId}
+              </h1>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyOrderNumber}
+                className="p-1"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
             <p className="text-muted-foreground">
-              Placed on {format(new Date(order.createdAt), "MMMM dd, yyyy")}
+              Placed on{" "}
+              {format(
+                new Date(
+                  confirmation?.createdAt || order?.createdAt || Date.now()
+                ),
+                "MMMM dd, yyyy 'at' hh:mm a"
+              )}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleShare}>
+            <Share2 className="h-4 w-4 mr-2" />
+            Share
+          </Button>
+
           <Button variant="outline" size="sm" onClick={handleFavoriteToggle}>
             {isFavorited ? (
               <Star className="h-4 w-4 mr-2 fill-current" />
             ) : (
               <StarOff className="h-4 w-4 mr-2" />
             )}
-            {isFavorited ? "Favorited" : "Add to Favorites"}
+            {isFavorited ? "Favorited" : "Favorite"}
           </Button>
 
           {canReorder && (
@@ -149,6 +297,18 @@ export default function OrderConfirmationPage() {
             </Button>
           )}
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             Invoice
@@ -156,14 +316,24 @@ export default function OrderConfirmationPage() {
         </div>
       </div>
 
-      {/* Status and Progress */}
+      {/* Enhanced Status and Progress */}
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold mb-1">Order Status</h3>
-                <OrderStatusBadge status={order.status} size="default" />
+                <div className="flex items-center gap-2">
+                  <OrderStatusBadge
+                    status={order?.status || confirmation?.status || "PENDING"}
+                    size="default"
+                  />
+                  {isActive && (
+                    <Badge variant="outline" className="animate-pulse">
+                      Active
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Progress</p>
@@ -183,7 +353,8 @@ export default function OrderConfirmationPage() {
                 <span>Order Placed</span>
               </div>
               <div className="flex items-center gap-2">
-                {order.payment ? (
+                {order?.payment ||
+                confirmation?.paymentStatus === "COMPLETED" ? (
                   <CheckCircle className="h-4 w-4 text-green-500" />
                 ) : (
                   <Clock className="h-4 w-4 text-yellow-500" />
@@ -191,7 +362,8 @@ export default function OrderConfirmationPage() {
                 <span>Payment</span>
               </div>
               <div className="flex items-center gap-2">
-                {["PROCESSING", "PRODUCTION", "SHIPPED", "DELIVERED"].includes(
+                {order &&
+                ["PROCESSING", "PRODUCTION", "SHIPPED", "DELIVERED"].includes(
                   order.status
                 ) ? (
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -201,7 +373,8 @@ export default function OrderConfirmationPage() {
                 <span>Production</span>
               </div>
               <div className="flex items-center gap-2">
-                {order.status === "DELIVERED" ? (
+                {order?.status === "DELIVERED" ||
+                confirmation?.status === "DELIVERED" ? (
                   <CheckCircle className="h-4 w-4 text-green-500" />
                 ) : (
                   <Clock className="h-4 w-4 text-gray-400" />
@@ -213,7 +386,7 @@ export default function OrderConfirmationPage() {
         </CardContent>
       </Card>
 
-      {/* Action Alerts */}
+      {/* Enhanced Action Alerts */}
       {needsDesignApproval && (
         <Alert className="border-blue-200 bg-blue-50">
           <FileText className="h-4 w-4 text-blue-600" />
@@ -248,6 +421,20 @@ export default function OrderConfirmationPage() {
         </Alert>
       )}
 
+      {/* Success message for newly created orders */}
+      {confirmation && !order && (
+        <Alert className="border-green-200 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            <strong>Order Placed Successfully!</strong> Your order has been
+            received and is being processed.
+            {confirmation.estimatedDelivery && (
+              <span> Expected delivery: {confirmation.estimatedDelivery}</span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Main Content Tabs */}
       <Tabs defaultValue="details" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
@@ -270,43 +457,96 @@ export default function OrderConfirmationPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  {order.orderItems.map((item, index) => (
-                    <div key={item.id} className="flex justify-between">
-                      <div>
-                        <p className="font-medium">Product {item.productId}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Quantity: {item.quantity}
-                        </p>
+                  {confirmation?.items ? (
+                    confirmation.items.map((item, index) => (
+                      <div key={index} className="flex justify-between">
+                        <div>
+                          <p className="font-medium">{item.productName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Quantity: {item.quantity}
+                          </p>
+                          {item.customizations &&
+                            item.customizations.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {item.customizations
+                                  .slice(0, 2)
+                                  .map((custom, idx) => (
+                                    <Badge
+                                      key={idx}
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {custom}
+                                    </Badge>
+                                  ))}
+                                {item.customizations.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{item.customizations.length - 2} more
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                        </div>
                       </div>
+                    ))
+                  ) : order?.orderItems ? (
+                    order.orderItems.map((item, index) => (
+                      <div key={item.id} className="flex justify-between">
+                        <div>
+                          <p className="font-medium">
+                            Product {item.productId}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Quantity: {item.quantity}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-muted-foreground py-4">
+                      No items information available
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 <Separator />
 
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>${order.subtotalAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tax</span>
-                    <span>${order.taxAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Shipping</span>
-                    <span>${order.shippingAmount.toFixed(2)}</span>
-                  </div>
-                  {order.discountAmount > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Discount</span>
-                      <span>-${order.discountAmount.toFixed(2)}</span>
-                    </div>
+                  {order && (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Subtotal</span>
+                        <span>KES {order.subtotalAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tax</span>
+                        <span>KES {order.taxAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Shipping</span>
+                        <span>KES {order.shippingAmount.toLocaleString()}</span>
+                      </div>
+                      {order.discountAmount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Discount</span>
+                          <span>
+                            -KES {order.discountAmount.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
                   <Separator />
                   <div className="flex justify-between font-bold">
                     <span>Total</span>
-                    <span>${order.totalAmount.toFixed(2)}</span>
+                    <span>
+                      KES{" "}
+                      {(
+                        confirmation?.totalAmount ||
+                        order?.totalAmount ||
+                        0
+                      ).toLocaleString()}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -321,15 +561,34 @@ export default function OrderConfirmationPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    SHIPPING ADDRESS
-                  </label>
-                  <p className="mt-1">Address ID: {order.shippingAddress.id}</p>
-                  {/* In a real app, display full address */}
-                </div>
+                {confirmation?.shippingAddress ? (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      SHIPPING ADDRESS
+                    </label>
+                    <div className="mt-1">
+                      <p className="font-medium">
+                        {confirmation.shippingAddress.recipientName}
+                      </p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-line">
+                        {confirmation.shippingAddress.formattedAddress}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  order?.shippingAddress && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        SHIPPING ADDRESS
+                      </label>
+                      <p className="mt-1">
+                        Address ID: {order.shippingAddress.id}
+                      </p>
+                    </div>
+                  )
+                )}
 
-                {order.trackingNumber && (
+                {order?.trackingNumber && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">
                       TRACKING NUMBER
@@ -353,7 +612,8 @@ export default function OrderConfirmationPage() {
                   </div>
                 )}
 
-                {order.expectedDelivery && (
+                {(confirmation?.estimatedDelivery ||
+                  order?.expectedDelivery) && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">
                       EXPECTED DELIVERY
@@ -361,14 +621,17 @@ export default function OrderConfirmationPage() {
                     <p className="mt-1 flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       {format(
-                        new Date(order.expectedDelivery),
+                        new Date(
+                          confirmation?.estimatedDelivery ||
+                            order!.expectedDelivery!
+                        ),
                         "MMMM dd, yyyy"
                       )}
                     </p>
                   </div>
                 )}
 
-                {order.urgencyLevel && order.urgencyLevel !== "NORMAL" && (
+                {order?.urgencyLevel && order.urgencyLevel !== "NORMAL" && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">
                       PRIORITY LEVEL
@@ -382,8 +645,32 @@ export default function OrderConfirmationPage() {
             </Card>
           </div>
 
+          {/* Next Steps */}
+          {confirmation?.nextSteps && confirmation.nextSteps.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5" />
+                  Next Steps
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {confirmation.nextSteps.map((step, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
+                        {index + 1}
+                      </div>
+                      <span className="text-sm">{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Special Instructions */}
-          {order.specialInstructions && (
+          {order?.specialInstructions && (
             <Card>
               <CardHeader>
                 <CardTitle>Special Instructions</CardTitle>
@@ -397,7 +684,7 @@ export default function OrderConfirmationPage() {
           )}
         </TabsContent>
 
-        {/* Tracking Tab */}
+        {/* Enhanced Tracking Tab */}
         <TabsContent value="tracking" className="space-y-6">
           <Card>
             <CardHeader>
@@ -410,7 +697,7 @@ export default function OrderConfirmationPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {order.trackingNumber ? (
+              {order?.trackingNumber ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-muted rounded-lg">
                     <div className="flex items-center justify-between">
@@ -472,6 +759,17 @@ export default function OrderConfirmationPage() {
                   <p className="text-muted-foreground">
                     Tracking information will appear here once your order ships
                   </p>
+                  {isActive && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={handleRefresh}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Check for Updates
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -480,10 +778,30 @@ export default function OrderConfirmationPage() {
 
         {/* Timeline Tab */}
         <TabsContent value="timeline">
-          <OrderTimeline order={order} showFilters={false} maxHeight="600px" />
+          {order ? (
+            <OrderTimeline
+              order={order}
+              showFilters={false}
+              maxHeight="600px"
+            />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold">
+                    Timeline not available
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Order timeline will be available once processing begins
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
-        {/* Support Tab */}
+        {/* Enhanced Support Tab */}
         <TabsContent value="support" className="space-y-6">
           <Card>
             <CardHeader>
@@ -524,9 +842,14 @@ export default function OrderConfirmationPage() {
                   <Button variant="ghost" className="w-full justify-start">
                     Request order modification
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start">
-                    Cancel this order
-                  </Button>
+                  {isActive && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-destructive hover:text-destructive"
+                    >
+                      Cancel this order
+                    </Button>
+                  )}
                   <Button variant="ghost" className="w-full justify-start">
                     Request refund
                   </Button>
@@ -542,15 +865,67 @@ export default function OrderConfirmationPage() {
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>Order ID:</span>
-                <span className="font-mono">{order.id}</span>
+                <span className="font-mono">{orderId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Order Number:</span>
+                <span className="font-mono">
+                  {confirmation?.orderNumber || order?.orderNumber || "N/A"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Order Date:</span>
-                <span>{format(new Date(order.createdAt), "MMM dd, yyyy")}</span>
+                <span>
+                  {format(
+                    new Date(
+                      confirmation?.createdAt || order?.createdAt || Date.now()
+                    ),
+                    "MMM dd, yyyy"
+                  )}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Last Updated:</span>
-                <span>{format(new Date(order.updatedAt), "MMM dd, yyyy")}</span>
+                <span>
+                  {format(
+                    new Date(
+                      order?.updatedAt || confirmation?.createdAt || Date.now()
+                    ),
+                    "MMM dd, yyyy"
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Payment Status:</span>
+                <span>
+                  <Badge
+                    variant={
+                      confirmation?.paymentStatus === "COMPLETED" ||
+                      order?.payment
+                        ? "default"
+                        : "destructive"
+                    }
+                  >
+                    {confirmation?.paymentStatus ||
+                      (order?.payment ? "COMPLETED" : "PENDING")}
+                  </Badge>
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Security Information */}
+          <Card className="border-muted">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-green-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-green-800">Secure Order</p>
+                  <p className="text-muted-foreground">
+                    Your order and personal information are protected with
+                    industry-standard encryption and security measures.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

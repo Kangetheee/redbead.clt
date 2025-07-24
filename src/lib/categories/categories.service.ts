@@ -1,5 +1,3 @@
-// Debug version of categories.service.ts with additional logging
-
 import { Fetcher } from "../api/api.service";
 import { PaginatedData } from "../shared/types";
 import {
@@ -17,7 +15,12 @@ import {
 export class CategoryService {
   constructor(private fetcher = new Fetcher()) {}
 
-  public async findAll(params?: GetCategoriesDto) {
+  /**
+   * Get paginated list of categories with optional filtering
+   */
+  public async findAll(
+    params?: GetCategoriesDto
+  ): Promise<PaginatedData<CategoryWithRelations>> {
     try {
       const queryParams = new URLSearchParams();
 
@@ -65,7 +68,10 @@ export class CategoryService {
     }
   }
 
-  public async findTree() {
+  /**
+   * Get all categories in hierarchical tree structure
+   */
+  public async findTree(): Promise<CategoryTreeResponse[]> {
     try {
       const url = "/v1/categories/tree";
       const result = await this.fetcher.request<CategoryTreeResponse[]>(url);
@@ -83,14 +89,16 @@ export class CategoryService {
     }
   }
 
-  public async findById(categoryId: string) {
+  /**
+   * Get detailed category information including products and options by ID
+   */
+  public async findById(categoryId: string): Promise<CategoryDetail> {
     try {
       if (!categoryId) {
         throw new Error("Category ID is required");
       }
 
       const url = `/v1/categories/${categoryId}`;
-
       const result = await this.fetcher.request<CategoryDetail>(url);
 
       // Validate the response structure
@@ -110,19 +118,20 @@ export class CategoryService {
       if (error instanceof Error && error.message.includes("404")) {
         throw new Error(`Category not found with ID: ${categoryId}`);
       }
-
       throw error;
     }
   }
 
-  public async findBySlug(slug: string) {
+  /**
+   * Get category using URL-friendly slug identifier
+   */
+  public async findBySlug(slug: string): Promise<CategoryDetail> {
     try {
       if (!slug) {
         throw new Error("Slug is required");
       }
 
       const url = `/v1/categories/slug/${slug}`;
-
       const result = await this.fetcher.request<CategoryDetail>(url);
 
       // Validate the response structure
@@ -142,15 +151,16 @@ export class CategoryService {
       if (error instanceof Error && error.message.includes("404")) {
         throw new Error(`Category not found with slug: ${slug}`);
       }
-
       throw error;
     }
   }
 
-  public async create(values: CreateCategoryDto) {
+  /**
+   * Create a new product category with optional parent relationship
+   */
+  public async create(values: CreateCategoryDto): Promise<CategoryResponse> {
     try {
       const url = "/v1/categories";
-
       const result = await this.fetcher.request<CategoryResponse>(url, {
         method: "POST",
         data: values,
@@ -171,18 +181,27 @@ export class CategoryService {
 
       return result;
     } catch (error) {
+      // Handle specific errors
+      if (error instanceof Error && error.message.includes("409")) {
+        throw new Error("Category with this slug already exists");
+      }
       throw error;
     }
   }
 
-  public async update(categoryId: string, values: UpdateCategoryDto) {
+  /**
+   * Update category information and settings
+   */
+  public async update(
+    categoryId: string,
+    values: UpdateCategoryDto
+  ): Promise<CategoryResponse> {
     try {
       if (!categoryId) {
         throw new Error("Category ID is required for update");
       }
 
       const url = `/v1/categories/${categoryId}`;
-
       const result = await this.fetcher.request<CategoryResponse>(url, {
         method: "PATCH",
         data: values,
@@ -207,33 +226,37 @@ export class CategoryService {
       if (error instanceof Error && error.message.includes("404")) {
         throw new Error(`Category not found for update with ID: ${categoryId}`);
       }
-
       throw error;
     }
   }
 
-  public async delete(categoryId: string) {
+  /**
+   * Delete category (must have no products or children)
+   */
+  public async delete(categoryId: string): Promise<void> {
     try {
       if (!categoryId) {
         throw new Error("Category ID is required for delete");
       }
 
       const url = `/v1/categories/${categoryId}`;
-      console.log("🌐 Making DELETE request to:", url);
-
-      const result = await this.fetcher.request<void>(url, {
+      await this.fetcher.request<void>(url, {
         method: "DELETE",
       });
-
-      return result;
     } catch (error) {
-      // Check if this is a 404 error specifically
-      if (error instanceof Error && error.message.includes("404")) {
-        throw new Error(
-          `Category not found for deletion with ID: ${categoryId}`
-        );
+      // Handle specific errors
+      if (error instanceof Error) {
+        if (error.message.includes("404")) {
+          throw new Error(
+            `Category not found for deletion with ID: ${categoryId}`
+          );
+        }
+        if (error.message.includes("400")) {
+          throw new Error(
+            "Cannot delete category: it has products or subcategories"
+          );
+        }
       }
-
       throw error;
     }
   }

@@ -77,3 +77,24 @@ export interface CategoryFilters {
   search?: string;
   isActive?: boolean;
 }
+
+// Categories-specific pagination types
+export interface CategoryMeta {
+  totalItems: number;
+  itemsPerPage: number;
+  currentPage: number;
+  totalPages: number;
+}
+
+export interface CategoryPaginationLinks {
+  first: string | null;
+  last: string | null;
+  prev: string | null;
+  next: string | null;
+}
+
+export interface CategoryPaginatedData<T> {
+  items: T[];
+  meta: CategoryMeta;
+  links: CategoryPaginationLinks;
+}

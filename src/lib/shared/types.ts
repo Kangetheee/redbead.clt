@@ -20,14 +20,3 @@ export type PaginationLinks = {
   prev: string | null;
   next: string | null;
 };
-
-export type Meta1 = {
-  pageCount: number;
-  pageSize: number;
-  pageIndex: number;
-};
-
-export type PaginatedData1<T> = {
-  meta: Meta1;
-  results: T[];
-};

@@ -12,13 +12,18 @@ export interface CustomizationChoice {
 }
 
 export interface CheckoutItemResponse {
-  productId: string;
-  productName: string;
+  productId?: string;
+  templateId?: string;
+  sizeVariantId?: string;
+  productName?: string;
+  templateName?: string;
+  sizeVariantName?: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
   customizations: string[];
   thumbnail: string;
+  designId?: string;
 }
 
 export interface CheckoutSession {

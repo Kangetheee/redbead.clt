@@ -4,9 +4,11 @@ import { getErrorMessage } from "../get-error-message";
 import { ActionResponse } from "../shared/types";
 import {
   InitCheckoutDto,
+  GuestInitCheckoutDto,
   ShippingCalculationDto,
   ValidateCheckoutDto,
   CompleteCheckoutDto,
+  GuestCompleteCheckoutDto,
 } from "./dto/checkout.dto";
 import {
   CheckoutSession,
@@ -19,6 +21,9 @@ import { CheckoutService } from "./checkout.service";
 
 const checkoutService = new CheckoutService();
 
+/**
+ * Initialize checkout process from cart items (authenticated users)
+ */
 export async function initializeCheckoutAction(
   values: InitCheckoutDto
 ): Promise<ActionResponse<CheckoutSession>> {
@@ -30,6 +35,23 @@ export async function initializeCheckoutAction(
   }
 }
 
+/**
+ * Initialize checkout for guest users with custom items
+ */
+export async function initializeGuestCheckoutAction(
+  values: GuestInitCheckoutDto
+): Promise<ActionResponse<CheckoutSession>> {
+  try {
+    const res = await checkoutService.initializeGuestCheckout(values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Calculate available shipping options and costs for checkout
+ */
 export async function calculateShippingAction(
   values: ShippingCalculationDto
 ): Promise<ActionResponse<ShippingOptionsResponse>> {
@@ -41,6 +63,9 @@ export async function calculateShippingAction(
   }
 }
 
+/**
+ * Validate all checkout information before completing the order
+ */
 export async function validateCheckoutAction(
   values: ValidateCheckoutDto
 ): Promise<ActionResponse<CheckoutValidation>> {
@@ -52,6 +77,9 @@ export async function validateCheckoutAction(
   }
 }
 
+/**
+ * Complete the checkout process and create the order (authenticated users)
+ */
 export async function completeCheckoutAction(
   values: CompleteCheckoutDto
 ): Promise<ActionResponse<CheckoutResponse>> {
@@ -63,6 +91,23 @@ export async function completeCheckoutAction(
   }
 }
 
+/**
+ * Complete the checkout process for guest users
+ */
+export async function completeGuestCheckoutAction(
+  values: GuestCompleteCheckoutDto
+): Promise<ActionResponse<CheckoutResponse>> {
+  try {
+    const res = await checkoutService.completeGuestCheckout(values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Retrieve checkout session details (no authentication required)
+ */
 export async function getCheckoutSessionAction(
   sessionId: string
 ): Promise<ActionResponse<CheckoutSession>> {
@@ -74,6 +119,9 @@ export async function getCheckoutSessionAction(
   }
 }
 
+/**
+ * Get order confirmation details after successful checkout
+ */
 export async function getOrderConfirmationAction(
   orderId: string
 ): Promise<ActionResponse<OrderConfirmation>> {
