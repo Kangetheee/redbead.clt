@@ -1,198 +1,319 @@
-import Link from "next/link";
-import {
-  ArrowRight,
-  Award,
-  CheckCircle,
-  Globe,
-  Phone,
-  Shield,
-  Star,
-  Users,
-} from "lucide-react";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-
+"use client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  ArrowRight,
+  CheckCircle,
+  Star,
+  Users,
+  Award,
+  Clock,
+  Headphones,
+  ShoppingCart,
+  Menu,
+  X,
+} from "lucide-react";
+import { FeaturedProductsSection } from "@/components/products/featured-products";
+import Link from "next/link";
+import { useState } from "react";
 
 export default function LandingPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-600 to-red-600 flex items-center justify-center">
+    <div className="min-h-screen bg-white">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-red-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">RB</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Redbead</span>
-            </div>
+              <span className="text-xl font-bold text-gray-900">Red Bead</span>
+            </Link>
 
-            <nav className="hidden md:flex items-center space-x-8">
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-8">
               <Link
-                href="#services"
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+                href="/"
+                className="text-gray-700 hover:text-green-600 transition-colors"
               >
-                Services
+                Home
               </Link>
               <Link
-                href="#about"
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+                href="/products"
+                className="text-gray-700 hover:text-green-600 transition-colors"
+              >
+                Products
+              </Link>
+              <Link
+                href="/categories"
+                className="text-gray-700 hover:text-green-600 transition-colors"
+              >
+                Categories
+              </Link>
+              <Link
+                href="/about"
+                className="text-gray-700 hover:text-green-600 transition-colors"
               >
                 About
               </Link>
               <Link
-                href="#contact"
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+                href="/contact"
+                className="text-gray-700 hover:text-green-600 transition-colors"
               >
                 Contact
               </Link>
-            </nav>
+            </div>
 
-            <div className="flex items-center space-x-3">
-              <ThemeToggle /> {/* Add the ThemeToggle here */}
-              <Button variant="outline" asChild>
-                <Link href="/sign-in">Sign In</Link>
+            {/* Desktop Auth & Cart */}
+            <div className="hidden md:flex items-center space-x-4">
+              <Button variant="ghost" size="icon" asChild>
+                <Link href="/cart">
+                  <ShoppingCart className="h-5 w-5" />
+                </Link>
               </Button>
-              <Button
-                asChild
-                className="bg-gradient-to-r from-green-600 to-red-600 hover:from-green-700 hover:to-red-700"
-              >
-                <Link href="/sign-up">Get Started</Link>
+
+              <Button variant="ghost" asChild>
+                <Link href="/login">Sign In</Link>
+              </Button>
+
+              <Button className="bg-green-600 hover:bg-green-700" asChild>
+                <Link href="/register">Get Started</Link>
               </Button>
             </div>
+
+            {/* Mobile menu button */}
+            <button
+              className="md:hidden p-2"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
           </div>
-        </div>
-      </header>
 
-      {/* Hero Section */}
-      <section className="relative py-20 lg:py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-green-50 via-white to-red-50" />
+          {/* Mobile Navigation */}
+          {isMenuOpen && (
+            <div className="md:hidden py-4 border-t border-gray-200">
+              <div className="flex flex-col space-y-4">
+                <Link
+                  href="/"
+                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Home
+                </Link>
+                <Link
+                  href="/products"
+                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Products
+                </Link>
+                <Link
+                  href="/categories"
+                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Categories
+                </Link>
+                <Link
+                  href="/about"
+                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  About
+                </Link>
+                <Link
+                  href="/contact"
+                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Contact
+                </Link>
 
-        {/* Background image with gradient overlay */}
-        <div className="absolute inset-0">
-          <img
-            src="https://images.unsplash.com/photo-1687757660328-d5b0bf6150e3?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-            alt="Kenya wristband"
-            className="w-full h-full object-cover opacity-20"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-green-600/30 to-red-600/30" />
-        </div>
+                <div className="border-t border-gray-200 pt-4 space-y-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    asChild
+                  >
+                    <Link href="/cart" onClick={() => setIsMenuOpen(false)}>
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Cart
+                    </Link>
+                  </Button>
 
-        <div className="container mx-auto px-4 relative">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-green-100 to-red-100 text-sm font-medium text-gray-700 mb-6">
-              <Award className="h-4 w-4 mr-2" />
-              Kenya&apos;s Premier Corporate Merchandise Partner
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    asChild
+                  >
+                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                      Sign In
+                    </Link>
+                  </Button>
+
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    asChild
+                  >
+                    <Link href="/register" onClick={() => setIsMenuOpen(false)}>
+                      Get Started
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             </div>
+          )}
+        </div>
+      </nav>
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-br from-green-50 via-white to-red-50 py-20 lg:py-32">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <Badge className="mb-6 bg-green-100 text-green-800 hover:bg-green-200">
+              🎉 Kenya&apos;s Leading Custom Print Solutions
+            </Badge>
 
-            <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6">
-              Premium Corporate
-              <span className="bg-gradient-to-r from-green-600 to-red-600 bg-clip-text text-transparent">
-                {" "}
-                Merchandise
-              </span>
-              <br />
-              for Your Events
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+              Custom Print Solutions
+              <span className="block text-green-600">Made in Kenya</span>
             </h1>
 
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              From custom lanyards and wristbands to branded diaries and
-              corporate gifts. We help Kenyan businesses make lasting
-              impressions at every event.
+              From corporate lanyards to custom wristbands, we deliver
+              high-quality branded products that make your business stand out.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
+                className="bg-green-600 hover:bg-green-700"
                 asChild
-                className="bg-gradient-to-r from-green-600 to-red-600 hover:from-green-700 hover:to-red-700"
               >
-                <Link href="/sign-up">
-                  Start Your Order <ArrowRight className="ml-2 h-5 w-5" />
+                <Link href="/products">
+                  Explore Products <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link href="#products">View Products</Link>
+                <Link href="/quote">Get Custom Quote</Link>
               </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Products Section */}
-      <section id="products" className="py-20 bg-gray-50">
+      {/* Trust Indicators */}
+      <section className="py-12 bg-gray-50 border-y">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <div className="flex flex-col items-center">
+              <Users className="h-8 w-8 text-green-600 mb-2" />
+              <div className="text-2xl font-bold text-gray-900">500+</div>
+              <div className="text-sm text-gray-600">Happy Clients</div>
+            </div>
+            <div className="flex flex-col items-center">
+              <Award className="h-8 w-8 text-green-600 mb-2" />
+              <div className="text-2xl font-bold text-gray-900">5 Years</div>
+              <div className="text-sm text-gray-600">Experience</div>
+            </div>
+            <div className="flex flex-col items-center">
+              <Clock className="h-8 w-8 text-green-600 mb-2" />
+              <div className="text-2xl font-bold text-gray-900">48Hr</div>
+              <div className="text-sm text-gray-600">Quick Delivery</div>
+            </div>
+            <div className="flex flex-col items-center">
+              <Headphones className="h-8 w-8 text-green-600 mb-2" />
+              <div className="text-2xl font-bold text-gray-900">24/7</div>
+              <div className="text-sm text-gray-600">Support</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Products Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <FeaturedProductsSection
+            limit={8}
+            className="max-w-7xl mx-auto"
+            showAddToCart={true}
+          />
+        </div>
+      </section>
+
+      {/* Why Choose Us Section */}
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-              Our Product Range
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Why Choose Red Bead?
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              High-quality corporate merchandise designed to elevate your brand
-              presence
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              We&apos;re committed to delivering exceptional quality and service
+              that helps your brand make a lasting impression.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                title: "Custom Lanyards",
+                icon: <Award className="h-12 w-12 text-green-600" />,
+                title: "Premium Quality",
                 description:
-                  "Durable, branded lanyards for events, conferences, and daily use",
-                image:
-                  "https://5.imimg.com/data5/IP/GY/GD/SELLER-3028961/eco-friendly-lanyards-1000x1000.jpg",
-                features: ["Multiple colors", "Logo printing", "Bulk orders"],
-              },
-              {
-                title: "Wristbands",
-                description:
-                  "Silicone and fabric wristbands for events and promotions",
-                image:
-                  "https://brightwristbands.co.ke/wp-content/uploads/2024/11/fabric-wristbands-600x600.avif",
-                features: ["Waterproof", "Custom text", "Various sizes"],
-              },
-              {
-                title: "Corporate Diaries",
-                description:
-                  "Professional diaries and notebooks with your company branding",
-                image:
-                  "https://www.greenotechindia.com/wp-content/uploads/2024/03/WhatsApp-Image-2023-10-18-at-13.32.08-1.jpeg",
-                features: ["Premium paper", "Custom covers", "Bulk pricing"],
-              },
-              {
-                title: "Corporate Gifts",
-                description:
-                  "Branded merchandise including mugs, pens, and tech accessories",
-                image:
-                  "https://cdn.shopify.com/s/files/1/0631/4583/6591/files/Eco_corporate_gifting_1024x1024.jpg?v=1730313121",
+                  "We use only the finest materials and latest printing technology to ensure your products meet the highest standards.",
                 features: [
-                  "Wide selection",
-                  "Quality materials",
-                  "Fast delivery",
+                  "ISO Certified",
+                  "Quality Guarantee",
+                  "Premium Materials",
                 ],
               },
-            ].map((product, index) => (
+              {
+                icon: <Clock className="h-12 w-12 text-green-600" />,
+                title: "Fast Turnaround",
+                description:
+                  "Need it urgently? Our streamlined production process ensures quick delivery without compromising quality.",
+                features: [
+                  "Express Options",
+                  "Rush Orders",
+                  "Real-time Tracking",
+                ],
+              },
+              {
+                icon: <Users className="h-12 w-12 text-green-600" />,
+                title: "Expert Support",
+                description:
+                  "Our experienced team guides you through every step, from design consultation to final delivery.",
+                features: [
+                  "Design Support",
+                  "Bulk Discounts",
+                  "Account Management",
+                ],
+              },
+            ].map((benefit, index) => (
               <Card
                 key={index}
-                className="overflow-hidden hover:shadow-lg transition-shadow"
+                className="text-center p-8 hover:shadow-lg transition-shadow"
               >
-                <div className="aspect-video bg-gradient-to-br from-green-100 to-red-100 flex items-center justify-center">
-                  <img
-                    src={product.image || "/placeholder.svg"}
-                    alt={product.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    {product.title}
+                <CardContent className="space-y-4">
+                  <div className="flex justify-center">{benefit.icon}</div>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {benefit.title}
                   </h3>
-                  <p className="text-gray-600 mb-4">{product.description}</p>
-                  <ul className="space-y-1">
-                    {product.features.map((feature, idx) => (
+                  <p className="text-gray-600">{benefit.description}</p>
+                  <ul className="space-y-2">
+                    {benefit.features.map((feature, idx) => (
                       <li
                         key={idx}
-                        className="flex items-center text-sm text-gray-600"
+                        className="flex items-center justify-center text-sm text-gray-600"
                       >
                         <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
                         {feature}
@@ -206,242 +327,103 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="services" className="py-20">
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-green-600 to-green-700">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Ready to Create Something Amazing?
+          </h2>
+          <p className="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
+            Join hundreds of businesses that trust Red Bead for their custom
+            printing needs. Let&apos;s bring your brand to life!
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              className="bg-white text-green-600 hover:bg-gray-50"
+              asChild
+            >
+              <Link href="/products">
+                Browse Products <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="border-white text-white hover:bg-white hover:text-green-600"
+              asChild
+            >
+              <Link href="/contact">Contact Us Today</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Customer Testimonials (Optional) */}
+      <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose Redbead?
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              What Our Customers Say
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              We understand the Kenyan market and deliver excellence in every
-              order
+            <p className="text-lg text-gray-600">
+              Don&apos;t just take our word for it - hear from our satisfied
+              clients
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: <Globe className="h-8 w-8" />,
-                title: "Local Expertise",
-                description:
-                  "Deep understanding of Kenyan business culture and requirements",
+                name: "Sarah Mwangi",
+                company: "Tech Startup Kenya",
+                review:
+                  "Red Bead delivered exactly what we needed for our conference. The lanyards were perfect quality and arrived on time!",
+                rating: 5,
               },
               {
-                icon: <Shield className="h-8 w-8" />,
-                title: "Quality Guarantee",
-                description:
-                  "Premium materials and rigorous quality control on every product",
+                name: "John Kiprotich",
+                company: "NGO Director",
+                review:
+                  "Outstanding service and quality. Our custom wristbands were a huge hit at our charity event. Highly recommended!",
+                rating: 5,
               },
               {
-                icon: <Users className="h-8 w-8" />,
-                title: "Bulk Orders",
-                description:
-                  "Competitive pricing for large corporate orders and events",
+                name: "Grace Wanjiku",
+                company: "Corporate Events",
+                review:
+                  "Professional, reliable, and great value for money. Red Bead has become our go-to partner for all corporate merchandise.",
+                rating: 5,
               },
-              {
-                icon: <Phone className="h-8 w-8" />,
-                title: "24/7 Support",
-                description:
-                  "Dedicated customer service team available around the clock",
-              },
-              {
-                icon: <Star className="h-8 w-8" />,
-                title: "Custom Design",
-                description:
-                  "Professional design services to bring your brand vision to life",
-              },
-              {
-                icon: <ArrowRight className="h-8 w-8" />,
-                title: "Fast Delivery",
-                description:
-                  "Quick turnaround times to meet your event deadlines",
-              },
-            ].map((feature, index) => (
-              <Card
-                key={index}
-                className="text-center p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-green-100 to-red-100 text-green-600 mb-4">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600">{feature.description}</p>
+            ].map((testimonial, index) => (
+              <Card key={index} className="p-6">
+                <CardContent className="space-y-4">
+                  <div className="flex items-center space-x-1">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className="h-4 w-4 fill-yellow-400 text-yellow-400"
+                      />
+                    ))}
+                  </div>
+                  <p className="text-gray-600 italic">
+                    &quot;{testimonial.review}&quot;
+                  </p>
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      {testimonial.name}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {testimonial.company}
+                    </div>
+                  </div>
+                </CardContent>
               </Card>
             ))}
           </div>
         </div>
       </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-green-600 to-red-600">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">
-            Ready to Elevate Your Brand?
-          </h2>
-          <p className="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
-            Join hundreds of Kenyan businesses who trust us with their corporate
-            merchandise needs
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" asChild>
-              <Link href="/sign-up">
-                Create Account <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white text-white hover:bg-white hover:text-green-600 bg-transparent"
-              asChild
-            >
-              <Link href="/sign-in">Sign In</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-card text-card-foreground py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-600 to-red-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">RB</span>
-                </div>
-                <span className="text-xl font-bold">Redbead</span>
-              </div>
-              <p className="text-muted-foreground">
-                Kenya&apos;s premier corporate merchandise partner for events
-                and branding.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-4">Products</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Lanyards
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Wristbands
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Diaries
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Corporate Gifts
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Contact
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Careers
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Blog
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Help Center
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Terms of Service
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Shipping Info
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-border mt-8 pt-8 text-center text-muted-foreground">
-            <p>
-              &copy; {new Date().getFullYear()} Redbead. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -11,7 +11,12 @@ import { ProductTypeResponse } from "./types/products.types";
 export class ProductTypeService {
   constructor(private fetcher = new Fetcher()) {}
 
-  public async findAll(params?: GetProductTypesDto) {
+  /**
+   * Get paginated list of product types with optional filtering and sorting
+   */
+  public async findAll(
+    params?: GetProductTypesDto
+  ): Promise<PaginatedData<ProductTypeResponse>> {
     const queryParams = new URLSearchParams();
 
     if (params?.page) {
@@ -46,36 +51,62 @@ export class ProductTypeService {
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/product-types${queryString ? `?${queryString}` : ""}`;
+    const url = `/v1/product${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<PaginatedData<ProductTypeResponse>>(url);
+    return this.fetcher.request<PaginatedData<ProductTypeResponse>>(
+      url,
+      {},
+      { auth: false } // Public endpoint
+    );
   }
 
-  public async findFeatured(limit?: number) {
+  /**
+   * Get featured product types for homepage/marketing display
+   */
+  public async findFeatured(limit?: number): Promise<ProductTypeResponse[]> {
     const queryParams = new URLSearchParams();
     if (limit) {
       queryParams.append("limit", limit.toString());
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/product-types/featured${queryString ? `?${queryString}` : ""}`;
+    const url = `/v1/product/featured${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<ProductTypeResponse[]>(url);
-  }
-
-  public async findById(productTypeId: string) {
-    return this.fetcher.request<ProductTypeResponse>(
-      `/v1/product-types/${productTypeId}`
+    return this.fetcher.request<ProductTypeResponse[]>(
+      url,
+      {},
+      { auth: false } // Public endpoint - no authentication required
     );
   }
 
-  public async findBySlug(slug: string) {
+  /**
+   * Get detailed product type information by ID
+   */
+  public async findById(productTypeId: string): Promise<ProductTypeResponse> {
     return this.fetcher.request<ProductTypeResponse>(
-      `/v1/product-types/slug/${slug}`
+      `/v1/product/${productTypeId}`,
+      {},
+      { auth: false } // Public endpoint
     );
   }
 
-  public async findByCategory(params: GetProductTypesByCategoryDto) {
+  /**
+   * Get detailed product type information using URL-friendly slug
+   */
+  public async findBySlug(slug: string): Promise<ProductTypeResponse> {
+    return this.fetcher.request<ProductTypeResponse>(
+      `/v1/product/slug/${slug}`,
+      {},
+      { auth: false } // Public endpoint
+    );
+  }
+
+  /**
+   * Get product types for a specific category
+   */
+  public async findByCategory(
+    params: GetProductTypesByCategoryDto
+  ): Promise<PaginatedData<ProductTypeResponse>> {
     const { categoryId, ...queryParams } = params;
     const urlParams = new URLSearchParams();
 
@@ -108,33 +139,51 @@ export class ProductTypeService {
     }
 
     const queryString = urlParams.toString();
-    const url = `/v1/product-types/category/${categoryId}${
+    const url = `/v1/product/category/${categoryId}${
       queryString ? `?${queryString}` : ""
     }`;
 
-    return this.fetcher.request<PaginatedData<ProductTypeResponse>>(url);
+    return this.fetcher.request<PaginatedData<ProductTypeResponse>>(
+      url,
+      {},
+      { auth: false } // Public endpoint
+    );
   }
 
-  public async create(values: CreateProductTypeDto) {
-    return this.fetcher.request<ProductTypeResponse>("/v1/product-types", {
+  /**
+   * Create a new product type within a category (Admin only)
+   */
+  public async create(
+    values: CreateProductTypeDto
+  ): Promise<ProductTypeResponse> {
+    return this.fetcher.request<ProductTypeResponse>("/v1/product", {
       method: "POST",
       data: values,
-    });
+    }); // Requires authentication (default auth: true)
   }
 
-  public async update(productTypeId: string, values: UpdateProductTypeDto) {
+  /**
+   * Update product type information (Admin only)
+   */
+  public async update(
+    productTypeId: string,
+    values: UpdateProductTypeDto
+  ): Promise<ProductTypeResponse> {
     return this.fetcher.request<ProductTypeResponse>(
-      `/v1/product-types/${productTypeId}`,
+      `/v1/product/${productTypeId}`,
       {
         method: "PATCH",
         data: values,
       }
-    );
+    ); // Requires authentication (default auth: true)
   }
 
-  public async delete(productTypeId: string) {
-    return this.fetcher.request<void>(`/v1/product-types/${productTypeId}`, {
+  /**
+   * Permanently delete a product type (Admin only)
+   */
+  public async delete(productTypeId: string): Promise<void> {
+    return this.fetcher.request<void>(`/v1/product/${productTypeId}`, {
       method: "DELETE",
-    });
+    }); // Requires authentication (default auth: true)
   }
 }
