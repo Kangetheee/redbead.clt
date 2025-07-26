@@ -1,20 +1,62 @@
-import type { NextConfig } from "next";
-
-const cloudfrontUrl = "cdn.mamabima.com";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   images: {
-    // loader: "custom",
-    // loaderFile: "./src/lib/images/loader.ts",
     remotePatterns: [
-      { protocol: "https", hostname: cloudfrontUrl },
-      { protocol: "https", hostname: "d2tk6bz1ze3gs5.cloudfront.net" },
-      { protocol: "https", hostname: "rbdapi.oleq.app" },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "3001",
+        pathname: "/**",
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "3000",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "rbdapi.oleq.app",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "via.placeholder.com",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "picsum.photos",
+        port: "",
+        pathname: "/**",
+      },
+      // Add other image domains your product images might use
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "storage.googleapis.com",
+        port: "",
+        pathname: "/**",
+      },
     ],
   },
-  env: {
-    NEXT_PUBLIC_CLOUDFRONT_URL: cloudfrontUrl,
+  // Optional: Add experimental features if needed
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

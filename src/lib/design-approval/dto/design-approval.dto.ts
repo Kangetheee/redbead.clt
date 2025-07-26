@@ -1,19 +1,25 @@
 import { z } from "zod";
 
-export const approveDesignSchema = z.object({
-  approvedBy: z.string().email("Invalid email address"),
-  comments: z.string().max(1000, "Comments too long").optional(),
+/**
+ * DTO for rejecting design via email token
+ * Used with GET /v1/design-approvals/reject/{token}
+ */
+export const rejectDesignByTokenSchema = z.object({
+  reason: z.string().min(1, "Rejection reason is required"),
 });
 
-export type ApproveDesignDto = z.infer<typeof approveDesignSchema>;
+export type RejectDesignByTokenDto = z.infer<typeof rejectDesignByTokenSchema>;
 
-export const rejectDesignSchema = z.object({
-  rejectedBy: z.string().email("Invalid email address"),
-  rejectionReason: z
-    .string()
-    .min(1, "Rejection reason is required")
-    .max(1000, "Reason too long"),
-  requestRevision: z.boolean().default(true),
-});
+// Design approval status enum
+export const designApprovalStatusEnum = z.enum([
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "EXPIRED",
+  "CANCELLED",
+]);
 
-export type RejectDesignDto = z.infer<typeof rejectDesignSchema>;
+export type DesignApprovalStatus = z.infer<typeof designApprovalStatusEnum>;
+
+// Export the enum for use in other files
+export { designApprovalStatusEnum as DESIGN_APPROVAL_STATUS };

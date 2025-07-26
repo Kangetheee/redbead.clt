@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { Fetcher } from "../api/api.service";
 import { PaginatedData } from "../shared/types";
 import { BulkOrderConversionDto } from "./dto/bulk-convert.dto";
@@ -12,7 +14,9 @@ import { BulkOrderDetail, BulkOrderResponse } from "./types/bulk-orders.types";
 export class BulkOrderService {
   constructor(private fetcher = new Fetcher()) {}
 
-  public async findAll(params?: GetBulkOrdersDto) {
+  public async findAll(
+    params?: GetBulkOrdersDto
+  ): Promise<PaginatedData<BulkOrderResponse>> {
     const queryParams = new URLSearchParams();
 
     if (params?.page) {
@@ -31,7 +35,28 @@ export class BulkOrderService {
     const queryString = queryParams.toString();
     const url = `/v1/bulk-orders${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<PaginatedData<BulkOrderResponse>>(url);
+    // Get the raw API response
+    const apiResponse = await this.fetcher.request<{
+      data: BulkOrderResponse[];
+      meta: {
+        page: number;
+        limit: number;
+        total: number;
+        lastPage: number;
+      };
+      links?: any;
+    }>(url);
+
+    // Transform to match PaginatedData structure
+    return {
+      items: apiResponse.data,
+      meta: {
+        totalItems: apiResponse.meta.total,
+        itemsPerPage: apiResponse.meta.limit,
+        currentPage: apiResponse.meta.page,
+        totalPages: apiResponse.meta.lastPage,
+      },
+    };
   }
 
   public async findById(bulkOrderId: string) {

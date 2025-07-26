@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 TODO.md
+pages.md
+api.md
+inittt.ini
+obviously.ini
+settings.json
 
 # vercel
 .vercel

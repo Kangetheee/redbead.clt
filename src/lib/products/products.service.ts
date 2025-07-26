@@ -1,17 +1,17 @@
 import { Fetcher } from "../api/api.service";
 import { PaginatedData } from "../shared/types";
 import {
-  CreateProductDto,
-  UpdateProductDto,
-  GetProductsDto,
-  PriceCalculationDto,
+  CreateProductTypeDto,
+  UpdateProductTypeDto,
+  GetProductTypesDto,
+  GetProductTypesByCategoryDto,
 } from "./dto/products.dto";
-import { ProductResponse, PriceBreakdown } from "./types/products.types";
+import { ProductTypeResponse } from "./types/products.types";
 
-export class ProductService {
+export class ProductTypeService {
   constructor(private fetcher = new Fetcher()) {}
 
-  public async findAll(params?: GetProductsDto) {
+  public async findAll(params?: GetProductTypesDto) {
     const queryParams = new URLSearchParams();
 
     if (params?.page) {
@@ -23,23 +23,20 @@ export class ProductService {
     if (params?.categoryId) {
       queryParams.append("categoryId", params.categoryId);
     }
-    if (params?.minPrice) {
-      queryParams.append("minPrice", params.minPrice.toString());
-    }
-    if (params?.maxPrice) {
-      queryParams.append("maxPrice", params.maxPrice.toString());
-    }
     if (params?.search) {
       queryParams.append("search", params.search);
+    }
+    if (params?.type) {
+      queryParams.append("type", params.type);
+    }
+    if (params?.material) {
+      queryParams.append("material", params.material);
     }
     if (params?.isFeatured !== undefined) {
       queryParams.append("isFeatured", params.isFeatured.toString());
     }
     if (params?.isActive !== undefined) {
       queryParams.append("isActive", params.isActive.toString());
-    }
-    if (params?.templateId) {
-      queryParams.append("templateId", params.templateId);
     }
     if (params?.sortBy) {
       queryParams.append("sortBy", params.sortBy);
@@ -49,9 +46,9 @@ export class ProductService {
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/products${queryString ? `?${queryString}` : ""}`;
+    const url = `/v1/product-types${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<PaginatedData<ProductResponse>>(url);
+    return this.fetcher.request<PaginatedData<ProductTypeResponse>>(url);
   }
 
   public async findFeatured(limit?: number) {
@@ -61,46 +58,83 @@ export class ProductService {
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/products/featured${queryString ? `?${queryString}` : ""}`;
+    const url = `/v1/product-types/featured${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<ProductResponse[]>(url);
+    return this.fetcher.request<ProductTypeResponse[]>(url);
   }
 
-  public async findById(productId: string) {
-    return this.fetcher.request<ProductResponse>(`/v1/products/${productId}`);
+  public async findById(productTypeId: string) {
+    return this.fetcher.request<ProductTypeResponse>(
+      `/v1/product-types/${productTypeId}`
+    );
   }
 
   public async findBySlug(slug: string) {
-    return this.fetcher.request<ProductResponse>(`/v1/products/slug/${slug}`);
+    return this.fetcher.request<ProductTypeResponse>(
+      `/v1/product-types/slug/${slug}`
+    );
   }
 
-  public async create(values: CreateProductDto) {
-    return this.fetcher.request<ProductResponse>("/v1/products", {
+  public async findByCategory(params: GetProductTypesByCategoryDto) {
+    const { categoryId, ...queryParams } = params;
+    const urlParams = new URLSearchParams();
+
+    if (queryParams.page) {
+      urlParams.append("page", queryParams.page.toString());
+    }
+    if (queryParams.limit) {
+      urlParams.append("limit", queryParams.limit.toString());
+    }
+    if (queryParams.search) {
+      urlParams.append("search", queryParams.search);
+    }
+    if (queryParams.type) {
+      urlParams.append("type", queryParams.type);
+    }
+    if (queryParams.material) {
+      urlParams.append("material", queryParams.material);
+    }
+    if (queryParams.isFeatured !== undefined) {
+      urlParams.append("isFeatured", queryParams.isFeatured.toString());
+    }
+    if (queryParams.isActive !== undefined) {
+      urlParams.append("isActive", queryParams.isActive.toString());
+    }
+    if (queryParams.sortBy) {
+      urlParams.append("sortBy", queryParams.sortBy);
+    }
+    if (queryParams.sortDirection) {
+      urlParams.append("sortDirection", queryParams.sortDirection);
+    }
+
+    const queryString = urlParams.toString();
+    const url = `/v1/product-types/category/${categoryId}${
+      queryString ? `?${queryString}` : ""
+    }`;
+
+    return this.fetcher.request<PaginatedData<ProductTypeResponse>>(url);
+  }
+
+  public async create(values: CreateProductTypeDto) {
+    return this.fetcher.request<ProductTypeResponse>("/v1/product-types", {
       method: "POST",
       data: values,
     });
   }
 
-  public async update(productId: string, values: UpdateProductDto) {
-    return this.fetcher.request<ProductResponse>(`/v1/products/${productId}`, {
-      method: "PATCH",
-      data: values,
-    });
-  }
-
-  public async delete(productId: string) {
-    return this.fetcher.request<void>(`/v1/products/${productId}`, {
-      method: "DELETE",
-    });
-  }
-
-  public async calculatePrice(productId: string, values: PriceCalculationDto) {
-    return this.fetcher.request<PriceBreakdown>(
-      `/v1/products/${productId}/calculate-price`,
+  public async update(productTypeId: string, values: UpdateProductTypeDto) {
+    return this.fetcher.request<ProductTypeResponse>(
+      `/v1/product-types/${productTypeId}`,
       {
-        method: "POST",
+        method: "PATCH",
         data: values,
       }
     );
+  }
+
+  public async delete(productTypeId: string) {
+    return this.fetcher.request<void>(`/v1/product-types/${productTypeId}`, {
+      method: "DELETE",
+    });
   }
 }

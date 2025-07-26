@@ -1,3 +1,17 @@
 {
-  "cSpell.words": ["Bima", "mamabima", "Oleq", "trivago", "turbopack"]
+  "cSpell.words": [
+    "Bima",
+    "customizer",
+    "Favorited",
+    "mamabima",
+    "MPESA",
+    "Oleq",
+    "REDBEAD",
+    "sonner",
+    "sqrool",
+    "trivago",
+    "turbopack",
+    "Wishlisted"
+  ],
+  "terminal.integrated.suggest.enabled": true
 }

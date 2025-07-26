@@ -17,6 +17,9 @@ import { CategoryService } from "./categories.service";
 
 const categoryService = new CategoryService();
 
+/**
+ * Get paginated list of categories with optional filtering
+ */
 export async function getCategoriesAction(
   params?: GetCategoriesDto
 ): Promise<ActionResponse<PaginatedData<CategoryWithRelations>>> {
@@ -28,6 +31,9 @@ export async function getCategoriesAction(
   }
 }
 
+/**
+ * Get all categories in hierarchical tree structure
+ */
 export async function getCategoriesTreeAction(): Promise<
   ActionResponse<CategoryTreeResponse[]>
 > {
@@ -39,6 +45,9 @@ export async function getCategoriesTreeAction(): Promise<
   }
 }
 
+/**
+ * Get detailed category information including products and options by ID
+ */
 export async function getCategoryAction(
   categoryId: string
 ): Promise<ActionResponse<CategoryDetail>> {
@@ -50,6 +59,9 @@ export async function getCategoryAction(
   }
 }
 
+/**
+ * Get category using URL-friendly slug identifier
+ */
 export async function getCategoryBySlugAction(
   slug: string
 ): Promise<ActionResponse<CategoryDetail>> {
@@ -61,6 +73,9 @@ export async function getCategoryBySlugAction(
   }
 }
 
+/**
+ * Create a new product category with optional parent relationship
+ */
 export async function createCategoryAction(
   values: CreateCategoryDto
 ): Promise<ActionResponse<CategoryResponse>> {
@@ -72,6 +87,9 @@ export async function createCategoryAction(
   }
 }
 
+/**
+ * Update category information and settings
+ */
 export async function updateCategoryAction(
   categoryId: string,
   values: UpdateCategoryDto
@@ -84,6 +102,9 @@ export async function updateCategoryAction(
   }
 }
 
+/**
+ * Delete category (must have no products or children)
+ */
 export async function deleteCategoryAction(
   categoryId: string
 ): Promise<ActionResponse<void>> {

@@ -57,18 +57,22 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+// Import hooks and types
+import { useUpdateOrderStatus, useAddOrderNote } from "@/hooks/use-orders";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
-import OrderStatusBadge from "@/components/orders/order-status-badge";
+import {
+  UpdateOrderStatusDto,
+  CreateOrderNoteDto,
+} from "@/lib/orders/dto/orders.dto";
 
 interface StatusManagementProps {
   order: OrderResponse;
-  onStatusUpdate?: (newStatus: string, data?: any) => void;
+  onStatusUpdate?: (newStatus: string) => void;
   showAdvancedControls?: boolean;
 }
 
-// Define status workflow
+// Status workflow with proper typing
 const STATUS_WORKFLOW = {
   PENDING: {
     label: "Pending",
@@ -159,7 +163,9 @@ const STATUS_WORKFLOW = {
     nextStates: [],
     description: "Order has been refunded",
   },
-};
+} as const;
+
+type OrderStatus = keyof typeof STATUS_WORKFLOW;
 
 export default function StatusManagement({
   order,
@@ -175,21 +181,24 @@ export default function StatusManagement({
   const [addNote, setAddNote] = useState(false);
   const [noteContent, setNoteContent] = useState("");
 
-  const currentStatus = order.status;
-  const currentStatusConfig =
-    STATUS_WORKFLOW[currentStatus as keyof typeof STATUS_WORKFLOW];
+  // Use hooks for mutations
+  const updateOrderStatusMutation = useUpdateOrderStatus(order.id);
+  const addOrderNoteMutation = useAddOrderNote(order.id);
+
+  const currentStatus = order.status as OrderStatus;
+  const currentStatusConfig = STATUS_WORKFLOW[currentStatus];
   const availableNextStates = currentStatusConfig?.nextStates || [];
 
   // Mock status history - in real app, this would come from API
   const statusHistory = [
     {
-      status: "PENDING",
+      status: "PENDING" as OrderStatus,
       timestamp: order.createdAt,
       user: "System",
       reason: "Order placed by customer",
     },
     {
-      status: order.status,
+      status: currentStatus,
       timestamp: order.updatedAt,
       user: "Admin Staff",
       reason: "Status updated",
@@ -197,7 +206,7 @@ export default function StatusManagement({
   ];
 
   const getProgressPercentage = () => {
-    const statusOrder = [
+    const statusOrder: OrderStatus[] = [
       "PENDING",
       "DESIGN_APPROVED",
       "PAYMENT_CONFIRMED",
@@ -211,22 +220,36 @@ export default function StatusManagement({
       : 0;
   };
 
-  const handleStatusChange = () => {
+  const handleStatusChange = async () => {
     if (!selectedStatus) return;
 
-    const updateData = {
-      status: selectedStatus,
-      reason: statusReason,
-      trackingNumber: selectedStatus === "SHIPPED" ? trackingNumber : undefined,
-      trackingUrl: selectedStatus === "SHIPPED" ? trackingUrl : undefined,
-      expectedDelivery: expectedDelivery || undefined,
-      addNote,
-      noteContent,
-    };
+    try {
+      // Update status
+      const statusData: UpdateOrderStatusDto = {
+        status: selectedStatus as any,
+        reason: statusReason,
+      };
 
-    onStatusUpdate?.(selectedStatus, updateData);
-    setIsDialogOpen(false);
-    resetForm();
+      await updateOrderStatusMutation.mutateAsync(statusData);
+
+      // Add note if requested
+      if (addNote && noteContent) {
+        const noteData: CreateOrderNoteDto = {
+          noteType: "TIMELINE",
+          title: `Status changed to ${selectedStatus}`,
+          content: noteContent,
+          isInternal: true,
+        };
+        await addOrderNoteMutation.mutateAsync(noteData);
+      }
+
+      onStatusUpdate?.(selectedStatus);
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      // Error handling is done by the mutation hooks via toast
+    }
   };
 
   const resetForm = () => {
@@ -286,7 +309,9 @@ export default function StatusManagement({
                 </p>
               </div>
             </div>
-            <OrderStatusBadge status={currentStatus} size="default" />
+            <Badge variant="outline" className="text-sm">
+              {currentStatusConfig?.label || currentStatus}
+            </Badge>
           </div>
 
           {/* Progress Bar */}
@@ -332,9 +357,7 @@ export default function StatusManagement({
                           <SelectContent>
                             {availableNextStates.map((status) => {
                               const statusConfig =
-                                STATUS_WORKFLOW[
-                                  status as keyof typeof STATUS_WORKFLOW
-                                ];
+                                STATUS_WORKFLOW[status as OrderStatus];
                               return (
                                 <SelectItem key={status} value={status}>
                                   <div className="flex items-center gap-2">
@@ -475,9 +498,8 @@ export default function StatusManagement({
                           <AlertDescription>
                             <strong>Status will change to:</strong>{" "}
                             {
-                              STATUS_WORKFLOW[
-                                selectedStatus as keyof typeof STATUS_WORKFLOW
-                              ]?.label
+                              STATUS_WORKFLOW[selectedStatus as OrderStatus]
+                                ?.label
                             }
                             {statusReason && (
                               <div className="mt-1">
@@ -493,6 +515,7 @@ export default function StatusManagement({
                       <Button
                         variant="outline"
                         onClick={() => setIsDialogOpen(false)}
+                        disabled={updateOrderStatusMutation.isPending}
                       >
                         Cancel
                       </Button>
@@ -500,10 +523,18 @@ export default function StatusManagement({
                         onClick={handleStatusChange}
                         disabled={
                           !selectedStatus ||
-                          (selectedStatus === "SHIPPED" && !trackingNumber)
+                          (selectedStatus === "SHIPPED" && !trackingNumber) ||
+                          updateOrderStatusMutation.isPending
                         }
                       >
-                        Update Status
+                        {updateOrderStatusMutation.isPending ? (
+                          <>
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                            Updating...
+                          </>
+                        ) : (
+                          "Update Status"
+                        )}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -513,8 +544,7 @@ export default function StatusManagement({
               {/* Quick Action Buttons */}
               <div className="grid grid-cols-2 gap-2">
                 {availableNextStates.slice(0, 2).map((status) => {
-                  const statusConfig =
-                    STATUS_WORKFLOW[status as keyof typeof STATUS_WORKFLOW];
+                  const statusConfig = STATUS_WORKFLOW[status as OrderStatus];
                   return (
                     <Button
                       key={status}
@@ -556,8 +586,7 @@ export default function StatusManagement({
         <CardContent>
           <div className="space-y-4">
             {statusHistory.map((entry, index) => {
-              const statusConfig =
-                STATUS_WORKFLOW[entry.status as keyof typeof STATUS_WORKFLOW];
+              const statusConfig = STATUS_WORKFLOW[entry.status];
               const isLatest = index === statusHistory.length - 1;
 
               return (

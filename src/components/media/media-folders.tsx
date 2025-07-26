@@ -54,51 +54,55 @@ export default function MediaFolders({
       </div>
 
       <div className="flex flex-wrap gap-6">
-        {folders.items.map(({ id, name, fileCount, createdAt, updatedAt }) => (
-          <Fragment key={id}>
-            <MediaGalleryDialog
-              id={id}
-              name={name}
-              isOpen={openGalleryId === id}
-              setIsOpen={(isOpen) => setOpenGalleryId(isOpen ? id : null)}
-              onSelect={onSelect}
-              multiple={multiple}
-            />
+        {folders.results.map(
+          ({ id, name, fileCount, createdAt, updatedAt }) => (
+            <Fragment key={id}>
+              <MediaGalleryDialog
+                id={id}
+                name={name}
+                isOpen={openGalleryId === id}
+                setIsOpen={(isOpen) => setOpenGalleryId(isOpen ? id : null)}
+                onSelect={onSelect}
+                multiple={multiple}
+              />
 
-            <Card
-              key={id}
-              className="w-full max-w-sm cursor-pointer transition-colors hover:bg-accent"
-              onClick={() => handleFolderClick(id)}
-            >
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <Folder className="h-5 w-5" />
-                  {name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">Files:</dt>
-                    <dd>{fileCount}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">
-                      Created:
-                    </dt>
-                    <dd>{format(createdAt, "PPp")}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">
-                      Last updated:
-                    </dt>
-                    <dd>{format(updatedAt, "PPp")}</dd>
-                  </div>
-                </dl>
-              </CardContent>
-            </Card>
-          </Fragment>
-        ))}
+              <Card
+                key={id}
+                className="w-full max-w-sm cursor-pointer transition-colors hover:bg-accent"
+                onClick={() => handleFolderClick(id)}
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Folder className="h-5 w-5" />
+                    {name}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500 dark:text-gray-400">
+                        Files:
+                      </dt>
+                      <dd>{fileCount}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500 dark:text-gray-400">
+                        Created:
+                      </dt>
+                      <dd>{format(createdAt, "PPp")}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500 dark:text-gray-400">
+                        Last updated:
+                      </dt>
+                      <dd>{format(updatedAt, "PPp")}</dd>
+                    </div>
+                  </dl>
+                </CardContent>
+              </Card>
+            </Fragment>
+          )
+        )}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -10,114 +11,181 @@ import {
 } from "@/lib/cart/cart.actions";
 import { CreateCartItemDto, UpdateCartItemDto } from "@/lib/cart/dto/cart.dto";
 
-// Query Keys
-export const cartKeys = {
-  all: ["cart"] as const,
-  cart: () => [...cartKeys.all, "items"] as const,
-  item: (id: string) => [...cartKeys.all, "item", id] as const,
+export const CART_QUERY_KEYS = {
+  cart: () => ["cart"] as const,
+  cartItem: (id: string) => ["cart", "item", id] as const,
 };
 
-// Queries
+/**
+ * Hook to get the current user's cart
+ */
 export function useCart() {
   return useQuery({
-    queryKey: cartKeys.cart(),
-    queryFn: () => getCartAction(),
-    select: (data) => (data.success ? data.data : undefined),
+    queryKey: CART_QUERY_KEYS.cart(),
+    queryFn: async () => {
+      const result = await getCartAction();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
   });
 }
 
-export function useCartItem(cartItemId: string, enabled = true) {
+/**
+ * Hook to get a specific cart item
+ */
+export function useCartItem(cartItemId: string) {
   return useQuery({
-    queryKey: cartKeys.item(cartItemId),
-    queryFn: () => getCartItemAction(cartItemId),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!cartItemId,
+    queryKey: CART_QUERY_KEYS.cartItem(cartItemId),
+    queryFn: async () => {
+      const result = await getCartItemAction(cartItemId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    enabled: !!cartItemId,
   });
 }
 
-// Mutations
+/**
+ * Hook to add items to cart
+ */
 export function useAddToCart() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (values: CreateCartItemDto) => addToCartAction(values),
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success("Item added to cart");
-        queryClient.invalidateQueries({ queryKey: cartKeys.cart() });
-      } else {
-        toast.error(data.error);
+    mutationFn: async (values: CreateCartItemDto) => {
+      const result = await addToCartAction(values);
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      return result.data;
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to add item to cart");
+    onSuccess: (data) => {
+      // Invalidate and refetch cart data
+      queryClient.invalidateQueries({ queryKey: CART_QUERY_KEYS.cart() });
+      toast.success("Item added to cart successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to add item to cart: ${error.message}`);
     },
   });
 }
 
+/**
+ * Hook to update cart items
+ */
 export function useUpdateCartItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       cartItemId,
       values,
     }: {
       cartItemId: string;
       values: UpdateCartItemDto;
-    }) => updateCartItemAction(cartItemId, values),
-    onSuccess: (data, variables) => {
-      if (data.success) {
-        toast.success("Cart item updated");
-        queryClient.invalidateQueries({ queryKey: cartKeys.cart() });
-        queryClient.invalidateQueries({
-          queryKey: cartKeys.item(variables.cartItemId),
-        });
-      } else {
-        toast.error(data.error);
+    }) => {
+      const result = await updateCartItemAction(cartItemId, values);
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      return result.data;
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update cart item");
+    onSuccess: (data, variables) => {
+      // Invalidate cart and specific cart item queries
+      queryClient.invalidateQueries({ queryKey: CART_QUERY_KEYS.cart() });
+      queryClient.invalidateQueries({
+        queryKey: CART_QUERY_KEYS.cartItem(variables.cartItemId),
+      });
+      toast.success("Cart item updated successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to update cart item: ${error.message}`);
     },
   });
 }
 
+/**
+ * Hook to remove items from cart
+ */
 export function useRemoveCartItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (cartItemId: string) => removeCartItemAction(cartItemId),
-    onSuccess: (data, cartItemId) => {
-      if (data.success) {
-        toast.success("Item removed from cart");
-        queryClient.invalidateQueries({ queryKey: cartKeys.cart() });
-        queryClient.removeQueries({ queryKey: cartKeys.item(cartItemId) });
-      } else {
-        toast.error(data.error);
+    mutationFn: async (cartItemId: string) => {
+      const result = await removeCartItemAction(cartItemId);
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      return result.data;
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to remove item from cart");
+    onSuccess: (_, cartItemId) => {
+      // Invalidate cart data and remove specific cart item from cache
+      queryClient.invalidateQueries({ queryKey: CART_QUERY_KEYS.cart() });
+      queryClient.removeQueries({
+        queryKey: CART_QUERY_KEYS.cartItem(cartItemId),
+      });
+      toast.success("Item removed from cart");
+    },
+    onError: (error) => {
+      toast.error(`Failed to remove item from cart: ${error.message}`);
     },
   });
 }
 
+/**
+ * Hook to clear entire cart
+ */
 export function useClearCart() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => clearCartAction(),
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success("Cart cleared");
-        queryClient.invalidateQueries({ queryKey: cartKeys.cart() });
-      } else {
-        toast.error(data.error);
+    mutationFn: async () => {
+      const result = await clearCartAction();
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      return result.data;
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to clear cart");
+    onSuccess: () => {
+      // Invalidate all cart-related queries
+      queryClient.invalidateQueries({ queryKey: CART_QUERY_KEYS.cart() });
+      queryClient.removeQueries({ queryKey: ["cart", "item"] });
+      toast.success("Cart cleared successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to clear cart: ${error.message}`);
     },
   });
+}
+
+/**
+ * Hook to get cart summary info (item count, total, etc.)
+ */
+export function useCartSummary() {
+  const { data: cart, ...rest } = useCart();
+
+  return {
+    ...rest,
+    data: cart?.summary,
+  };
+}
+
+/**
+ * Hook to get cart item count
+ */
+export function useCartItemCount() {
+  const { data: cart } = useCart();
+  return cart?.summary.itemCount ?? 0;
+}
+
+/**
+ * Hook to get cart total
+ */
+export function useCartTotal() {
+  const { data: cart } = useCart();
+  return cart?.summary.total ?? 0;
 }

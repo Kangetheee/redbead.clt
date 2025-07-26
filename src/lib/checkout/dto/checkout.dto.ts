@@ -86,3 +86,30 @@ export const completeCheckoutSchema = z.object({
 });
 
 export type CompleteCheckoutDto = z.infer<typeof completeCheckoutSchema>;
+
+// Guest-specific schemas
+export const guestInitCheckoutSchema = z.object({
+  guestEmail: z.string().email("Invalid email address"),
+  items: z.array(checkoutItemSchema).min(1, "At least one item is required"),
+  couponCode: z.string().optional(),
+});
+
+export type GuestInitCheckoutDto = z.infer<typeof guestInitCheckoutSchema>;
+
+export const guestCompleteCheckoutSchema = z.object({
+  sessionId: z.string().min(1, "Session ID is required"),
+  guestInfo: guestInfoSchema,
+  shippingAddress: addressInputSchema,
+  billingAddress: addressInputSchema.optional(),
+  selectedShippingOption: z.string().min(1, "Shipping option is required"),
+  paymentMethod: z.enum(["MPESA", "BANK_TRANSFER", "CARD"]),
+  customerPhone: z
+    .string()
+    .refine(isValidPhoneNumber, { message: "Invalid phone number" }),
+  notes: z.string().optional(),
+  specialInstructions: z.string().optional(),
+});
+
+export type GuestCompleteCheckoutDto = z.infer<
+  typeof guestCompleteCheckoutSchema
+>;

@@ -27,7 +27,7 @@ export const createCategorySchema = z.object({
     .optional(),
   thumbnailImage: z.string().url("Invalid thumbnail image URL").optional(),
   bannerImage: z.string().url("Invalid banner image URL").optional(),
-  configSchema: z.object({}).optional(),
+  configSchema: z.record(z.any()).optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().min(0).max(9999).default(0),
   parentId: z.string().uuid("Invalid parent ID").optional(),
@@ -64,7 +64,7 @@ export const updateCategorySchema = z.object({
     .optional(),
   thumbnailImage: z.string().url("Invalid thumbnail image URL").optional(),
   bannerImage: z.string().url("Invalid banner image URL").optional(),
-  configSchema: z.object({}).optional(),
+  configSchema: z.record(z.any()).optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().min(0).max(9999).optional(),
   parentId: z.string().uuid("Invalid parent ID").optional(),
@@ -73,8 +73,8 @@ export const updateCategorySchema = z.object({
 export type UpdateCategoryDto = z.infer<typeof updateCategorySchema>;
 
 export const getCategoriesSchema = z.object({
-  page: z.number().min(1).optional(),
-  limit: z.number().min(1).max(100).optional(),
+  page: z.number().min(1).optional().default(1),
+  limit: z.number().min(1).max(100).optional().default(10),
   search: z.string().max(100).optional(),
   isActive: z.boolean().optional(),
 });

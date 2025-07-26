@@ -1,24 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
-// Hooks
 import {
   useCheckoutSession,
   useValidateCheckout,
   useCompleteCheckout,
+  useSessionExpired,
+  useSessionTimeRemaining,
 } from "@/hooks/use-checkout";
 import { useAddresses, useDefaultAddress } from "@/hooks/use-address";
 import { usePaymentMethods } from "@/hooks/use-payments";
 import { useCheckoutPersistence } from "@/hooks/use-checkout-persistence";
-
-// UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,19 +31,18 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-// Custom Components
 import { CheckoutSteps } from "@/components/checkout/checkout-steps";
-import { AddressSelector } from "@/components/checkout/address-selector";
+import {
+  AddressSelector,
+  AddressSelectorSkeleton,
+} from "@/components/checkout/address-selector";
 import { ShippingCalculation } from "@/components/checkout/shipping-calculation";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { PaymentMethods } from "@/components/checkout/payment-methods";
 import { CheckoutError } from "@/components/checkout/checkout-error";
 import { CheckoutLoading } from "@/components/checkout/checkout-loading";
-
-// Icons
+import { OrderReview } from "@/components/checkout/order-review";
 import {
   ShoppingCart,
   MapPin,
@@ -54,12 +52,17 @@ import {
   AlertCircle,
   ArrowLeft,
   Clock,
+  RefreshCw,
+  Shield,
+  Timer,
 } from "lucide-react";
-
-// Types and Schemas
 import { completeCheckoutSchema } from "@/lib/checkout/dto/checkout.dto";
-import { ShippingOption } from "@/lib/checkout/types/checkout.types";
+import {
+  ShippingOption,
+  CheckoutValidation,
+} from "@/lib/checkout/types/checkout.types";
 import { AddressType } from "@/lib/address/types/address.types";
+import { toast } from "sonner";
 
 type FormData = z.infer<typeof completeCheckoutSchema>;
 type PaymentMethodType = "MPESA" | "BANK_TRANSFER" | "CARD";
@@ -73,36 +76,94 @@ const steps = [
   { id: 5, name: "Confirmation", icon: CheckCircle },
 ];
 
+// Helper function to safely render customizations
+const renderCustomization = (custom: any, index: number) => {
+  let displayText = "";
+
+  if (typeof custom === "string") {
+    displayText = custom;
+  } else if (typeof custom === "object" && custom !== null) {
+    if ("displayName" in custom) {
+      displayText = custom.displayName;
+    } else if ("value" in custom) {
+      displayText = custom.value;
+    } else if ("optionName" in custom && "valueName" in custom) {
+      displayText = `${custom.optionName}: ${custom.valueName}`;
+    } else if ("customValue" in custom && custom.customValue) {
+      displayText = custom.customValue;
+    } else if ("valueId" in custom && "optionId" in custom) {
+      displayText = `Customization ${index + 1}`;
+    } else {
+      try {
+        const keys = Object.keys(custom);
+        if (keys.length > 0) {
+          displayText = `${keys[0]}: ${custom[keys[0]]}`;
+        } else {
+          displayText = `Customization ${index + 1}`;
+        }
+      } catch {
+        displayText = `Customization ${index + 1}`;
+      }
+    }
+  } else {
+    displayText = String(custom);
+  }
+
+  return (
+    <Badge key={index} variant="outline" className="text-xs">
+      {displayText}
+    </Badge>
+  );
+};
+
 export default function CheckoutPage() {
   // Router and URL handling
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session");
+  const sessionIdRaw = searchParams.get("session");
+  const sessionId = sessionIdRaw ? sessionIdRaw.split("?")[0] : null;
 
   // Local state
   const [currentStep, setCurrentStep] = useState(1);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
-  const [validationResult, setValidationResult] = useState<any>(null);
+  const [validationResult, setValidationResult] =
+    useState<CheckoutValidation | null>(null);
+  const [isStepTransitioning, setIsStepTransitioning] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Persistence hook
-  const { clearStoredSession } = useCheckoutPersistence(sessionId || undefined);
+  const { clearStoredSession, persistStep, getStoredStep } =
+    useCheckoutPersistence(sessionId || undefined);
 
-  // Data fetching hooks
+  // Session monitoring hooks
+  const timeRemaining = useSessionTimeRemaining(sessionId || "");
+  const isSessionExpired = useSessionExpired(sessionId || "");
+
+  // Data fetching hooks with better error handling
   const {
     data: checkoutSession,
     isLoading: sessionLoading,
     error: sessionError,
+    refetch: refetchSession,
   } = useCheckoutSession(sessionId || "", !!sessionId);
-  const { data: addresses } = useAddresses();
+
+  const {
+    data: addressesResponse,
+    isLoading: addressesLoading,
+    error: addressesError,
+    refetch: refetchAddresses,
+  } = useAddresses();
+
   const { data: defaultShipping } = useDefaultAddress("SHIPPING");
   const { data: defaultBilling } = useDefaultAddress("BILLING");
-  const { data: paymentMethods } = usePaymentMethods();
+  const { data: paymentMethods, isLoading: paymentMethodsLoading } =
+    usePaymentMethods();
 
-  // Mutation hooks
+  // Mutation hooks with enhanced error handling
   const validateCheckoutMutation = useValidateCheckout();
   const completeCheckoutMutation = useCompleteCheckout();
 
-  // Form setup
+  // Form setup with better validation
   const form = useForm<FormData>({
     resolver: zodResolver(completeCheckoutSchema),
     defaultValues: {
@@ -112,8 +173,55 @@ export default function CheckoutPage() {
       paymentMethod: "MPESA",
       notes: "",
       specialInstructions: "",
+      selectedShippingOption: "",
+      customerPhone: "",
     },
+    mode: "onChange",
   });
+
+  // Extract addresses safely
+  const addresses = addressesResponse?.success
+    ? addressesResponse.data.items
+    : [];
+
+  // Session validation and redirection
+  useEffect(() => {
+    if (!sessionId) {
+      toast.error("No checkout session found");
+      router.push("/dashboard/customer/cart");
+      return;
+    }
+
+    // Restore saved step if available
+    const savedStep = getStoredStep();
+    if (savedStep && savedStep !== currentStep && savedStep <= 5) {
+      setCurrentStep(savedStep);
+    }
+  }, [sessionId, router, getStoredStep, currentStep]);
+
+  // Handle session expiry with better UX
+  useEffect(() => {
+    if (isSessionExpired) {
+      toast.error("Your checkout session has expired");
+      clearStoredSession();
+      router.push("/dashboard/customer/cart");
+    }
+  }, [isSessionExpired, clearStoredSession, router]);
+
+  // Session timeout warnings
+  useEffect(() => {
+    if (timeRemaining !== null) {
+      if (timeRemaining === 5) {
+        toast.warning("Your session will expire in 5 minutes", {
+          duration: 10000,
+        });
+      } else if (timeRemaining === 1) {
+        toast.error("Your session will expire in 1 minute!", {
+          duration: 15000,
+        });
+      }
+    }
+  }, [timeRemaining]);
 
   // Set default addresses when data loads
   useEffect(() => {
@@ -125,55 +233,116 @@ export default function CheckoutPage() {
     }
   }, [defaultShipping, defaultBilling, form]);
 
-  // Redirect if no session
-  useEffect(() => {
-    if (!sessionId) {
-      router.push("/dashboard/customer/cart");
-    }
-  }, [sessionId, router]);
+  // Auto-progression logic with better validation
+  const watchedValues = form.watch([
+    "shippingAddressId",
+    "selectedShippingOption",
+    "paymentMethod",
+  ]);
+  const [shippingAddressId, selectedShippingOption, paymentMethod] =
+    watchedValues;
 
-  // Handle session expiry
-  useEffect(() => {
-    if (checkoutSession && new Date(checkoutSession.expiresAt) < new Date()) {
-      clearStoredSession();
-      router.push("/dashboard/customer/cart");
-    }
-  }, [checkoutSession, clearStoredSession, router]);
+  const advanceStep = useCallback(
+    (newStep: number) => {
+      if (newStep < 1 || newStep > steps.length) return;
 
-  // Auto-advance to shipping options when address is selected
-  const watchShippingAddress = form.watch("shippingAddressId");
-  useEffect(() => {
-    if (watchShippingAddress && sessionId && currentStep === 2) {
-      setCurrentStep(3);
-    }
-  }, [watchShippingAddress, sessionId, currentStep]);
+      setIsStepTransitioning(true);
+      setTimeout(() => {
+        setCurrentStep(newStep);
+        persistStep(newStep);
+        setIsStepTransitioning(false);
+      }, 300);
+    },
+    [persistStep]
+  );
 
-  // Navigation handlers
+  // Enhanced auto-progression
+  useEffect(() => {
+    if (isStepTransitioning) return;
+
+    // Auto-advance from step 2 to 3 when shipping address is selected
+    if (currentStep === 2 && shippingAddressId && sessionId) {
+      const address = addresses.find((a) => a.id === shippingAddressId);
+      if (address) {
+        advanceStep(3);
+      }
+    }
+    // Auto-advance from step 3 to 4 when shipping option is selected
+    else if (currentStep === 3 && shippingAddressId && selectedShippingOption) {
+      const option = shippingOptions.find(
+        (opt) => opt.id === selectedShippingOption
+      );
+      if (option) {
+        advanceStep(4);
+      }
+    }
+  }, [
+    currentStep,
+    shippingAddressId,
+    selectedShippingOption,
+    sessionId,
+    advanceStep,
+    isStepTransitioning,
+    addresses,
+    shippingOptions,
+  ]);
+
+  // Enhanced address selection
+  const handleAddressSelect = useCallback(
+    async (addressId: string) => {
+      try {
+        form.setValue("shippingAddressId", addressId);
+        await refetchAddresses();
+
+        // Clear any previous shipping options when address changes
+        if (currentStep >= 3) {
+          setShippingOptions([]);
+          form.setValue("selectedShippingOption", "");
+        }
+
+        toast.success("Address selected");
+      } catch (error) {
+        toast.error("Failed to select address");
+        console.error("Address selection error:", error);
+      }
+    },
+    [form, refetchAddresses, currentStep]
+  );
+
+  // Navigation handlers with validation
   const handleNext = async () => {
-    if (currentStep === 4) {
-      await handleValidateCheckout();
-    } else {
-      setCurrentStep(Math.min(currentStep + 1, steps.length));
+    try {
+      if (currentStep === 4) {
+        await handleValidateCheckout();
+      } else {
+        const nextStep = Math.min(currentStep + 1, steps.length);
+        advanceStep(nextStep);
+      }
+    } catch (error) {
+      toast.error("Failed to proceed to next step");
+      console.error("Navigation error:", error);
     }
   };
 
   const handlePrevious = () => {
-    setCurrentStep(Math.max(1, currentStep - 1));
+    const prevStep = Math.max(1, currentStep - 1);
+    advanceStep(prevStep);
   };
 
-  // Validation handler
+  // Enhanced validation handler
   const handleValidateCheckout = async () => {
-    const formData = form.getValues();
-    const shippingAddress = addresses?.success
-      ? addresses.data.items.find((a) => a.id === formData.shippingAddressId)
-      : null;
+    try {
+      const formData = form.getValues();
+      const shippingAddress = addresses.find(
+        (a) => a.id === formData.shippingAddressId
+      );
 
-    if (!shippingAddress || !formData.selectedShippingOption) {
-      return;
-    }
+      if (!shippingAddress || !formData.selectedShippingOption) {
+        toast.error("Please complete all required fields");
+        return;
+      }
 
-    validateCheckoutMutation.mutate(
-      {
+      const validationData = {
         sessionId: sessionId!,
         shippingAddress: {
           recipientName: shippingAddress.recipientName,
@@ -189,97 +358,219 @@ export default function CheckoutPage() {
         selectedShippingOption: formData.selectedShippingOption,
         paymentMethod: formData.paymentMethod,
         customerPhone: formData.customerPhone,
-      },
-      {
-        onSuccess: (data) => {
-          if (data.success) {
-            setValidationResult(data.data);
-            setCurrentStep(5);
+      };
+
+      validateCheckoutMutation.mutate(validationData, {
+        onSuccess: (result) => {
+          if (result.isValid) {
+            setValidationResult(result);
+            advanceStep(5);
+            toast.success("Order validated successfully");
+          } else {
+            setValidationResult(result);
+            // Show validation errors
+            result.errors?.forEach((error) => toast.error(error));
+            result.warnings?.forEach((warning) => toast.warning(warning));
           }
         },
-      }
-    );
+        onError: (error) => {
+          toast.error(`Validation failed: ${error.message}`);
+          console.error("Validation error:", error);
+        },
+      });
+    } catch (error) {
+      toast.error("Unexpected error during validation");
+      console.error("Validation error:", error);
+    }
   };
 
-  // Order completion handler
+  // Enhanced order completion
   const handleCompleteOrder = async (data: FormData) => {
-    completeCheckoutMutation.mutate(data, {
-      onSuccess: (result) => {
-        if (result.success) {
+    try {
+      const shippingAddress = addresses.find(
+        (addr) => addr.id === data.shippingAddressId
+      );
+
+      if (!shippingAddress) {
+        toast.error("Shipping address not found");
+        return;
+      }
+
+      const completeCheckoutData = {
+        ...data,
+        shippingAddressId: data.shippingAddressId,
+        shippingAddress: {
+          recipientName: shippingAddress.recipientName,
+          companyName: shippingAddress.companyName || undefined,
+          street: shippingAddress.street,
+          street2: shippingAddress.street2 || undefined,
+          city: shippingAddress.city,
+          state: shippingAddress.state || undefined,
+          postalCode: shippingAddress.postalCode,
+          country: shippingAddress.country,
+          phone: shippingAddress.phone || undefined,
+        },
+      };
+
+      completeCheckoutMutation.mutate(completeCheckoutData, {
+        onSuccess: (result) => {
           clearStoredSession();
+          toast.success("Order placed successfully!");
           router.push(
-            `/dashboard/customer/checkout/confirmation/${result.data.orderId}`
+            `/dashboard/customer/checkout/confirmation/${result.orderId}`
           );
-        }
-      },
-    });
+        },
+        onError: (error) => {
+          console.error("Checkout error:", error);
+          toast.error("Failed to complete checkout. Please try again.");
+        },
+      });
+    } catch (error) {
+      toast.error("Unexpected error during checkout");
+      console.error("Checkout completion error:", error);
+    }
   };
 
-  // Shipping calculation handler
+  // Enhanced shipping calculation handler
   const handleShippingCalculated = (options: ShippingOption[]) => {
     setShippingOptions(options);
-    // Auto-select first option if none selected
+    // Auto-select first option if none selected and options are available
     if (options.length > 0 && !form.getValues("selectedShippingOption")) {
       form.setValue("selectedShippingOption", options[0].id);
     }
   };
+
+  // Enhanced refresh session handler
+  const handleRefreshSession = async () => {
+    try {
+      setRetryCount((prev) => prev + 1);
+      await Promise.all([refetchSession(), refetchAddresses()]);
+      toast.success("Session refreshed");
+    } catch (error) {
+      toast.error("Failed to refresh session");
+      console.error("Session refresh error:", error);
+    }
+  };
+
+  // Enhanced error handling for failed states
+  const handleRetryAfterError = useCallback(async () => {
+    try {
+      await handleRefreshSession();
+      // Reset validation result on retry
+      setValidationResult(null);
+    } catch (error) {
+      console.error("Retry error:", error);
+    }
+  }, []);
 
   // Loading state
   if (sessionLoading || !sessionId) {
     return <CheckoutLoading />;
   }
 
-  // Error state
+  // Error state with retry options
   if (sessionError || !checkoutSession) {
     return (
       <div className="container mx-auto py-8">
         <CheckoutError
           error={sessionError || "Checkout session not found"}
+          errorType="session"
           showBackToCart={true}
-          onRetry={() => window.location.reload()}
+          onRetry={retryCount < 3 ? handleRetryAfterError : undefined}
+          showRetry={retryCount < 3}
         />
       </div>
     );
   }
 
-  // Session expiry warning
-  const timeUntilExpiry =
-    new Date(checkoutSession.expiresAt).getTime() - Date.now();
-  const showExpiryWarning = timeUntilExpiry < 10 * 60 * 1000; // 10 minutes
+  // Address loading error
+  if (addressesError) {
+    return (
+      <div className="container mx-auto py-8">
+        <CheckoutError
+          error="Failed to load addresses"
+          errorType="address"
+          showBackToCart={true}
+          onRetry={refetchAddresses}
+        />
+      </div>
+    );
+  }
 
-  // Navigation button states
+  // Navigation button states with better validation
   const isNextDisabled =
     (currentStep === 2 && !form.watch("shippingAddressId")) ||
     (currentStep === 3 && !form.watch("selectedShippingOption")) ||
-    (currentStep === 4 && !form.watch("paymentMethod")) ||
-    validateCheckoutMutation.isPending;
+    (currentStep === 4 &&
+      (!form.watch("paymentMethod") ||
+        (form.watch("paymentMethod") === "MPESA" &&
+          !form.watch("customerPhone")))) ||
+    validateCheckoutMutation.isPending ||
+    isStepTransitioning;
 
   const isSubmitDisabled =
-    !validationResult?.isValid || completeCheckoutMutation.isPending;
+    !validationResult?.isValid ||
+    completeCheckoutMutation.isPending ||
+    isStepTransitioning;
 
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
+        {/* Enhanced Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Checkout</h1>
-          <p className="text-muted-foreground">Complete your order securely</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Secure Checkout</h1>
+              <p className="text-muted-foreground flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Your information is protected with SSL encryption
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {timeRemaining !== null && timeRemaining > 0 && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Timer className="h-3 w-3" />
+                  {timeRemaining}m remaining
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshSession}
+                disabled={sessionLoading}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 mr-2 ${sessionLoading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Session expiry warning */}
-        {showExpiryWarning && (
-          <Alert className="mb-6">
+        {timeRemaining !== null && timeRemaining <= 10 && timeRemaining > 0 && (
+          <Alert className="mb-6" variant="destructive">
             <Clock className="h-4 w-4" />
             <AlertDescription>
-              Your checkout session will expire in{" "}
-              {Math.ceil(timeUntilExpiry / 60000)} minutes. Please complete your
-              order soon.
+              Your checkout session will expire in {timeRemaining} minutes.
+              Please complete your order soon or your cart items may be
+              released.
             </AlertDescription>
           </Alert>
         )}
 
         {/* Progress Steps */}
-        <CheckoutSteps steps={steps} currentStep={currentStep} />
+        <CheckoutSteps
+          steps={steps}
+          currentStep={currentStep}
+          onStepClick={(step) => {
+            // Allow navigation to previous completed steps with validation
+            if (step < currentStep) {
+              advanceStep(step);
+            }
+          }}
+        />
 
         <Form {...form}>
           <form
@@ -295,7 +586,7 @@ export default function CheckoutPage() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <ShoppingCart className="h-5 w-5" />
-                        Review Your Order
+                        Review Your Order ({checkoutSession.items.length} items)
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -305,30 +596,46 @@ export default function CheckoutPage() {
                             key={index}
                             className="flex items-center space-x-4 py-4 border-b last:border-b-0"
                           >
-                            <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                              <ShoppingCart className="h-6 w-6 text-muted-foreground" />
+                            <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                              {item.thumbnail ? (
+                                <img
+                                  src={item.thumbnail}
+                                  alt={item.productName || "Product"}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <ShoppingCart className="h-6 w-6 text-muted-foreground" />
+                              )}
                             </div>
                             <div className="flex-1">
                               <h3 className="font-medium">
-                                {item.productName}
+                                {item.productName ||
+                                  item.templateName ||
+                                  "Product"}
                               </h3>
                               <div className="text-sm text-muted-foreground">
                                 Quantity: {item.quantity} × KES{" "}
                                 {item.unitPrice.toLocaleString()}
                               </div>
-                              {item.customizations.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {item.customizations.map((custom, idx) => (
-                                    <Badge
-                                      key={idx}
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      {custom}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
+                              {item.customizations &&
+                                Array.isArray(item.customizations) &&
+                                item.customizations.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {item.customizations
+                                      .slice(0, 3)
+                                      .map((custom, idx) =>
+                                        renderCustomization(custom, idx)
+                                      )}
+                                    {item.customizations.length > 3 && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        +{item.customizations.length - 3} more
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
                             </div>
                             <div className="text-right">
                               <div className="font-medium">
@@ -337,6 +644,17 @@ export default function CheckoutPage() {
                             </div>
                           </div>
                         ))}
+
+                        {/* Order requirements */}
+                        {checkoutSession.requiresDesignApproval && (
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              This order requires design approval before
+                              production begins.
+                            </AlertDescription>
+                          </Alert>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -352,24 +670,26 @@ export default function CheckoutPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <AddressSelector
-                        addresses={
-                          addresses?.success ? addresses.data.items : []
-                        }
-                        selectedAddressId={
-                          form.watch("shippingAddressId") || ""
-                        }
-                        onAddressSelect={(addressId: string) =>
-                          form.setValue("shippingAddressId", addressId)
-                        }
-                        addressType="SHIPPING"
-                      />
+                      {addressesLoading ? (
+                        <AddressSelectorSkeleton />
+                      ) : (
+                        <AddressSelector
+                          addresses={addresses}
+                          selectedAddressId={
+                            form.watch("shippingAddressId") || ""
+                          }
+                          onAddressSelect={handleAddressSelect}
+                          addressType="SHIPPING"
+                          sessionId={sessionId}
+                          disabled={isStepTransitioning}
+                        />
+                      )}
                     </CardContent>
                   </Card>
                 )}
 
                 {/* Step 3: Delivery Options */}
-                {currentStep === 3 && watchShippingAddress && (
+                {currentStep === 3 && shippingAddressId && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -379,11 +699,9 @@ export default function CheckoutPage() {
                     </CardHeader>
                     <CardContent>
                       {(() => {
-                        const address = addresses?.success
-                          ? addresses.data.items.find(
-                              (a) => a.id === watchShippingAddress
-                            )
-                          : null;
+                        const address = addresses.find(
+                          (a) => a.id === shippingAddressId
+                        );
 
                         if (!address) {
                           return (
@@ -434,17 +752,21 @@ export default function CheckoutPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <PaymentMethods
-                        methods={paymentMethods || []}
-                        selectedMethod={form.watch("paymentMethod")}
-                        onMethodSelect={(method: PaymentMethodType) =>
-                          form.setValue("paymentMethod", method)
-                        }
-                        customerPhone={form.watch("customerPhone")}
-                        onPhoneChange={(phone: string) =>
-                          form.setValue("customerPhone", phone)
-                        }
-                      />
+                      {paymentMethodsLoading ? (
+                        <div>Loading payment methods...</div>
+                      ) : (
+                        <PaymentMethods
+                          methods={paymentMethods || []}
+                          selectedMethod={form.watch("paymentMethod")}
+                          onMethodSelect={(method: PaymentMethodType) =>
+                            form.setValue("paymentMethod", method)
+                          }
+                          customerPhone={form.watch("customerPhone")}
+                          onPhoneChange={(phone: string) =>
+                            form.setValue("customerPhone", phone)
+                          }
+                        />
+                      )}
 
                       <Separator />
 
@@ -504,7 +826,8 @@ export default function CheckoutPage() {
                           <CheckCircle className="h-4 w-4" />
                           <AlertDescription>
                             Your order is ready to be placed. Please review the
-                            final details below.
+                            final details below and click &quot;Place
+                            Order&quot; to complete your purchase.
                           </AlertDescription>
                         </Alert>
                       ) : (
@@ -523,21 +846,22 @@ export default function CheckoutPage() {
                         </Alert>
                       )}
 
-                      {validationResult.warnings?.length > 0 && (
-                        <Alert>
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>
-                            Please note:
-                            <ul className="list-disc list-inside mt-2">
-                              {validationResult.warnings.map(
-                                (warning: string, index: number) => (
-                                  <li key={index}>{warning}</li>
-                                )
-                              )}
-                            </ul>
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                      {validationResult.warnings &&
+                        validationResult.warnings.length > 0 && (
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              Please note:
+                              <ul className="list-disc list-inside mt-2">
+                                {validationResult.warnings.map(
+                                  (warning: string, index: number) => (
+                                    <li key={index}>{warning}</li>
+                                  )
+                                )}
+                              </ul>
+                            </AlertDescription>
+                          </Alert>
+                        )}
 
                       {validationResult.finalTotals && (
                         <div className="bg-muted p-4 rounded-lg">
@@ -566,6 +890,15 @@ export default function CheckoutPage() {
                                 {validationResult.finalTotals.tax.toLocaleString()}
                               </span>
                             </div>
+                            {validationResult.finalTotals.discount > 0 && (
+                              <div className="flex justify-between text-green-600">
+                                <span>Discount:</span>
+                                <span>
+                                  -KES{" "}
+                                  {validationResult.finalTotals.discount.toLocaleString()}
+                                </span>
+                              </div>
+                            )}
                             <Separator />
                             <div className="flex justify-between font-medium">
                               <span>Total:</span>
@@ -584,6 +917,14 @@ export default function CheckoutPage() {
                           {validationResult.estimatedDelivery}
                         </div>
                       )}
+
+                      {validationResult.estimatedProductionDays && (
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Production Time:</strong>{" "}
+                          {validationResult.estimatedProductionDays} business
+                          days
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -594,7 +935,7 @@ export default function CheckoutPage() {
                     type="button"
                     variant="outline"
                     onClick={handlePrevious}
-                    disabled={currentStep === 1}
+                    disabled={currentStep === 1 || isStepTransitioning}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Previous
@@ -613,7 +954,9 @@ export default function CheckoutPage() {
                       >
                         {validateCheckoutMutation.isPending
                           ? "Validating..."
-                          : "Continue"}
+                          : isStepTransitioning
+                            ? "Loading..."
+                            : "Continue"}
                       </Button>
                     ) : (
                       <Button type="submit" disabled={isSubmitDisabled}>
@@ -626,7 +969,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Order Summary Sidebar */}
+              {/* Enhanced Order Summary Sidebar */}
               <div className="lg:col-span-1">
                 <div className="sticky top-4">
                   <OrderSummary

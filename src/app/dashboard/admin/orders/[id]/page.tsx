@@ -1,492 +1,660 @@
-// app/dashboard/admin/orders/[id]/page.tsx
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import React, { useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   Edit,
-  MoreHorizontal,
   Package,
-  User,
+  Truck,
+  MapPin,
+  CreditCard,
+  FileText,
   Clock,
-  MessageSquare,
-  Settings,
-  Download,
-  Mail,
-  Phone,
-  RefreshCw,
-  AlertTriangle,
   CheckCircle,
+  AlertTriangle,
+  Send,
+  Eye,
+  Loader2,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/utils";
+import { useOrder, useDesignApproval } from "@/hooks/use-orders";
+import { OrderResponse } from "@/lib/orders/types/orders.types";
 
-// Import our order components
-import OrderDetailView from "@/components/orders/order-detail-view";
-import OrderTimeline from "@/components/orders/order-timeline";
-import OrderStatusUpdate from "@/components/orders/order-status-update";
-import NotesList from "@/components/orders/order-notes/notes-list";
-import { AddNoteDialog } from "@/components/orders/order-notes/add-note-dialog";
-import { useOrder } from "@/hooks/use-orders";
+// Updated interface to match Next.js app router structure
+interface PageProps {
+  params: Promise<{
+    id: string;
+  }>;
+}
 
-export default function AdminOrderDetailsPage() {
-  const params = useParams();
-  const orderId = params.id as string;
-  const [activeTab, setActiveTab] = useState("overview");
+function formatOrderStatus(status: string): string {
+  return status
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
 
-  // Fetch order data
-  const { data: orderData, isLoading, refetch } = useOrder(orderId);
-  const order = orderData?.success ? orderData.data : null;
+function getOrderStatusVariant(
+  status: string
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (status) {
+    case "PENDING":
+    case "PAYMENT_PENDING":
+    case "DESIGN_PENDING":
+      return "secondary";
+    case "PROCESSING":
+    case "PRODUCTION":
+    case "PAYMENT_CONFIRMED":
+    case "DESIGN_APPROVED":
+      return "default";
+    case "SHIPPED":
+    case "DELIVERED":
+      return "outline";
+    case "CANCELLED":
+    case "REFUNDED":
+    case "DESIGN_REJECTED":
+      return "destructive";
+    default:
+      return "secondary";
+  }
+}
 
-  const handleStatusUpdated = () => {
-    refetch();
-  };
+function DesignApprovalSection({ order }: { order: OrderResponse }) {
+  const { data: designApproval, isLoading: designApprovalLoading } =
+    useDesignApproval(order.id);
 
-  const handleNoteAdded = () => {
-    refetch();
-  };
-
-  if (isLoading) {
-    return (
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-          <span>Loading order details...</span>
-        </div>
-      </div>
-    );
+  if (!order.designApprovalRequired) {
+    return null;
   }
 
-  if (!order) {
-    return (
-      <div className="max-w-7xl mx-auto space-y-6">
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Order not found or you don&apos;t have permission to view it.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  const getApprovalStatusBadge = (status?: string) => {
+    switch (status) {
+      case "PENDING":
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800">
+            <Clock className="h-3 w-3 mr-1" />
+            Pending Approval
+          </Badge>
+        );
+      case "APPROVED":
+        return (
+          <Badge className="bg-green-100 text-green-800">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Approved
+          </Badge>
+        );
+      case "REJECTED":
+        return (
+          <Badge className="bg-red-100 text-red-800">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Rejected
+          </Badge>
+        );
+      case "EXPIRED":
+        return (
+          <Badge className="bg-gray-100 text-gray-800">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Expired
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            <Clock className="h-3 w-3 mr-1" />
+            Not Requested
+          </Badge>
+        );
+    }
+  };
 
-  const isUrgent =
-    order.urgencyLevel && ["RUSH", "EMERGENCY"].includes(order.urgencyLevel);
-  const needsAttention =
-    order.status === "DESIGN_PENDING" ||
-    (order.expectedDelivery && new Date(order.expectedDelivery) < new Date());
+  const handleSendApproval = () => {
+    window.location.href = `/dashboard/admin/communication/approval/create?orderId=${order.id}`;
+  };
+
+  const handleViewApproval = () => {
+    if (order.designApproval?.id) {
+      window.location.href = `/dashboard/admin/communication/approval/${order.designApproval.id}`;
+    }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/admin/orders">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Orders
-            </Link>
-          </Button>
-
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Order #{order.orderNumber}
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline">Admin View</Badge>
-              {isUrgent && (
-                <Badge variant="destructive">{order.urgencyLevel}</Badge>
-              )}
-              {needsAttention && (
-                <Badge className="bg-yellow-100 text-yellow-800">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Needs Attention
-                </Badge>
-              )}
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Design Approval
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {designApprovalLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-48" />
           </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {getApprovalStatusBadge(order.designApproval?.status)}
+                </div>
+
+                {order.designApproval?.requestedAt && (
+                  <p className="text-sm text-muted-foreground">
+                    Requested: {formatDate(order.designApproval.requestedAt)}
+                  </p>
+                )}
+
+                {order.designApproval?.respondedAt && (
+                  <p className="text-sm text-muted-foreground">
+                    Responded: {formatDate(order.designApproval.respondedAt)}
+                  </p>
+                )}
+
+                {order.designApproval?.expiresAt && (
+                  <p className="text-sm text-muted-foreground">
+                    Expires: {formatDate(order.designApproval.expiresAt)}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!order.designApproval ? (
+                  <Button onClick={handleSendApproval} size="sm">
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Approval
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleViewApproval}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Details
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {order.designApproval?.rejectionReason && (
+              <Alert className="border-red-200 bg-red-50">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  <strong>Rejection Reason:</strong>{" "}
+                  {order.designApproval.rejectionReason}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {order.designApproval?.comments && (
+              <div>
+                <p className="text-sm font-medium">Customer Comments:</p>
+                <p className="text-sm text-muted-foreground">
+                  {order.designApproval.comments}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function OrderDetailSkeleton() {
+  return (
+    <div className="container mx-auto py-10 space-y-8">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-10 w-10" />
+        <Skeleton className="h-8 w-64" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-24 w-full" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+        <div className="space-y-6">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-16 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Admin Actions</DropdownMenuLabel>
-              <DropdownMenuItem>
-                <Download className="mr-2 h-4 w-4" />
-                Download Invoice
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Mail className="mr-2 h-4 w-4" />
-                Email Customer
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Phone className="mr-2 h-4 w-4" />
-                Call Customer
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                Order Settings
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+export default function OrderDetailPage({ params }: PageProps) {
+  // State to hold the resolved params
+  const [orderId, setOrderId] = useState<string>("");
+  const [paramsLoaded, setParamsLoaded] = useState(false);
 
-          <Button asChild>
-            <Link href={`/dashboard/admin/orders/${order.id}/edit`}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Order
+  // Resolve async params
+  useEffect(() => {
+    const resolveParams = async () => {
+      try {
+        const resolvedParams = await params;
+        setOrderId(resolvedParams.id);
+        setParamsLoaded(true);
+      } catch (error) {
+        console.error("Error resolving params:", error);
+      }
+    };
+
+    resolveParams();
+  }, [params]);
+
+  // TanStack Query hooks - only run when params are loaded
+  const { data: orderResult, isLoading, error } = useOrder(orderId);
+
+  // Show loading skeleton while params are being resolved or data is loading
+  if (!paramsLoaded || isLoading) {
+    return <OrderDetailSkeleton />;
+  }
+
+  if (error || !orderResult?.success) {
+    if (error?.message?.includes("not found")) {
+      notFound();
+    }
+
+    return (
+      <div className="container mx-auto py-10">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Error loading order: {error?.message}
+            <Link href="/dashboard/admin/orders" className="ml-2 underline">
+              Return to orders
             </Link>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const order = orderResult.data as OrderResponse;
+
+  return (
+    <div className="container mx-auto py-10 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Link href="/dashboard/admin/orders">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Order {order.orderNumber}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={getOrderStatusVariant(order.status)}>
+              {formatOrderStatus(order.status)}
+            </Badge>
+            {order.urgencyLevel && order.urgencyLevel !== "NORMAL" && (
+              <Badge variant="destructive" className="text-xs">
+                {order.urgencyLevel}
+              </Badge>
+            )}
+            <span className="text-sm text-muted-foreground">
+              Created {formatDate(order.createdAt)}
+            </span>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Link href={`/dashboard/admin/orders/${order.id}/edit`}>
+            <Button variant="outline">
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Order
+            </Button>
+          </Link>
+          <Button>
+            <FileText className="mr-2 h-4 w-4" />
+            Print Invoice
           </Button>
         </div>
       </div>
 
-      {/* Alert Banner for urgent items */}
-      {isUrgent && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            <strong>Urgent Order:</strong> This{" "}
-            {order.urgencyLevel?.toLowerCase()} order requires immediate
-            attention and priority processing.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {order.designApprovalRequired &&
-        order.designApproval?.status === "PENDING" && (
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <Clock className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              <strong>Design Approval Pending:</strong> Customer review required
-              for design mockups.
-              <Button
-                variant="link"
-                size="sm"
-                className="ml-2 text-yellow-800 p-0 h-auto"
-              >
-                Send Reminder
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-      {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Column - Main Content */}
-        <div className="lg:col-span-3 space-y-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="items">Items</TabsTrigger>
-              <TabsTrigger value="timeline">Timeline</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview">
-              <OrderDetailView orderId={orderId} />
-            </TabsContent>
-
-            {/* Items Tab */}
-            <TabsContent value="items">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Order Items ({order.orderItems.length})
-                  </CardTitle>
-                  <CardDescription>
-                    Detailed breakdown of products and specifications
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {order.orderItems.map((item, index) => (
-                      <div key={item.id} className="border rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium">
-                                Product {item.productId}
-                              </h4>
-                              <Badge variant="outline">
-                                Qty: {item.quantity}
-                              </Badge>
-                            </div>
-
-                            {item.customizations &&
-                              Object.keys(item.customizations).length > 0 && (
-                                <div>
-                                  <label className="text-xs font-medium text-muted-foreground">
-                                    CUSTOMIZATIONS
-                                  </label>
-                                  <div className="mt-1 p-2 bg-muted rounded text-sm">
-                                    <pre className="text-xs whitespace-pre-wrap">
-                                      {JSON.stringify(
-                                        item.customizations,
-                                        null,
-                                        2
-                                      )}
-                                    </pre>
-                                  </div>
-                                </div>
-                              )}
-                          </div>
-
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">
-                              Item {index + 1}
-                            </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="mt-2"
-                            >
-                              Edit Item
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Timeline Tab */}
-            <TabsContent value="timeline">
-              <OrderTimeline
-                order={order}
-                showFilters={true}
-                maxHeight="700px"
-              />
-            </TabsContent>
-
-            {/* Notes Tab */}
-            <TabsContent value="notes">
-              <NotesList
-                orderId={orderId}
-                showAddButton={true}
-                maxHeight="600px"
-                showFilters={true}
-              />
-            </TabsContent>
-
-            {/* Settings Tab */}
-            <TabsContent value="settings">
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Order Settings</CardTitle>
-                    <CardDescription>
-                      Manage order-specific configurations
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Design Approval Required</span>
-                      <Badge
-                        variant={
-                          order.designApprovalRequired ? "default" : "secondary"
-                        }
-                      >
-                        {order.designApprovalRequired ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Urgency Level</span>
-                      <Badge variant="outline">
-                        {order.urgencyLevel || "NORMAL"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Expected Production Days</span>
-                      <span className="text-sm font-medium">
-                        {order.expectedProductionDays || "Not set"}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Admin Tools</CardTitle>
-                    <CardDescription>
-                      Administrative actions for this order
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Mail className="h-4 w-4 mr-2" />
-                      Send Customer Notification
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Download className="h-4 w-4 mr-2" />
-                      Generate Invoice
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Package className="h-4 w-4 mr-2" />
-                      Create Production Ticket
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Advanced Settings
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Right Column - Status & Quick Actions */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Status Update */}
-          <OrderStatusUpdate
-            order={order}
-            onStatusUpdated={handleStatusUpdated}
-          />
-
-          {/* Quick Notes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Order Items */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Quick Actions
+                <Package className="h-5 w-5" />
+                Order Items ({order.orderItems?.length || 0})
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <AddNoteDialog
-                orderId={orderId}
-                onNoteAdded={handleNoteAdded}
-                trigger={
-                  <Button variant="outline" className="w-full justify-start">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Add Note
-                  </Button>
-                }
-              />
+            <CardContent>
+              {order.orderItems && order.orderItems.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Customizations</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {order.orderItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded border bg-muted flex items-center justify-center">
+                              <Package className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <div className="font-medium">
+                                Product ID: {item.productId}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{item.quantity}</TableCell>
+                        <TableCell>
+                          {Object.keys(item.customizations).length > 0 ? (
+                            <div className="text-sm">
+                              {Object.entries(item.customizations).map(
+                                ([key, value]) => (
+                                  <div key={key}>
+                                    <strong>{key}:</strong> {String(value)}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">None</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-muted-foreground">No items found</p>
+              )}
+            </CardContent>
+          </Card>
 
-              <Button variant="outline" className="w-full justify-start">
-                <Mail className="h-4 w-4 mr-2" />
-                Email Customer
-              </Button>
+          {/* Design Approval Section */}
+          <DesignApprovalSection order={order} />
 
-              <Button variant="outline" className="w-full justify-start">
-                <Phone className="h-4 w-4 mr-2" />
-                Call Customer
-              </Button>
+          {/* Shipping Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                Shipping Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {order.trackingNumber && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Tracking Number</p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.trackingNumber}
+                    </p>
+                  </div>
+                  {order.trackingUrl && (
+                    <div>
+                      <p className="text-sm font-medium">Tracking URL</p>
+                      <a
+                        href={order.trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline"
+                      >
+                        Track Package
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              <Button variant="outline" className="w-full justify-start">
-                <Download className="h-4 w-4 mr-2" />
-                Download Files
-              </Button>
+              {order.expectedDelivery && (
+                <div>
+                  <p className="text-sm font-medium">Expected Delivery</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(order.expectedDelivery)}
+                  </p>
+                </div>
+              )}
+
+              {order.shippingAddress && (
+                <div>
+                  <p className="text-sm font-medium">Shipping Address</p>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>Address ID: {order.shippingAddress.id}</p>
+                    {/* Add more address fields based on your address structure */}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Order Notes and Special Instructions */}
+          {(order.notes || order.specialInstructions) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Notes & Instructions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {order.notes && (
+                  <div>
+                    <p className="text-sm font-medium">Order Notes</p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.notes}
+                    </p>
+                  </div>
+                )}
+
+                {order.specialInstructions && (
+                  <div>
+                    <p className="text-sm font-medium">Special Instructions</p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.specialInstructions}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Order Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Order Summary</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>${order.subtotalAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Shipping:</span>
+                  <span>${order.shippingAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Tax:</span>
+                  <span>${order.taxAmount.toFixed(2)}</span>
+                </div>
+                {order.discountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount:</span>
+                    <span>-${order.discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex justify-between font-semibold">
+                  <span>Total:</span>
+                  <span>${order.totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Payment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {order.payment ? (
+                <>
+                  <div>
+                    <p className="text-sm font-medium">Payment Status</p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.status.includes("PAYMENT_CONFIRMED")
+                        ? "Confirmed"
+                        : "Pending"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Amount</p>
+                    <p className="text-sm text-muted-foreground">
+                      ${order.totalAmount.toFixed(2)}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No payment information
+                </p>
+              )}
             </CardContent>
           </Card>
 
           {/* Customer Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Customer Details
-              </CardTitle>
+              <CardTitle>Customer Information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  CUSTOMER ID
-                </label>
-                <p className="font-medium">{order.customerId}</p>
+                <p className="text-sm font-medium">Customer ID</p>
+                <p className="text-sm text-muted-foreground">
+                  {order.customerId || "Guest"}
+                </p>
               </div>
 
-              {/* Add more customer fields as available */}
-
-              <div className="pt-2">
-                <Button variant="outline" size="sm" className="w-full">
-                  View Customer Profile
-                </Button>
-              </div>
+              {order.billingAddress && (
+                <div>
+                  <p className="text-sm font-medium">Billing Address</p>
+                  <p className="text-sm text-muted-foreground">
+                    Address ID: {order.billingAddress.id}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Order Progress */}
+          {/* Order Details */}
           <Card>
             <CardHeader>
-              <CardTitle>Order Progress</CardTitle>
+              <CardTitle>Order Details</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Created</span>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                {order.urgencyLevel && (
+                  <div>
+                    <p className="text-sm font-medium">Urgency Level</p>
+                    <Badge variant="outline">{order.urgencyLevel}</Badge>
+                  </div>
+                )}
+
+                {order.expectedProductionDays && (
+                  <div>
+                    <p className="text-sm font-medium">
+                      Expected Production Days
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.expectedProductionDays} days
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm font-medium">
+                    Design Approval Required
+                  </p>
+                  <Badge
+                    variant={
+                      order.designApprovalRequired ? "default" : "outline"
+                    }
+                  >
+                    {order.designApprovalRequired ? "Yes" : "No"}
+                  </Badge>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Payment</span>
-                  {order.payment ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-yellow-500" />
-                  )}
+
+                <Separator />
+
+                <div>
+                  <p className="text-sm font-medium">Created</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(order.createdAt)}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Production</span>
-                  {[
-                    "PROCESSING",
-                    "PRODUCTION",
-                    "SHIPPED",
-                    "DELIVERED",
-                  ].includes(order.status) ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-gray-400" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Shipped</span>
-                  {["SHIPPED", "DELIVERED"].includes(order.status) ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-gray-400" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Delivered</span>
-                  {order.status === "DELIVERED" ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-gray-400" />
-                  )}
+
+                <div>
+                  <p className="text-sm font-medium">Last Updated</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(order.updatedAt)}
+                  </p>
                 </div>
               </div>
             </CardContent>

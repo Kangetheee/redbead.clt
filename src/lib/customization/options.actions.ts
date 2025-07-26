@@ -6,20 +6,28 @@ import {
   CreateCustomizationOptionDto,
   UpdateCustomizationOptionDto,
   GetCustomizationOptionsDto,
+  AssignOptionToTemplateDto,
   CreateCustomizationValueDto,
   UpdateCustomizationValueDto,
   GetCustomizationValuesDto,
+  CalculatePriceAdjustmentDto,
+  ValidateCustomizationsDto,
+  GetCustomizationValueStatsDto,
 } from "@/lib/customization/dto/options.dto";
 import {
   CustomizationOption,
   CustomizationOptionDetail,
   CustomizationValue,
+  CustomizationValueStats,
+  PriceAdjustmentResult,
+  CustomizationValidationResult,
 } from "@/lib/customization/types/options.types";
 import { CustomizationOptionsService } from "./options.service";
 
 const customizationOptionsService = new CustomizationOptionsService();
 
-// Customization Options
+// ===== Customization Options Actions =====
+
 export async function getCustomizationOptionsAction(
   params?: GetCustomizationOptionsDto
 ): Promise<ActionResponse<PaginatedData<CustomizationOption>>> {
@@ -36,18 +44,6 @@ export async function getCustomizationOptionAction(
 ): Promise<ActionResponse<CustomizationOptionDetail>> {
   try {
     const res = await customizationOptionsService.findOptionById(optionId);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function getCustomizationOptionsByCategoryAction(
-  categoryId: string
-): Promise<ActionResponse<CustomizationOption[]>> {
-  try {
-    const res =
-      await customizationOptionsService.findOptionsByCategory(categoryId);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -82,16 +78,44 @@ export async function updateCustomizationOptionAction(
 
 export async function deleteCustomizationOptionAction(
   optionId: string
-): Promise<ActionResponse<{ message: string }>> {
+): Promise<ActionResponse<void>> {
   try {
-    const res = await customizationOptionsService.deleteOption(optionId);
-    return { success: true, data: res };
+    await customizationOptionsService.deleteOption(optionId);
+    return { success: true, data: undefined };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-// Customization Values
+export async function assignOptionToTemplateAction(
+  optionId: string,
+  values: AssignOptionToTemplateDto
+): Promise<ActionResponse<void>> {
+  try {
+    await customizationOptionsService.assignOptionToTemplate(optionId, values);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function removeOptionFromTemplateAction(
+  optionId: string,
+  templateId: string
+): Promise<ActionResponse<void>> {
+  try {
+    await customizationOptionsService.removeOptionFromTemplate(
+      optionId,
+      templateId
+    );
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// ===== Customization Values Actions =====
+
 export async function getCustomizationValuesAction(
   params?: GetCustomizationValuesDto
 ): Promise<ActionResponse<PaginatedData<CustomizationValue>>> {
@@ -108,6 +132,67 @@ export async function getCustomizationValueAction(
 ): Promise<ActionResponse<CustomizationValue>> {
   try {
     const res = await customizationOptionsService.findValueById(valueId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function getCustomizationValuesByOptionAction(
+  optionId: string
+): Promise<ActionResponse<CustomizationValue[]>> {
+  try {
+    const res = await customizationOptionsService.findValuesByOption(optionId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function getCustomizationValuesByTemplateAction(
+  templateId: string
+): Promise<ActionResponse<CustomizationValue[]>> {
+  try {
+    const res =
+      await customizationOptionsService.findValuesByTemplate(templateId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function getCustomizationValueStatsAction(
+  params?: GetCustomizationValueStatsDto
+): Promise<ActionResponse<CustomizationValueStats>> {
+  try {
+    const res = await customizationOptionsService.getValueStats(params);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function calculatePriceAdjustmentAction(
+  values: CalculatePriceAdjustmentDto
+): Promise<ActionResponse<PriceAdjustmentResult>> {
+  try {
+    const res =
+      await customizationOptionsService.calculatePriceAdjustment(values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function validateCustomizationsAction(
+  templateId: string,
+  values: ValidateCustomizationsDto
+): Promise<ActionResponse<CustomizationValidationResult>> {
+  try {
+    const res = await customizationOptionsService.validateCustomizations(
+      templateId,
+      values
+    );
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -139,9 +224,20 @@ export async function updateCustomizationValueAction(
 
 export async function deleteCustomizationValueAction(
   valueId: string
-): Promise<ActionResponse<{ message: string }>> {
+): Promise<ActionResponse<void>> {
   try {
-    const res = await customizationOptionsService.deleteValue(valueId);
+    await customizationOptionsService.deleteValue(valueId);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function restoreCustomizationValueAction(
+  valueId: string
+): Promise<ActionResponse<CustomizationValue>> {
+  try {
+    const res = await customizationOptionsService.restoreValue(valueId);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };

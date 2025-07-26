@@ -12,9 +12,27 @@ interface Step {
 interface CheckoutStepsProps {
   steps: Step[];
   currentStep: number;
+  onStepClick?: (stepId: number) => void;
+  allowNavigation?: boolean;
 }
 
-export function CheckoutSteps({ steps, currentStep }: CheckoutStepsProps) {
+export function CheckoutSteps({
+  steps,
+  currentStep,
+  onStepClick,
+  allowNavigation = false,
+}: CheckoutStepsProps) {
+  const handleStepClick = (step: Step) => {
+    // Only allow navigation to completed steps or if explicitly allowed
+    if (onStepClick && (allowNavigation || step.id < currentStep)) {
+      onStepClick(step.id);
+    }
+  };
+
+  const isStepClickable = (step: Step) => {
+    return onStepClick && (allowNavigation || step.id < currentStep);
+  };
+
   return (
     <div className="w-full">
       <nav aria-label="Progress">
@@ -35,14 +53,32 @@ export function CheckoutSteps({ steps, currentStep }: CheckoutStepsProps) {
                   >
                     <div className="h-0.5 w-full bg-primary" />
                   </div>
-                  <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-primary hover:bg-primary/90">
+                  <button
+                    type="button"
+                    onClick={() => handleStepClick(step)}
+                    disabled={!isStepClickable(step)}
+                    className={cn(
+                      "relative flex h-8 w-8 items-center justify-center rounded-full bg-primary",
+                      isStepClickable(step)
+                        ? "hover:bg-primary/90 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                        : "cursor-default"
+                    )}
+                    aria-label={`Go to ${step.name}`}
+                  >
                     <CheckCircle
                       className="h-5 w-5 text-primary-foreground"
                       aria-hidden="true"
                     />
-                    <span className="sr-only">{step.name}</span>
-                  </div>
-                  <span className="absolute top-10 left-1/2 -translate-x-1/2 text-sm font-medium text-primary">
+                  </button>
+                  <span
+                    className={cn(
+                      "absolute top-10 left-1/2 -translate-x-1/2 text-sm font-medium text-primary",
+                      isStepClickable(step) && "cursor-pointer"
+                    )}
+                    onClick={() =>
+                      isStepClickable(step) && handleStepClick(step)
+                    }
+                  >
                     {step.name}
                   </span>
                 </>
@@ -62,7 +98,7 @@ export function CheckoutSteps({ steps, currentStep }: CheckoutStepsProps) {
                       className="h-5 w-5 text-primary"
                       aria-hidden="true"
                     />
-                    <span className="sr-only">{step.name}</span>
+                    <span className="sr-only">Current step: {step.name}</span>
                   </div>
                   <span className="absolute top-10 left-1/2 -translate-x-1/2 text-sm font-medium text-primary">
                     {step.name}
@@ -81,7 +117,7 @@ export function CheckoutSteps({ steps, currentStep }: CheckoutStepsProps) {
                       className="h-5 w-5 text-muted-foreground group-hover:text-muted-foreground"
                       aria-hidden="true"
                     />
-                    <span className="sr-only">{step.name}</span>
+                    <span className="sr-only">Upcoming step: {step.name}</span>
                   </div>
                   <span className="absolute top-10 left-1/2 -translate-x-1/2 text-sm font-medium text-muted-foreground">
                     {step.name}

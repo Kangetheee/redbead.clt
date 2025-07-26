@@ -1,13 +1,12 @@
 import { getErrorMessage } from "@/lib/get-error-message";
 import { ONE_MB, tags } from "@/lib/shared/constants";
 import { CreateUploadFolderDto } from "@/lib/uploads/dto/create-upload-folder.dto";
-import { createUploadSchema } from "@/lib/uploads/dto/create-upload.dto";
 import {
-  createUploadAction,
   createUploadFolderAction,
   deleteMediaAction,
   getUploadFolderDetailsAction,
   getUploadFoldersAction,
+  uploadFileAction,
 } from "@/lib/uploads/uploads.actions";
 import { computeSHA256 } from "@/lib/utils";
 import {
@@ -16,10 +15,10 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import axios from "axios";
-import { Dispatch, SetStateAction, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import useUpdateSearchParams from "./use-update-search-params";
+import { MediaTypeEnum } from "@/lib/uploads/enums/uploads.enum";
 
 type Props = {
   onSuccess?: () => void;
@@ -117,8 +116,8 @@ export function useCreateUploadFolder({ onSuccess }: Props = {}) {
   };
 }
 
-interface UseS3UploadReturn {
-  uploadToS3: (
+interface UseUploadReturn {
+  uploadFile1: (
     file: File
   ) => Promise<
     | { id: string; src: string; error: false }
@@ -127,94 +126,38 @@ interface UseS3UploadReturn {
   progress: number;
 }
 
-// async function uploadFile(
-//   folderId: string,
-//   file: File,
-//   setProgress: Dispatch<SetStateAction<number>>
-// ) {
-//   try {
-//     const { name, type, size } = file;
-//     const data = {
-//       name,
-//       type: type.split("/")[0].toUpperCase(),
-//       size,
-//       folderId,
-//       checksum: await computeSHA256(file),
-//     };
-
-//     const parsedData = createUploadSchema.safeParse(data);
-//     if (parsedData.success === false)
-//       throw new Error(parsedData.error.errors[0].message);
-//     const res = await createUploadAction(parsedData.data);
-//     if (res.status === "error") throw new Error(res.message);
-//     const { id, url, src } = res;
-
-//     try {
-//       await axios.put(url, file, {
-//         headers: { "Content-Type": file.type },
-//         onUploadProgress: (progressEvent) => {
-//           const percentCompleted = Math.round(
-//             (progressEvent.loaded * 100) / progressEvent.total!
-//           );
-//           setProgress(percentCompleted);
-//         },
-//       });
-//     } catch (error) {
-//       throw new Error(getErrorMessage(error));
-//     }
-//     return { id: id.toString(), src };
-//   } catch (error) {
-//     throw new Error(getErrorMessage(error));
-//   }
-// }
-
-async function uploadFile(
-  folderId: string,
-  file: File,
-  setProgress: Dispatch<SetStateAction<number>>
-) {
+async function uploadFile(folderId: string, file: File) {
   try {
     const { name, type, size } = file;
 
-    let fileType;
+    let fileType: MediaTypeEnum;
     if (type.startsWith("image/")) {
-      fileType = "IMAGE";
+      fileType = MediaTypeEnum.IMAGE;
     } else if (type.startsWith("video/")) {
-      fileType = "VIDEO";
+      fileType = MediaTypeEnum.VIDEO;
     } else if (type.startsWith("audio/")) {
-      fileType = "AUDIO";
+      fileType = MediaTypeEnum.AUDIO;
     } else {
-      fileType = "DOCUMENT";
+      fileType = MediaTypeEnum.DOCUMENT;
     }
 
-    const data = {
-      name,
-      type: fileType,
-      size,
-      folderId,
-      checksum: await computeSHA256(file),
-    };
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("name", name);
+    formData.append("type", fileType);
+    formData.append("size", size.toString());
+    formData.append("folderId", folderId);
+    formData.append("checksum", await computeSHA256(file));
 
-    const parsedData = createUploadSchema.safeParse(data);
-    if (parsedData.success === false)
-      throw new Error(parsedData.error.errors[0].message);
-    const res = await createUploadAction(parsedData.data);
-    if (res.status === "error") throw new Error(res.message);
-    const { id, url, src } = res;
+    // Use the authenticated action instead of direct axios call
+    const response = await uploadFileAction(formData);
 
-    try {
-      await axios.put(url, file, {
-        headers: { "Content-Type": file.type },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total!
-          );
-          setProgress(percentCompleted);
-        },
-      });
-    } catch (error) {
-      throw new Error(getErrorMessage(error));
+    if (response.status !== "success") {
+      throw new Error(response.message || "Upload failed");
     }
+
+    const { id, src } = response;
     return { id: id.toString(), src };
   } catch (error) {
     throw new Error(getErrorMessage(error));
@@ -224,20 +167,30 @@ async function uploadFile(
 export const useUploadToS3 = (
   folderId: string,
   maxFileSize: number
-): UseS3UploadReturn => {
+): UseUploadReturn => {
   const [progress, setProgress] = useState(0);
 
-  const uploadToS3 = async (file: File) => {
+  const uploadFile1 = async (file: File) => {
     try {
       if (file.size > maxFileSize)
         throw new Error(
-          `Images cannot be larger than ${maxFileSize / ONE_MB}MB.`
+          `Files cannot be larger than ${maxFileSize / ONE_MB}MB.`
         );
+
+      // Set progress to 0 at start and 100 at end since we can't track real progress with server actions
+      setProgress(0);
+
       // Single file upload
       const singleFile = file as File;
-      const { id, src } = await uploadFile(folderId, singleFile, setProgress);
+      const { id, src } = await uploadFile(folderId, singleFile);
+
+      // Set progress to 100 when completed
+      setProgress(100);
+
       return { id, src, error: false as const };
     } catch (error) {
+      setProgress(0); // Reset progress on error
+
       if (error instanceof Error) {
         toast.error(error.message);
         return { id: null, src: null, error: true as const };
@@ -248,5 +201,5 @@ export const useUploadToS3 = (
     }
   };
 
-  return { progress, uploadToS3 };
+  return { progress, uploadFile1 };
 };

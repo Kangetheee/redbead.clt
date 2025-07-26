@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -15,119 +16,239 @@ import {
   GetCategoriesDto,
 } from "@/lib/categories/dto/categories.dto";
 
-// Query Keys
-export const categoryKeys = {
-  all: ["categories"] as const,
-  lists: () => [...categoryKeys.all, "list"] as const,
-  list: (params?: GetCategoriesDto) =>
-    [...categoryKeys.lists(), params] as const,
-  tree: () => [...categoryKeys.all, "tree"] as const,
-  details: () => [...categoryKeys.all, "detail"] as const,
-  detail: (id: string) => [...categoryKeys.details(), id] as const,
-  bySlug: (slug: string) => [...categoryKeys.all, "slug", slug] as const,
+export const CATEGORIES_QUERY_KEYS = {
+  categories: (params?: GetCategoriesDto) => ["categories", params] as const,
+  categoriesTree: () => ["categories", "tree"] as const,
+  category: (id: string) => ["categories", "detail", id] as const,
+  categoryBySlug: (slug: string) => ["categories", "slug", slug] as const,
 };
 
-// Queries
+/**
+ * Hook to get paginated categories with optional filtering
+ */
 export function useCategories(params?: GetCategoriesDto) {
   return useQuery({
-    queryKey: categoryKeys.list(params),
-    queryFn: () => getCategoriesAction(params),
-    select: (data) => (data.success ? data.data : undefined),
+    queryKey: CATEGORIES_QUERY_KEYS.categories(params),
+    queryFn: async () => {
+      const result = await getCategoriesAction(params);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
   });
 }
 
+/**
+ * Hook to get categories in tree structure
+ */
 export function useCategoriesTree() {
   return useQuery({
-    queryKey: categoryKeys.tree(),
-    queryFn: () => getCategoriesTreeAction(),
-    select: (data) => (data.success ? data.data : undefined),
+    queryKey: CATEGORIES_QUERY_KEYS.categoriesTree(),
+    queryFn: async () => {
+      const result = await getCategoriesTreeAction();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
   });
 }
 
-export function useCategory(categoryId: string, enabled = true) {
+/**
+ * Hook to get category by ID with full details
+ */
+export function useCategory(categoryId: string) {
   return useQuery({
-    queryKey: categoryKeys.detail(categoryId),
-    queryFn: () => getCategoryAction(categoryId),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!categoryId,
+    queryKey: CATEGORIES_QUERY_KEYS.category(categoryId),
+    queryFn: async () => {
+      const result = await getCategoryAction(categoryId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    enabled: !!categoryId,
   });
 }
 
-export function useCategoryBySlug(slug: string, enabled = true) {
+/**
+ * Hook to get category by slug with full details
+ */
+export function useCategoryBySlug(slug: string) {
   return useQuery({
-    queryKey: categoryKeys.bySlug(slug),
-    queryFn: () => getCategoryBySlugAction(slug),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!slug,
+    queryKey: CATEGORIES_QUERY_KEYS.categoryBySlug(slug),
+    queryFn: async () => {
+      const result = await getCategoryBySlugAction(slug);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    enabled: !!slug,
   });
 }
 
-// Mutations
+/**
+ * Hook to create categories
+ */
 export function useCreateCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (values: CreateCategoryDto) => createCategoryAction(values),
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success("Category created successfully");
-        queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-      } else {
-        toast.error(data.error);
+    mutationFn: async (values: CreateCategoryDto) => {
+      const result = await createCategoryAction(values);
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      return result.data;
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to create category");
+    onSuccess: (data) => {
+      // Invalidate categories queries to refetch updated data
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Category created successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to create category: ${error.message}`);
     },
   });
 }
 
+/**
+ * Hook to update categories
+ */
 export function useUpdateCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       categoryId,
       values,
     }: {
       categoryId: string;
       values: UpdateCategoryDto;
-    }) => updateCategoryAction(categoryId, values),
-    onSuccess: (data, variables) => {
-      if (data.success) {
-        toast.success("Category updated successfully");
-        queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-        queryClient.invalidateQueries({
-          queryKey: categoryKeys.detail(variables.categoryId),
-        });
-      } else {
-        toast.error(data.error);
+    }) => {
+      const result = await updateCategoryAction(categoryId, values);
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      return result.data;
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update category");
+    onSuccess: (data, variables) => {
+      // Invalidate categories queries and specific category
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({
+        queryKey: CATEGORIES_QUERY_KEYS.category(variables.categoryId),
+      });
+      // Also invalidate by slug if we have the updated data
+      if (data.slug) {
+        queryClient.invalidateQueries({
+          queryKey: CATEGORIES_QUERY_KEYS.categoryBySlug(data.slug),
+        });
+      }
+      toast.success("Category updated successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to update category: ${error.message}`);
     },
   });
 }
 
+/**
+ * Hook to delete categories
+ */
 export function useDeleteCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (categoryId: string) => deleteCategoryAction(categoryId),
-    onSuccess: (data, categoryId) => {
-      if (data.success) {
-        toast.success("Category deleted successfully");
-        queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-        queryClient.removeQueries({
-          queryKey: categoryKeys.detail(categoryId),
-        });
-      } else {
-        toast.error(data.error);
+    mutationFn: async (categoryId: string) => {
+      const result = await deleteCategoryAction(categoryId);
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      return result.data;
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to delete category");
+    onSuccess: (_, categoryId) => {
+      // Invalidate categories queries and remove specific category from cache
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.removeQueries({
+        queryKey: CATEGORIES_QUERY_KEYS.category(categoryId),
+      });
+      toast.success("Category deleted successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete category: ${error.message}`);
     },
   });
+}
+
+/**
+ * Hook to get category options for dropdowns/selects
+ */
+export function useCategoryOptions(includeInactive: boolean = false) {
+  const { data: categories, ...rest } = useCategories();
+
+  const options =
+    categories?.items.map((category) => ({
+      value: category.id,
+      label: category.name,
+      slug: category.slug,
+      isActive: category.isActive,
+      parentId: category.parentId,
+    })) || [];
+
+  return {
+    ...rest,
+    data: options,
+  };
+}
+
+/**
+ * Hook to get category tree options for hierarchical selects
+ */
+export function useCategoryTreeOptions() {
+  const { data: tree, ...rest } = useCategoriesTree();
+
+  const flattenTree = (
+    categories: typeof tree
+  ): Array<{
+    value: string;
+    label: string;
+    slug: string;
+    level: number;
+    parentId?: string;
+  }> => {
+    if (!categories) return [];
+
+    const result: Array<{
+      value: string;
+      label: string;
+      slug: string;
+      level: number;
+      parentId?: string;
+    }> = [];
+
+    const traverse = (cats: typeof categories, level = 0) => {
+      for (const cat of cats) {
+        result.push({
+          value: cat.id,
+          label: "  ".repeat(level) + cat.name,
+          slug: cat.slug,
+          level,
+          parentId: cat.parentId,
+        });
+        if (cat.children && cat.children.length > 0) {
+          traverse(cat.children, level + 1);
+        }
+      }
+    };
+
+    traverse(categories);
+    return result;
+  };
+
+  return {
+    ...rest,
+    data: flattenTree(tree),
+  };
 }

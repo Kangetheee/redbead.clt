@@ -42,7 +42,7 @@ interface TrackingEvent {
   type: "info" | "success" | "warning" | "error";
 }
 
-interface CustomerOrderTrackingProps {
+export interface CustomerOrderTrackingProps {
   order: OrderResponse;
   showEstimates?: boolean;
   autoRefresh?: boolean;

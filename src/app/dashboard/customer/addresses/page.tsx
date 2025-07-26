@@ -45,7 +45,7 @@ export default function AddressManagementPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">My Addresses</h1>
-          <Link href="/addresses/add">
+          <Link href="/dashboard/customer/addresses/create">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add New Address
@@ -75,7 +75,7 @@ export default function AddressManagementPage() {
             </p>
           )}
         </div>
-        <Link href="/addresses/add">
+        <Link href="/dashboard/customer/addresses/create">
           <Button>
             <Plus className="h-4 w-4 mr-2" />
             Add New Address
@@ -93,7 +93,7 @@ export default function AddressManagementPage() {
             <p className="text-gray-600 mb-6">
               Add your first address to get started with shipping and billing.
             </p>
-            <Link href="/addresses/add">
+            <Link href="/dashboard/customer/addresses/create">
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Address
@@ -148,7 +148,9 @@ export default function AddressManagementPage() {
                 )}
 
                 <div className="flex flex-wrap gap-2 pt-2">
-                  <Link href={`/addresses/edit/${address.id}`}>
+                  <Link
+                    href={`/dashboard/customer/addresses/${address.id}/edit`}
+                  >
                     <Button
                       variant="outline"
                       size="sm"

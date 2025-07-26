@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import CreateOrderForm from "@/components/orders/create-order-form";
+import CustomerQuickOrderForm from "./quick-order-form";
 
 export default function CustomerCreateOrderPage() {
   const handleOrderSuccess = (orderId: string) => {
@@ -208,7 +208,10 @@ export default function CustomerCreateOrderPage() {
       </Card>
 
       {/* Main Order Form */}
-      <CreateOrderForm onSuccess={handleOrderSuccess} onCancel={handleCancel} />
+      <CustomerQuickOrderForm
+        onSuccess={handleOrderSuccess}
+        onCancel={handleCancel}
+      />
 
       {/* Additional Help */}
       <Card>

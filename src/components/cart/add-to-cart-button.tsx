@@ -7,7 +7,8 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface AddToCartButtonProps {
-  productId: string;
+  templateId: string;
+  sizeVariantId: string;
   quantity?: number;
   customizations?: Array<{
     optionId: string;
@@ -24,7 +25,8 @@ interface AddToCartButtonProps {
 }
 
 export function AddToCartButton({
-  productId,
+  templateId,
+  sizeVariantId,
   quantity = 1,
   customizations = [],
   designId,
@@ -57,7 +59,8 @@ export function AddToCartButton({
     if (disabled || isLoading) return;
 
     addToCart.mutate({
-      productId,
+      templateId,
+      sizeVariantId,
       quantity,
       customizations,
       designId,

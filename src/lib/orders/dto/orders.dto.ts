@@ -37,6 +37,19 @@ const NOTE_TYPES = [
   "DESIGN_APPROVAL",
 ] as const;
 
+const NOTE_PRIORITIES = ["LOW", "NORMAL", "HIGH", "URGENT"] as const;
+
+const ORDER_ITEM_STATUS = [
+  "PROCESSING",
+  "DESIGNING",
+  "PRODUCTION",
+  "QUALITY_CHECK",
+  "READY_FOR_SHIPPING",
+  "SHIPPED",
+  "DELIVERED",
+  "CANCELLED",
+] as const;
+
 export const getOrdersSchema = z.object({
   page: z.number().min(1).optional(),
   limit: z.number().min(1).max(100).optional(),
@@ -44,18 +57,27 @@ export const getOrdersSchema = z.object({
   designApprovalStatus: z.enum(DESIGN_APPROVAL_STATUS).optional(),
   minTotal: z.number().optional(),
   maxTotal: z.number().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  search: z.string().optional(),
+  startDate: z.string().optional(), // ISO string
+  endDate: z.string().optional(), // ISO string
+  search: z.string().optional(), // Search by order number or tracking number
   urgencyLevel: z.enum(URGENCY_LEVELS).optional(),
+  templateId: z.string().optional(),
 });
 
 export type GetOrdersDto = z.infer<typeof getOrdersSchema>;
 
+export const orderItemCustomizationSchema = z.object({
+  optionId: z.string(),
+  valueId: z.string(),
+  customValue: z.string().optional(),
+});
+
 export const orderItemSchema = z.object({
-  productId: z.string(),
+  templateId: z.string(),
+  sizeVariantId: z.string(),
   quantity: z.number().min(1),
-  customizations: z.record(z.any()),
+  customizations: z.array(orderItemCustomizationSchema).optional(),
+  designId: z.string().optional(),
 });
 
 export type OrderItemDto = z.infer<typeof orderItemSchema>;
@@ -67,13 +89,14 @@ export const createOrderSchema = z.object({
   couponCode: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(orderItemSchema).optional(),
-  useCartItems: z.boolean().default(true),
-  urgencyLevel: z.enum(URGENCY_LEVELS).default("NORMAL"),
+  useCartItems: z.boolean().optional(),
+  urgencyLevel: z.enum(URGENCY_LEVELS).optional(),
   expectedProductionDays: z.number().optional(),
   specialInstructions: z.string().optional(),
-  designApprovalRequired: z.boolean().default(true),
-  paymentMethod: z.string().default("MPESA"),
+  designApprovalRequired: z.boolean().optional(),
+  paymentMethod: z.string().optional(),
   customerPhone: z.string().optional(),
+  templateId: z.string().optional(),
 });
 
 export type CreateOrderDto = z.infer<typeof createOrderSchema>;
@@ -82,11 +105,17 @@ export const updateOrderSchema = z.object({
   status: z.enum(ORDER_STATUS).optional(),
   trackingNumber: z.string().optional(),
   trackingUrl: z.string().optional(),
-  expectedDelivery: z.string().optional(),
+  expectedDelivery: z.string().optional(), // ISO string
   notes: z.string().optional(),
   urgencyLevel: z.enum(URGENCY_LEVELS).optional(),
   expectedProductionDays: z.number().optional(),
   specialInstructions: z.string().optional(),
+  designStartDate: z.string().optional(), // ISO string
+  designCompletionDate: z.string().optional(), // ISO string
+  productionStartDate: z.string().optional(), // ISO string
+  productionEndDate: z.string().optional(), // ISO string
+  shippingDate: z.string().optional(), // ISO string
+  actualDeliveryDate: z.string().optional(), // ISO string
 });
 
 export type UpdateOrderDto = z.infer<typeof updateOrderSchema>;
@@ -100,7 +129,7 @@ export type UpdateOrderStatusDto = z.infer<typeof updateOrderStatusSchema>;
 
 export const createOrderNoteSchema = z.object({
   noteType: z.enum(NOTE_TYPES),
-  priority: z.string().optional(),
+  priority: z.enum(NOTE_PRIORITIES).optional(),
   title: z.string().optional(),
   content: z.string(),
   isInternal: z.boolean().optional(),
@@ -108,11 +137,27 @@ export const createOrderNoteSchema = z.object({
 
 export type CreateOrderNoteDto = z.infer<typeof createOrderNoteSchema>;
 
+export const designSummaryCustomizationSchema = z.object({
+  option: z.string(),
+  value: z.string(),
+});
+
+export const designSummarySchema = z.object({
+  templateName: z.string(),
+  sizeVariant: z.string(),
+  quantity: z.number(),
+  material: z.string(),
+  closure: z.string().optional(),
+  text: z.string(),
+  colors: z.array(z.string()),
+  customizations: z.array(designSummaryCustomizationSchema).optional(),
+});
+
 export const requestDesignApprovalSchema = z.object({
   customerEmail: z.string().email(),
   designId: z.string().optional(),
   previewImages: z.array(z.string()),
-  designSummary: z.record(z.any()),
+  designSummary: designSummarySchema,
   expiryHours: z.number().optional(),
   metadata: z.record(z.any()).optional(),
 });
@@ -130,3 +175,48 @@ export const updateDesignApprovalSchema = z.object({
 export type UpdateDesignApprovalDto = z.infer<
   typeof updateDesignApprovalSchema
 >;
+
+// Order Item DTOs
+export const updateOrderItemStatusSchema = z.object({
+  status: z.enum(ORDER_ITEM_STATUS),
+  notes: z.string().optional(),
+});
+
+export type UpdateOrderItemStatusDto = z.infer<
+  typeof updateOrderItemStatusSchema
+>;
+
+export const bulkUpdateOrderItemStatusSchema = z.object({
+  orderItemIds: z.array(z.string()),
+  status: z.enum(ORDER_ITEM_STATUS),
+  notes: z.string().optional(),
+});
+
+export type BulkUpdateOrderItemStatusDto = z.infer<
+  typeof bulkUpdateOrderItemStatusSchema
+>;
+
+export const getOrderItemsByStatusSchema = z.object({
+  status: z.enum(ORDER_ITEM_STATUS),
+  templateId: z.string(),
+});
+
+export type GetOrderItemsByStatusDto = z.infer<
+  typeof getOrderItemsByStatusSchema
+>;
+
+export const calculateTimelineSchema = z.object({
+  startDate: z.string(), // ISO string - required query parameter
+});
+
+export type CalculateTimelineDto = z.infer<typeof calculateTimelineSchema>;
+
+// Export constants for use in other files
+export {
+  ORDER_STATUS,
+  DESIGN_APPROVAL_STATUS,
+  URGENCY_LEVELS,
+  NOTE_TYPES,
+  NOTE_PRIORITIES,
+  ORDER_ITEM_STATUS,
+};

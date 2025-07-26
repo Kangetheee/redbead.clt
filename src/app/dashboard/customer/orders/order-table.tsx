@@ -66,6 +66,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
 import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
 import { useOrders } from "@/hooks/use-orders";
+import { Meta } from "@/lib/shared/types";
 
 interface CustomerOrderTableProps {
   filters?: GetOrdersDto;
@@ -110,7 +111,9 @@ export default function CustomerOrderTable({
   const orders: OrderResponse[] = ordersData?.success
     ? ordersData.data?.items || []
     : [];
-  const pagination = ordersData?.success ? ordersData.data?.meta : null;
+  const pagination = ordersData?.success
+    ? (ordersData.data?.meta as Meta)
+    : null;
 
   const handleFiltersChange = (newFilters: Partial<GetOrdersDto>) => {
     const updatedFilters = { ...filters, ...newFilters, page: 1 };

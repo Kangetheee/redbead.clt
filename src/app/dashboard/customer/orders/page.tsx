@@ -41,8 +41,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Import our order components
-import OrdersList from "@/components/orders/orders-list";
-import OrderSummaryCard from "@/components/orders/order-summary-card";
+import CustomerOrderTable from "./order-table";
 import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
 import { useOrders } from "@/hooks/use-orders";
 
@@ -133,6 +132,72 @@ export default function CustomerOrdersPage() {
     },
     { value: "DELIVERED", label: "Completed", count: orderStats.completed },
   ];
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
+      DESIGN_PENDING: {
+        color: "bg-blue-100 text-blue-800",
+        label: "Design Review",
+      },
+      DESIGN_APPROVED: {
+        color: "bg-green-100 text-green-800",
+        label: "Design Approved",
+      },
+      PAYMENT_PENDING: {
+        color: "bg-orange-100 text-orange-800",
+        label: "Payment Due",
+      },
+      PAYMENT_CONFIRMED: {
+        color: "bg-green-100 text-green-800",
+        label: "Payment Confirmed",
+      },
+      PROCESSING: {
+        color: "bg-purple-100 text-purple-800",
+        label: "Processing",
+      },
+      PRODUCTION: {
+        color: "bg-purple-100 text-purple-800",
+        label: "In Production",
+      },
+      SHIPPED: { color: "bg-blue-100 text-blue-800", label: "Shipped" },
+      DELIVERED: { color: "bg-green-100 text-green-800", label: "Delivered" },
+      CANCELLED: { color: "bg-red-100 text-red-800", label: "Cancelled" },
+      REFUNDED: { color: "bg-gray-100 text-gray-800", label: "Refunded" },
+    }[status] || { color: "bg-gray-100 text-gray-800", label: status };
+
+    return <Badge className={statusConfig.color}>{statusConfig.label}</Badge>;
+  };
+
+  const OrderSummaryCard = ({ order }: { order: any }) => (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-medium">#{order.orderNumber}</div>
+          {getStatusBadge(order.status)}
+        </div>
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p>{order.orderItems.length} items</p>
+          <p>${order.totalAmount.toFixed(2)}</p>
+          <p>{format(new Date(order.createdAt), "MMM dd, yyyy")}</p>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/dashboard/customer/orders/${order.id}`}>
+              <Eye className="h-3 w-3 mr-1" />
+              View
+            </Link>
+          </Button>
+          {order.status === "DELIVERED" && (
+            <Button size="sm" variant="outline">
+              <Repeat className="h-3 w-3 mr-1" />
+              Reorder
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
@@ -311,13 +376,13 @@ export default function CustomerOrdersPage() {
             </CardContent>
           </Card>
 
-          {/* Orders List */}
-          <OrdersList
+          {/* Orders Table */}
+          <CustomerOrderTable
             filters={filters}
             onFiltersChange={handleFiltersChange}
-            selectable={false}
-            showActions={true}
+            showFilters={false}
             compact={false}
+            pageSize={20}
           />
         </TabsContent>
 
@@ -326,12 +391,7 @@ export default function CustomerOrdersPage() {
           {recentOrders.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {recentOrders.map((order) => (
-                <OrderSummaryCard
-                  key={order.id}
-                  order={order}
-                  variant="default"
-                  showActions={true}
-                />
+                <OrderSummaryCard key={order.id} order={order} />
               ))}
             </div>
           ) : (
@@ -403,17 +463,26 @@ export default function CustomerOrdersPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-green-600">
-                  {Math.round((orderStats.completed / orderStats.total) * 100)}%
+                  {orderStats.total > 0
+                    ? Math.round(
+                        (orderStats.completed / orderStats.total) * 100
+                      )
+                    : 0}
+                  %
                 </p>
                 <p className="text-sm text-muted-foreground">Success Rate</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-purple-600">
                   $
-                  {(
-                    orders.reduce((sum, order) => sum + order.totalAmount, 0) /
-                    orderStats.total
-                  ).toFixed(2)}
+                  {orderStats.total > 0
+                    ? (
+                        orders.reduce(
+                          (sum, order) => sum + order.totalAmount,
+                          0
+                        ) / orderStats.total
+                      ).toFixed(2)
+                    : "0.00"}
                 </p>
                 <p className="text-sm text-muted-foreground">Avg Order Value</p>
               </div>

@@ -1,31 +1,42 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
+
 "use client";
 
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
-  MoreHorizontal,
   Eye,
-  Edit,
-  Trash2,
+  Download,
+  Repeat,
+  Star,
+  StarOff,
+  MoreHorizontal,
   Package,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
   Truck,
-  User,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  ExternalLink,
+  CreditCard,
+  Search,
+  ChevronLeft,
+  ChevronRight,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Filter,
-  Download,
-  Mail,
-  Phone,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -42,511 +53,654 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useOrders } from "@/hooks/use-orders";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
-import OrderStatusBadge from "@/components/orders/order-status-badge";
+import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
+import { Meta } from "@/lib/shared/types";
 
 interface OrderTableProps {
-  orders: OrderResponse[];
-  loading?: boolean;
-  selectable?: boolean;
-  selectedOrders?: string[];
-  onSelectionChange?: (orderIds: string[]) => void;
-  onOrderAction?: (action: string, orderId: string) => void;
-  showCustomerInfo?: boolean;
-  showAdvancedActions?: boolean;
+  filters?: GetOrdersDto;
+  onFiltersChange?: (filters: GetOrdersDto) => void;
+  showFilters?: boolean;
   compact?: boolean;
-  sortable?: boolean;
+  pageSize?: number;
+  baseUrl?: string; // For linking to order details
 }
 
-type SortField =
-  | "orderNumber"
-  | "status"
-  | "customerId"
-  | "totalAmount"
-  | "createdAt"
-  | "urgencyLevel";
+type SortField = "orderNumber" | "status" | "totalAmount" | "createdAt";
 type SortDirection = "asc" | "desc";
 
+interface SortConfig {
+  field: SortField;
+  direction: SortDirection;
+}
+
+// Status configuration with proper typing
+const STATUS_CONFIG = {
+  PENDING: {
+    color: "bg-yellow-100 text-yellow-800",
+    label: "Pending",
+    icon: Clock,
+  },
+  DESIGN_PENDING: {
+    color: "bg-blue-100 text-blue-800",
+    label: "Design Review",
+    icon: AlertTriangle,
+  },
+  DESIGN_APPROVED: {
+    color: "bg-green-100 text-green-800",
+    label: "Design Approved",
+    icon: CheckCircle,
+  },
+  DESIGN_REJECTED: {
+    color: "bg-red-100 text-red-800",
+    label: "Design Rejected",
+    icon: AlertTriangle,
+  },
+  PAYMENT_PENDING: {
+    color: "bg-orange-100 text-orange-800",
+    label: "Payment Due",
+    icon: CreditCard,
+  },
+  PAYMENT_CONFIRMED: {
+    color: "bg-green-100 text-green-800",
+    label: "Payment Confirmed",
+    icon: CheckCircle,
+  },
+  PROCESSING: {
+    color: "bg-purple-100 text-purple-800",
+    label: "Processing",
+    icon: Package,
+  },
+  PRODUCTION: {
+    color: "bg-purple-100 text-purple-800",
+    label: "In Production",
+    icon: Package,
+  },
+  SHIPPED: {
+    color: "bg-blue-100 text-blue-800",
+    label: "Shipped",
+    icon: Truck,
+  },
+  DELIVERED: {
+    color: "bg-green-100 text-green-800",
+    label: "Delivered",
+    icon: CheckCircle,
+  },
+  CANCELLED: {
+    color: "bg-red-100 text-red-800",
+    label: "Cancelled",
+    icon: AlertTriangle,
+  },
+  REFUNDED: {
+    color: "bg-gray-100 text-gray-800",
+    label: "Refunded",
+    icon: AlertTriangle,
+  },
+} as const;
+
 export default function OrderTable({
-  orders,
-  loading = false,
-  selectable = false,
-  selectedOrders = [],
-  onSelectionChange,
-  onOrderAction,
-  showCustomerInfo = true,
-  showAdvancedActions = true,
+  filters = { page: 1, limit: 10 },
+  onFiltersChange,
+  showFilters = true,
   compact = false,
-  sortable = true,
+  pageSize = 10,
+  baseUrl = "/orders",
 }: OrderTableProps) {
-  const [sortField, setSortField] = useState<SortField>("createdAt");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [searchTerm, setSearchTerm] = useState(filters.search || "");
+  const [statusFilter, setStatusFilter] = useState(filters.status || "all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    field: "createdAt",
+    direction: "desc",
+  });
+  const [favoriteOrders, setFavoriteOrders] = useState<Set<string>>(new Set());
 
-  // Handle sorting
-  const handleSort = (field: SortField) => {
-    if (!sortable) return;
+  // Fetch orders using the hook
+  const { data: ordersResult, isLoading } = useOrders({
+    ...filters,
+    limit: pageSize,
+    search: searchTerm || undefined,
+    status: statusFilter === "all" ? undefined : (statusFilter as any),
+  });
 
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
+  const orders: OrderResponse[] = ordersResult?.success
+    ? ordersResult.data?.items || []
+    : [];
+  const pagination: Meta | null = ordersResult?.success
+    ? ordersResult.data?.meta
+    : null;
+
+  const handleFiltersChange = (newFilters: Partial<GetOrdersDto>) => {
+    const updatedFilters = { ...filters, ...newFilters, page: 1 };
+    onFiltersChange?.(updatedFilters);
   };
 
-  const checkboxRef = useRef<HTMLInputElement>(null);
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    handleFiltersChange({ search: value || undefined });
+  };
 
-  // Sort orders
-  const sortedOrders = useMemo(() => {
-    if (!sortable) return orders;
-
-    return [...orders].sort((a, b) => {
-      let aValue: any = a[sortField];
-      let bValue: any = b[sortField];
-
-      if (sortField === "createdAt") {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
-      } else if (sortField === "totalAmount") {
-        aValue = Number(aValue);
-        bValue = Number(bValue);
-      } else {
-        aValue = String(aValue).toLowerCase();
-        bValue = String(bValue).toLowerCase();
-      }
-
-      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-      return 0;
+  const handleStatusFilter = (status: string) => {
+    setStatusFilter(status);
+    handleFiltersChange({
+      status: status === "all" ? undefined : (status as any),
     });
-  }, [orders, sortField, sortDirection, sortable]);
-
-  // Selection handlers
-  const handleSelectAll = () => {
-    if (!selectable || !onSelectionChange) return;
-
-    if (selectedOrders.length === orders.length) {
-      onSelectionChange([]);
-    } else {
-      onSelectionChange(orders.map((order) => order.id));
-    }
   };
 
-  const handleSelectOrder = (orderId: string) => {
-    if (!selectable || !onSelectionChange) return;
-
-    if (selectedOrders.includes(orderId)) {
-      onSelectionChange(selectedOrders.filter((id) => id !== orderId));
-    } else {
-      onSelectionChange([...selectedOrders, orderId]);
-    }
+  const handleSort = (field: SortField) => {
+    const direction =
+      sortConfig.field === field && sortConfig.direction === "asc"
+        ? "desc"
+        : "asc";
+    setSortConfig({ field, direction });
+    // Note: Implement backend sorting if needed
+    handleFiltersChange({
+      sortBy: field,
+      sortDirection: direction,
+    } as any);
   };
 
-  // Utility functions
+  const handlePageChange = (page: number) => {
+    handleFiltersChange({ page });
+  };
+
+  const toggleFavorite = (orderId: string) => {
+    setFavoriteOrders((prev) => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(orderId)) {
+        newFavorites.delete(orderId);
+      } else {
+        newFavorites.add(orderId);
+      }
+      return newFavorites;
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || {
+      color: "bg-gray-100 text-gray-800",
+      label: status,
+      icon: Clock,
+    };
+
+    const Icon = config.icon;
+
+    return (
+      <Badge className={config.color}>
+        <Icon className="h-3 w-3 mr-1" />
+        {config.label}
+      </Badge>
+    );
+  };
+
   const getSortIcon = (field: SortField) => {
-    if (!sortable || sortField !== field) {
-      return <ArrowUpDown className="h-4 w-4 opacity-50" />;
+    if (sortConfig.field !== field) {
+      return <ArrowUpDown className="h-4 w-4" />;
     }
-    return sortDirection === "asc" ? (
+    return sortConfig.direction === "asc" ? (
       <ArrowUp className="h-4 w-4" />
     ) : (
       <ArrowDown className="h-4 w-4" />
     );
   };
 
-  const getUrgencyIcon = (urgencyLevel?: string) => {
-    switch (urgencyLevel) {
-      case "EMERGENCY":
-        return <AlertTriangle className="h-4 w-4 text-red-600" />;
-      case "RUSH":
-        return <Clock className="h-4 w-4 text-orange-600" />;
-      case "EXPEDITED":
-        return <Truck className="h-4 w-4 text-yellow-600" />;
-      default:
-        return null;
+  const getActionStatus = (order: OrderResponse) => {
+    if (order.status === "DESIGN_PENDING") {
+      return {
+        required: true,
+        action: "Review Design",
+        description: "Design approval needed",
+      };
     }
+    if (order.status === "PAYMENT_PENDING") {
+      return {
+        required: true,
+        action: "Complete Payment",
+        description: "Payment required",
+      };
+    }
+    if (order.status === "SHIPPED" && order.trackingNumber) {
+      return {
+        required: false,
+        action: "Track Package",
+        description: "Package in transit",
+      };
+    }
+    return null;
   };
 
-  const isOverdue = (order: OrderResponse) => {
-    if (!order.expectedDelivery) return false;
-    return (
-      new Date(order.expectedDelivery) < new Date() &&
-      !["DELIVERED", "CANCELLED", "REFUNDED"].includes(order.status)
-    );
+  const canReorder = (order: OrderResponse) => {
+    return order.status === "DELIVERED";
   };
 
-  const allSelected =
-    selectedOrders.length === orders.length && orders.length > 0;
-  const someSelected =
-    selectedOrders.length > 0 && selectedOrders.length < orders.length;
-
-  useEffect(() => {
-    if (checkboxRef.current) {
-      checkboxRef.current.indeterminate = someSelected;
-    }
-  }, [someSelected]);
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {[...Array(compact ? 6 : 8)].map((_, i) => (
-                <TableHead key={i}>
-                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[...Array(5)].map((_, i) => (
-              <TableRow key={i}>
-                {[...Array(compact ? 6 : 8)].map((_, j) => (
-                  <TableCell key={j}>
-                    <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <Card>
+        <CardContent className="flex items-center justify-center h-64">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+            <span>Loading orders...</span>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <TooltipProvider>
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {selectable && (
-                <TableHead className="w-[50px]">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={handleSelectAll}
-                    ref={(el) => {
-                      const input = el?.querySelector(
-                        "input[type='checkbox']"
-                      ) as HTMLInputElement | null;
-                      if (input) {
-                        input.indeterminate = someSelected;
-                      }
-                    }}
+    <div className="space-y-4">
+      {/* Filters */}
+      {showFilters && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search orders..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="pl-9"
                   />
-                </TableHead>
-              )}
+                </div>
+              </div>
 
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("orderNumber")}
-                  className="h-auto p-0 font-medium hover:bg-transparent"
-                >
-                  Order #{getSortIcon("orderNumber")}
-                </Button>
-              </TableHead>
+              <Select value={statusFilter} onValueChange={handleStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Orders</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="DESIGN_PENDING">Design Review</SelectItem>
+                  <SelectItem value="PAYMENT_PENDING">Payment Due</SelectItem>
+                  <SelectItem value="PROCESSING">Processing</SelectItem>
+                  <SelectItem value="SHIPPED">Shipped</SelectItem>
+                  <SelectItem value="DELIVERED">Delivered</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("status")}
-                  className="h-auto p-0 font-medium hover:bg-transparent"
-                >
-                  Status {getSortIcon("status")}
-                </Button>
-              </TableHead>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Date range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="30d">Last 30 Days</SelectItem>
+                  <SelectItem value="90d">Last 3 Months</SelectItem>
+                  <SelectItem value="1y">This Year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-              {showCustomerInfo && (
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort("customerId")}
-                    className="h-auto p-0 font-medium hover:bg-transparent"
-                  >
-                    Customer {getSortIcon("customerId")}
-                  </Button>
-                </TableHead>
-              )}
+      {/* Orders Table */}
+      <Card>
+        {!compact && (
+          <CardHeader>
+            <CardTitle>Orders</CardTitle>
+            <CardDescription>
+              {pagination?.totalItems || 0} orders found
+            </CardDescription>
+          </CardHeader>
+        )}
 
-              {!compact && <TableHead>Items</TableHead>}
+        <CardContent className="p-0">
+          {orders.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">No orders found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || statusFilter !== "all"
+                  ? "Try adjusting your search or filters"
+                  : "No orders to display"}
+              </p>
+              <Button asChild>
+                <Link href={`${baseUrl}/create`}>
+                  <Package className="mr-2 h-4 w-4" />
+                  Create Order
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Star className="h-4 w-4" />
+                  </TableHead>
 
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("totalAmount")}
-                  className="h-auto p-0 font-medium hover:bg-transparent"
-                >
-                  Total {getSortIcon("totalAmount")}
-                </Button>
-              </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("orderNumber")}
+                      className="h-auto p-0 font-medium"
+                    >
+                      Order #{getSortIcon("orderNumber")}
+                    </Button>
+                  </TableHead>
 
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("createdAt")}
-                  className="h-auto p-0 font-medium hover:bg-transparent"
-                >
-                  Date {getSortIcon("createdAt")}
-                </Button>
-              </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("status")}
+                      className="h-auto p-0 font-medium"
+                    >
+                      Status
+                      {getSortIcon("status")}
+                    </Button>
+                  </TableHead>
 
-              {!compact && <TableHead>Priority</TableHead>}
+                  <TableHead>Items</TableHead>
 
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("totalAmount")}
+                      className="h-auto p-0 font-medium"
+                    >
+                      Total
+                      {getSortIcon("totalAmount")}
+                    </Button>
+                  </TableHead>
 
-          <TableBody>
-            {sortedOrders.map((order) => {
-              const urgencyIcon = getUrgencyIcon(order.urgencyLevel);
-              const orderIsOverdue = isOverdue(order);
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("createdAt")}
+                      className="h-auto p-0 font-medium"
+                    >
+                      Date
+                      {getSortIcon("createdAt")}
+                    </Button>
+                  </TableHead>
 
-              return (
-                <TableRow
-                  key={order.id}
-                  className={`${orderIsOverdue ? "bg-red-50" : ""} ${
-                    selectedOrders.includes(order.id) ? "bg-blue-50" : ""
-                  }`}
-                >
-                  {selectable && (
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedOrders.includes(order.id)}
-                        onCheckedChange={() => handleSelectOrder(order.id)}
-                      />
-                    </TableCell>
-                  )}
+                  <TableHead>Action</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
 
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/dashboard/admin/orders/${order.id}`}
-                        className="hover:underline"
-                      >
-                        {order.orderNumber}
-                      </Link>
-                      {urgencyIcon && (
-                        <Tooltip>
-                          <TooltipTrigger>{urgencyIcon}</TooltipTrigger>
-                          <TooltipContent>
-                            {order.urgencyLevel} Priority
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      {orderIsOverdue && (
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <AlertTriangle className="h-4 w-4 text-red-600" />
-                          </TooltipTrigger>
-                          <TooltipContent>Order is overdue</TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </TableCell>
+              <TableBody>
+                {orders.map((order) => {
+                  const actionStatus = getActionStatus(order);
+                  const isFavorited = favoriteOrders.has(order.id);
 
-                  <TableCell>
-                    <OrderStatusBadge status={order.status} size="sm" />
-                  </TableCell>
-
-                  {showCustomerInfo && (
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs">
-                            {order.customerId.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{order.customerId}</p>
-                          {/* Add customer phone if available */}
-                        </div>
-                      </div>
-                    </TableCell>
-                  )}
-
-                  {!compact && (
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          {order.orderItems.length}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          (
-                          {order.orderItems.reduce(
-                            (sum, item) => sum + item.quantity,
-                            0
-                          )}{" "}
-                          qty)
-                        </span>
-                      </div>
-                    </TableCell>
-                  )}
-
-                  <TableCell className="font-medium">
-                    ${order.totalAmount.toFixed(2)}
-                  </TableCell>
-
-                  <TableCell className="text-muted-foreground">
-                    <Tooltip>
-                      <TooltipTrigger>
-                        {format(new Date(order.createdAt), "MMM dd")}
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {format(
-                          new Date(order.createdAt),
-                          "MMM dd, yyyy 'at' HH:mm"
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TableCell>
-
-                  {!compact && (
-                    <TableCell>
-                      {order.urgencyLevel && order.urgencyLevel !== "NORMAL" ? (
-                        <Badge
-                          variant={
-                            order.urgencyLevel === "EMERGENCY"
-                              ? "destructive"
-                              : "secondary"
-                          }
-                          className="text-xs"
+                  return (
+                    <TableRow key={order.id}>
+                      {/* Favorite */}
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleFavorite(order.id)}
                         >
-                          {order.urgencyLevel}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Normal
-                        </span>
-                      )}
-                    </TableCell>
-                  )}
-
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
+                          {isFavorited ? (
+                            <Star className="h-4 w-4 fill-current text-yellow-500" />
+                          ) : (
+                            <StarOff className="h-4 w-4" />
+                          )}
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Order Actions</DropdownMenuLabel>
+                      </TableCell>
 
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/admin/orders/${order.id}`}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </Link>
-                        </DropdownMenuItem>
+                      {/* Order Number */}
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`${baseUrl}/${order.id}`}
+                          className="hover:underline"
+                        >
+                          {order.orderNumber}
+                        </Link>
+                      </TableCell>
 
-                        <DropdownMenuItem asChild>
-                          <Link
-                            href={`/dashboard/admin/orders/${order.id}/edit`}
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Order
-                          </Link>
-                        </DropdownMenuItem>
+                      {/* Status */}
+                      <TableCell>
+                        <div className="space-y-1">
+                          {getStatusBadge(order.status)}
+                          {order.urgencyLevel &&
+                            order.urgencyLevel !== "NORMAL" && (
+                              <Badge variant="destructive" className="text-xs">
+                                {order.urgencyLevel}
+                              </Badge>
+                            )}
+                        </div>
+                      </TableCell>
 
-                        <DropdownMenuSeparator />
+                      {/* Items */}
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="font-medium">
+                            {order.orderItems.length} items
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {order.orderItems.reduce(
+                              (sum, item) => sum + item.quantity,
+                              0
+                            )}{" "}
+                            total qty
+                          </p>
+                        </div>
+                      </TableCell>
 
-                        {showAdvancedActions && (
-                          <>
-                            <DropdownMenuItem
-                              onClick={() => onOrderAction?.("email", order.id)}
-                            >
-                              <Mail className="mr-2 h-4 w-4" />
-                              Email Customer
-                            </DropdownMenuItem>
+                      {/* Total */}
+                      <TableCell className="font-medium">
+                        ${order.totalAmount.toFixed(2)}
+                      </TableCell>
 
-                            <DropdownMenuItem
-                              onClick={() => onOrderAction?.("call", order.id)}
-                            >
-                              <Phone className="mr-2 h-4 w-4" />
-                              Call Customer
-                            </DropdownMenuItem>
+                      {/* Date */}
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="text-sm">
+                            {format(new Date(order.createdAt), "MMM dd, yyyy")}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(order.createdAt), {
+                              addSuffix: true,
+                            })}
+                          </p>
+                        </div>
+                      </TableCell>
 
-                            <DropdownMenuItem
-                              onClick={() =>
-                                onOrderAction?.("download", order.id)
+                      {/* Action Required */}
+                      <TableCell>
+                        {actionStatus ? (
+                          <div className="space-y-1">
+                            <Button
+                              size="sm"
+                              variant={
+                                actionStatus.required ? "default" : "outline"
                               }
+                              asChild
                             >
+                              <Link href={`${baseUrl}/${order.id}`}>
+                                {actionStatus.required && (
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                )}
+                                {actionStatus.action}
+                              </Link>
+                            </Button>
+                            <p className="text-xs text-muted-foreground">
+                              {actionStatus.description}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            -
+                          </span>
+                        )}
+                      </TableCell>
+
+                      {/* Actions Menu */}
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+
+                            <DropdownMenuItem asChild>
+                              <Link href={`${baseUrl}/${order.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </Link>
+                            </DropdownMenuItem>
+
+                            {order.trackingNumber && (
+                              <DropdownMenuItem asChild>
+                                <Link href={`${baseUrl}/${order.id}/tracking`}>
+                                  <Truck className="mr-2 h-4 w-4" />
+                                  Track Package
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+
+                            <DropdownMenuItem>
                               <Download className="mr-2 h-4 w-4" />
                               Download Invoice
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator />
-                          </>
-                        )}
 
-                        {/* Status-specific actions */}
-                        {order.status === "PENDING" && (
-                          <DropdownMenuItem
-                            onClick={() => onOrderAction?.("approve", order.id)}
-                          >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Approve Order
-                          </DropdownMenuItem>
-                        )}
+                            {canReorder(order) && (
+                              <DropdownMenuItem asChild>
+                                <Link href={`${baseUrl}/${order.id}/reorder`}>
+                                  <Repeat className="mr-2 h-4 w-4" />
+                                  Reorder
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
 
-                        {order.status === "PROCESSING" && (
-                          <DropdownMenuItem
-                            onClick={() => onOrderAction?.("ship", order.id)}
-                          >
-                            <Truck className="mr-2 h-4 w-4" />
-                            Mark as Shipped
-                          </DropdownMenuItem>
-                        )}
+                            {order.trackingUrl && (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href={order.trackingUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink className="mr-2 h-4 w-4" />
+                                  Carrier Site
+                                </a>
+                              </DropdownMenuItem>
+                            )}
 
-                        {[
-                          "PENDING",
-                          "DESIGN_PENDING",
-                          "PAYMENT_PENDING",
-                        ].includes(order.status) && (
-                          <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() =>
-                                onOrderAction?.("cancel", order.id)
-                              }
-                              className="text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Cancel Order
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
 
-        {sortedOrders.length === 0 && (
-          <div className="text-center py-8">
-            <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold">No orders found</h3>
-            <p className="text-muted-foreground">
-              No orders match the current filters
-            </p>
+                            <DropdownMenuItem
+                              onClick={() => toggleFavorite(order.id)}
+                            >
+                              {isFavorited ? (
+                                <>
+                                  <StarOff className="mr-2 h-4 w-4" />
+                                  Remove Favorite
+                                </>
+                              ) : (
+                                <>
+                                  <Star className="mr-2 h-4 w-4" />
+                                  Add to Favorites
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between p-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Showing{" "}
+              {(pagination.currentPage - 1) * pagination.itemsPerPage + 1} to{" "}
+              {Math.min(
+                pagination.currentPage * pagination.itemsPerPage,
+                pagination.totalItems
+              )}{" "}
+              of {pagination.totalItems} orders
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.currentPage - 1)}
+                disabled={pagination.currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from(
+                  { length: Math.min(5, pagination.totalPages) },
+                  (_, i) => {
+                    const page = i + 1;
+                    return (
+                      <Button
+                        key={page}
+                        variant={
+                          pagination.currentPage === page
+                            ? "default"
+                            : "outline"
+                        }
+                        size="sm"
+                        onClick={() => handlePageChange(page)}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  }
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.currentPage + 1)}
+                disabled={pagination.currentPage === pagination.totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
-      </div>
-    </TooltipProvider>
+      </Card>
+
+      {/* Action Required Summary */}
+      {orders.some((order) => getActionStatus(order)?.required) && (
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <AlertDescription className="text-orange-800">
+            <strong>
+              {
+                orders.filter((order) => getActionStatus(order)?.required)
+                  .length
+              }{" "}
+              orders
+            </strong>{" "}
+            require attention. Please review and take the necessary actions.
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 }

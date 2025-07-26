@@ -139,28 +139,32 @@ export default function LandingPage() {
                 title: "Custom Lanyards",
                 description:
                   "Durable, branded lanyards for events, conferences, and daily use",
-                image: "/placeholder.svg?height=200&width=300",
+                image:
+                  "https://5.imimg.com/data5/IP/GY/GD/SELLER-3028961/eco-friendly-lanyards-1000x1000.jpg",
                 features: ["Multiple colors", "Logo printing", "Bulk orders"],
               },
               {
                 title: "Wristbands",
                 description:
                   "Silicone and fabric wristbands for events and promotions",
-                image: "/placeholder.svg?height=200&width=300",
+                image:
+                  "https://brightwristbands.co.ke/wp-content/uploads/2024/11/fabric-wristbands-600x600.avif",
                 features: ["Waterproof", "Custom text", "Various sizes"],
               },
               {
                 title: "Corporate Diaries",
                 description:
                   "Professional diaries and notebooks with your company branding",
-                image: "/placeholder.svg?height=200&width=300",
+                image:
+                  "https://www.greenotechindia.com/wp-content/uploads/2024/03/WhatsApp-Image-2023-10-18-at-13.32.08-1.jpeg",
                 features: ["Premium paper", "Custom covers", "Bulk pricing"],
               },
               {
                 title: "Corporate Gifts",
                 description:
                   "Branded merchandise including mugs, pens, and tech accessories",
-                image: "/placeholder.svg?height=200&width=300",
+                image:
+                  "https://cdn.shopify.com/s/files/1/0631/4583/6591/files/Eco_corporate_gifting_1024x1024.jpg?v=1730313121",
                 features: [
                   "Wide selection",
                   "Quality materials",

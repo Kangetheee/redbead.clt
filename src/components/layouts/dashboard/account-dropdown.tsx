@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "../../ui/dropdown-menu";
 import { signOutFormAction } from "@/lib/auth/auth.actions";
+import ThemeToggle from "./theme-toggle";
 
 export default function AccountDropdown() {
   const router = useRouter();
@@ -117,6 +118,15 @@ export default function AccountDropdown() {
             <User className="mr-2 size-4" />
             Profile
           </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem asChild>
+          <div className="px-2 py-1.5">
+            <ThemeToggle />
+            Appearance
+          </div>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

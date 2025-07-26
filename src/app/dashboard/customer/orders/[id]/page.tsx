@@ -41,8 +41,8 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
 // Import our order components
-import OrderTimeline from "@/components/orders/order-timeline";
-import OrderStatusBadge from "@/components/orders/order-status-badge";
+import CustomerOrderTimeline from "@/components/orders/order-timeline";
+import CustomerOrderTracking from "./order-tracking";
 import { useOrder } from "@/hooks/use-orders";
 
 export default function CustomerOrderDetailsPage() {
@@ -53,6 +53,42 @@ export default function CustomerOrderDetailsPage() {
   // Fetch order data
   const { data: orderData, isLoading, refetch } = useOrder(orderId);
   const order = orderData?.success ? orderData.data : null;
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
+      DESIGN_PENDING: {
+        color: "bg-blue-100 text-blue-800",
+        label: "Design Review",
+      },
+      DESIGN_APPROVED: {
+        color: "bg-green-100 text-green-800",
+        label: "Design Approved",
+      },
+      PAYMENT_PENDING: {
+        color: "bg-orange-100 text-orange-800",
+        label: "Payment Due",
+      },
+      PAYMENT_CONFIRMED: {
+        color: "bg-green-100 text-green-800",
+        label: "Payment Confirmed",
+      },
+      PROCESSING: {
+        color: "bg-purple-100 text-purple-800",
+        label: "Processing",
+      },
+      PRODUCTION: {
+        color: "bg-purple-100 text-purple-800",
+        label: "In Production",
+      },
+      SHIPPED: { color: "bg-blue-100 text-blue-800", label: "Shipped" },
+      DELIVERED: { color: "bg-green-100 text-green-800", label: "Delivered" },
+      CANCELLED: { color: "bg-red-100 text-red-800", label: "Cancelled" },
+      REFUNDED: { color: "bg-gray-100 text-gray-800", label: "Refunded" },
+    }[status] || { color: "bg-gray-100 text-gray-800", label: status };
+
+    return <Badge className={statusConfig.color}>{statusConfig.label}</Badge>;
+  };
 
   if (isLoading) {
     return (
@@ -164,7 +200,7 @@ export default function CustomerOrderDetailsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold mb-1">Order Status</h3>
-                <OrderStatusBadge status={order.status} size="default" />
+                {getStatusBadge(order.status)}
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Progress</p>
@@ -400,88 +436,20 @@ export default function CustomerOrderDetailsPage() {
 
         {/* Tracking Tab */}
         <TabsContent value="tracking" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Truck className="h-5 w-5" />
-                Order Tracking
-              </CardTitle>
-              <CardDescription>
-                Real-time updates on your order progress
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {order.trackingNumber ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-muted rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold">Tracking Number</p>
-                        <p className="font-mono text-sm">
-                          {order.trackingNumber}
-                        </p>
-                      </div>
-                      {order.trackingUrl && (
-                        <Button asChild>
-                          <a
-                            href={order.trackingUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Track Package
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Mock tracking updates */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 bg-green-500 rounded-full" />
-                      <div>
-                        <p className="font-medium">Package shipped</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(
-                            new Date(order.updatedAt),
-                            "MMM dd, yyyy 'at' hh:mm a"
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 bg-blue-500 rounded-full" />
-                      <div>
-                        <p className="font-medium">Order processed</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(
-                            new Date(order.createdAt),
-                            "MMM dd, yyyy 'at' hh:mm a"
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-semibold">
-                    No tracking available yet
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Tracking information will appear here once your order ships
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <CustomerOrderTracking
+            order={order}
+            showEstimates={true}
+            autoRefresh={false}
+          />
         </TabsContent>
 
         {/* Timeline Tab */}
         <TabsContent value="timeline">
-          <OrderTimeline order={order} showFilters={false} maxHeight="600px" />
+          <CustomerOrderTimeline
+            order={order}
+            showEstimates={true}
+            compact={false}
+          />
         </TabsContent>
 
         {/* Support Tab */}
