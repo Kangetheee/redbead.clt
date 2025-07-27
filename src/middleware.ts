@@ -156,7 +156,7 @@ export default async function middleware(req: NextRequest) {
       if (isAdmin) {
         return NextResponse.redirect(new URL("/admin/dashboard", req.url));
       } else {
-        return NextResponse.redirect(new URL("/", req.url));
+        return NextResponse.redirect(new URL("/dashboard", req.url));
       }
     }
 

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 "use client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,164 +19,15 @@ import {
 import { FeaturedProductsSection } from "@/components/products/featured-products";
 import Link from "next/link";
 import { useState } from "react";
+import { CustomerNavbar } from "@/components/layouts/customer-nav";
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-red-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">RB</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">Red Bead</span>
-            </Link>
+      <CustomerNavbar />
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link
-                href="/"
-                className="text-gray-700 hover:text-green-600 transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                href="/products"
-                className="text-gray-700 hover:text-green-600 transition-colors"
-              >
-                Products
-              </Link>
-              <Link
-                href="/design-studio"
-                className="text-gray-700 hover:text-green-600 transition-colors"
-              >
-                Design Studio
-              </Link>
-              <Link
-                href="/about"
-                className="text-gray-700 hover:text-green-600 transition-colors"
-              >
-                About
-              </Link>
-              <Link
-                href="/contact"
-                className="text-gray-700 hover:text-green-600 transition-colors"
-              >
-                Contact
-              </Link>
-            </div>
-
-            {/* Desktop Auth & Cart */}
-            <div className="hidden md:flex items-center space-x-4">
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/cart">
-                  <ShoppingCart className="h-5 w-5" />
-                </Link>
-              </Button>
-
-              <Button variant="ghost" asChild>
-                <Link href="/login">Sign In</Link>
-              </Button>
-
-              <Button className="bg-green-600 hover:bg-green-700" asChild>
-                <Link href="/register">Get Started</Link>
-              </Button>
-            </div>
-
-            {/* Mobile menu button */}
-            <button
-              className="md:hidden p-2"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
-          </div>
-
-          {/* Mobile Navigation */}
-          {isMenuOpen && (
-            <div className="md:hidden py-4 border-t border-gray-200">
-              <div className="flex flex-col space-y-4">
-                <Link
-                  href="/"
-                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Home
-                </Link>
-                <Link
-                  href="/products"
-                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Products
-                </Link>
-                <Link
-                  href="/design-studio"
-                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Design Studio
-                </Link>
-                <Link
-                  href="/about"
-                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  About
-                </Link>
-                <Link
-                  href="/contact"
-                  className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Contact
-                </Link>
-
-                <div className="border-t border-gray-200 pt-4 space-y-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    asChild
-                  >
-                    <Link href="/cart" onClick={() => setIsMenuOpen(false)}>
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Cart
-                    </Link>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    asChild
-                  >
-                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                      Sign In
-                    </Link>
-                  </Button>
-
-                  <Button
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    asChild
-                  >
-                    <Link href="/register" onClick={() => setIsMenuOpen(false)}>
-                      Get Started
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </nav>
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-green-50 via-white to-red-50 py-20 lg:py-32">
         <div className="container mx-auto px-4">

@@ -180,7 +180,7 @@ export function ProductDetailsView({
               </Button>
 
               <Button variant="ghost" asChild>
-                <Link href="/login">Sign In</Link>
+                <Link href="/sign-in">Sign In</Link>
               </Button>
 
               <Button className="bg-green-600 hover:bg-green-700" asChild>
@@ -258,7 +258,7 @@ export function ProductDetailsView({
                     className="w-full justify-start"
                     asChild
                   >
-                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                    <Link href="/sign-in" onClick={() => setIsMenuOpen(false)}>
                       Sign In
                     </Link>
                   </Button>

@@ -4,7 +4,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Power, User, Loader2 } from "lucide-react";
+import {
+  Power,
+  User,
+  Loader2,
+  LayoutDashboard,
+  MapPinHouse,
+} from "lucide-react";
 import { FiChevronDown } from "react-icons/fi";
 
 import { cn, getInitials } from "@/lib/utils";
@@ -28,7 +34,6 @@ export default function AccountDropdown() {
   const router = useRouter();
   const { data: userProfile, isLoading, error } = useUserProfile();
 
-  // Handle sign out function
   const handleSignOut = async () => {
     try {
       await signOutFormAction();
@@ -104,7 +109,7 @@ export default function AccountDropdown() {
 
         <DropdownMenuItem asChild>
           <Link
-            href="/dashboard/customer/profile"
+            href="/profile"
             className={cn(
               "w-full text-start",
               buttonVariants({
@@ -127,6 +132,44 @@ export default function AccountDropdown() {
             <ThemeToggle />
             Appearance
           </div>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem asChild>
+          <Link
+            href="/dashboard"
+            className={cn(
+              "w-full text-start",
+              buttonVariants({
+                variant: "ghost",
+                size: "sm",
+                className:
+                  "w-full cursor-pointer justify-start text-muted-foreground",
+              })
+            )}
+          >
+            <LayoutDashboard className="mr-2 size-4" />
+            Dashboard
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
+          <Link
+            href="/addresses"
+            className={cn(
+              "w-full text-start",
+              buttonVariants({
+                variant: "ghost",
+                size: "sm",
+                className:
+                  "w-full cursor-pointer justify-start text-muted-foreground",
+              })
+            )}
+          >
+            <MapPinHouse className="mr-2 size-4" />
+            Address
+          </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
