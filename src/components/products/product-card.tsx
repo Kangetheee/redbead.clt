@@ -4,13 +4,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Star, ShoppingCart, Eye } from "lucide-react";
+import { CheckCircle, Star, ShoppingCart, Eye, Plus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ProductTypeResponse } from "@/lib/products/types/products.types";
-import { ViewDetailsButton } from "./view-details";
-import { QuickAddToCartButton } from "@/components/cart/quick-add-to-cart-button";
 
 interface ProductCardProps {
   product: ProductTypeResponse;
@@ -37,15 +35,10 @@ export function ProductCard({
   showMaterial = true,
   className,
   imageAspectRatio = "square",
-  maxTemplatesShown = 2, // Reduced for compact view
+  maxTemplatesShown = 2,
 }: ProductCardProps) {
-  const templates =
-    product.designTemplates?.map((template) => ({
-      id: template.id,
-      name: template.name,
-      basePrice: template.basePrice,
-      sizeVariants: [], // Will be populated from actual template data when needed
-    })) || [];
+  // Use the correct ProductTypeDesignTemplate interface
+  const templates = product.designTemplates || [];
 
   // Size configurations - optimized for better density
   const sizeConfig = {
@@ -88,6 +81,59 @@ export function ProductCard({
   const truncateText = (text: string, maxLength: number) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength).trim() + "...";
+  };
+
+  // Render View Details button
+  const renderViewDetailsButton = (variant: "overlay" | "primary" | "list") => {
+    const buttonProps = {
+      variant:
+        variant === "overlay" ? ("outline" as const) : ("outline" as const),
+      size: variant === "list" ? ("sm" as const) : config.buttonSize,
+      className: cn(
+        variant === "overlay" &&
+          "bg-white/90 text-gray-900 hover:bg-white border-0",
+        variant === "primary" &&
+          "border-green-600 text-green-600 hover:bg-green-50 w-full",
+        variant === "list" &&
+          "flex-1 text-xs border-green-200 text-green-600 hover:bg-green-50"
+      ),
+    };
+
+    return (
+      <Button {...buttonProps} asChild>
+        <Link href={`/products/${product.slug}`}>
+          {variant === "overlay" && <Eye className="w-3 h-3 mr-1" />}
+          {variant === "list" ? "View" : "View Details"}
+        </Link>
+      </Button>
+    );
+  };
+
+  // Render Add to Cart button (placeholder since we don't have size variants)
+  const renderAddToCartButton = (variant: "overlay" | "primary" | "list") => {
+    if (!showAddToCart || templates.length === 0) return null;
+
+    const buttonProps = {
+      variant:
+        variant === "overlay" ? ("default" as const) : ("default" as const),
+      size: variant === "list" ? ("sm" as const) : config.buttonSize,
+      className: cn(
+        variant === "overlay" && "bg-green-600 hover:bg-green-700 text-white",
+        variant === "primary" &&
+          "bg-green-600 hover:bg-green-700 text-white w-full",
+        variant === "list" && "flex-1 bg-green-600 hover:bg-green-700 text-xs"
+      ),
+    };
+
+    // For now, navigate to product page for customization since we don't have size variants
+    return (
+      <Button {...buttonProps} asChild>
+        <Link href={`/products/${product.slug}`}>
+          <ShoppingCart className="w-3 h-3 mr-1" />
+          {variant === "list" ? "Add" : "Add to Cart"}
+        </Link>
+      </Button>
+    );
   };
 
   // List layout - optimized for scanning
@@ -164,26 +210,8 @@ export function ProductCard({
 
           {/* Actions - compact */}
           <div className="flex gap-1 mt-2">
-            <ViewDetailsButton
-              productSlug={product.slug}
-              variant="outline"
-              size="sm"
-              className="flex-1 text-xs border-green-200 text-green-600 hover:bg-green-50"
-              showIcon={false}
-            >
-              View
-            </ViewDetailsButton>
-            {showAddToCart && templates.length > 0 && (
-              <QuickAddToCartButton
-                templates={templates}
-                variant="default"
-                size="sm"
-                className="flex-1 bg-green-600 hover:bg-green-700 text-xs"
-                showIcon={false}
-              >
-                Add
-              </QuickAddToCartButton>
-            )}
+            {renderViewDetailsButton("list")}
+            {renderAddToCartButton("list")}
           </div>
         </div>
       </Card>
@@ -237,26 +265,8 @@ export function ProductCard({
         {/* Quick actions overlay - appears on hover */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
           <div className="flex gap-2">
-            <ViewDetailsButton
-              productSlug={product.slug}
-              variant="outline"
-              size="sm"
-              className="bg-white/90 text-gray-900 hover:bg-white border-0"
-            >
-              <Eye className="w-3 h-3 mr-1" />
-              View
-            </ViewDetailsButton>
-            {showAddToCart && templates.length > 0 && (
-              <QuickAddToCartButton
-                templates={templates}
-                variant="default"
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <ShoppingCart className="w-3 h-3 mr-1" />
-                Add
-              </QuickAddToCartButton>
-            )}
+            {renderViewDetailsButton("overlay")}
+            {renderAddToCartButton("overlay")}
           </div>
         </div>
       </div>
@@ -334,33 +344,20 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Primary Action - only show if no overlay actions */}
-        <div className="pt-2 md:hidden">
-          {" "}
-          {/* Only show on mobile where hover doesn't work */}
-          {showAddToCart && templates.length > 0 ? (
-            <QuickAddToCartButton
-              templates={templates}
-              fullWidth={true}
-              variant="default"
-              size={config.buttonSize}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <ShoppingCart className="w-3 h-3 mr-1" />
-              Add to Cart
-            </QuickAddToCartButton>
-          ) : (
-            <ViewDetailsButton
-              productSlug={product.slug}
-              variant="outline"
-              size={config.buttonSize}
-              fullWidth={true}
-              className="border-green-600 text-green-600 hover:bg-green-50"
-            >
-              View Details
-            </ViewDetailsButton>
-          )}
+        {/* Primary Action - Mobile only */}
+        <div className="pt-2 md:hidden space-y-2">
+          {renderAddToCartButton("primary")}
+
+          {/* Secondary action for mobile */}
+          {renderViewDetailsButton("primary")}
         </div>
+
+        {/* Desktop primary action - Only show if no templates for add to cart */}
+        {(!showAddToCart || templates.length === 0) && (
+          <div className="pt-2 hidden md:block">
+            {renderViewDetailsButton("primary")}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

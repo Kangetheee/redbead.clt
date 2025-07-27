@@ -11,7 +11,8 @@ const publicRoutes = [
   "/",
   "/products",
   "/products/.*",
-  "/studio",
+  "/design-studio",
+  "/design-studio/.*",
   "/cart",
   "/about",
   "/contact",
@@ -155,7 +156,7 @@ export default async function middleware(req: NextRequest) {
       if (isAdmin) {
         return NextResponse.redirect(new URL("/admin/dashboard", req.url));
       } else {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
+        return NextResponse.redirect(new URL("/", req.url));
       }
     }
 

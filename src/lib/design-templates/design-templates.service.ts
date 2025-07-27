@@ -57,7 +57,11 @@ export class DesignTemplatesService {
     const queryString = queryParams.toString();
     const url = `/v1/templates${queryString ? `?${queryString}` : ""}`;
 
-    const apiResponse = await this.fetcher.request<TemplatesListResponse>(url);
+    const apiResponse = await this.fetcher.request<TemplatesListResponse>(
+      url,
+      {},
+      { auth: false }
+    );
 
     return {
       items: apiResponse.items,
@@ -75,7 +79,11 @@ export class DesignTemplatesService {
    * GET /v1/templates/{id}
    */
   public async findById(templateId: string): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>(`/v1/templates/${templateId}`);
+    return this.fetcher.request<DesignTemplate>(
+      `/v1/templates/${templateId}`,
+      {},
+      { auth: false }
+    );
   }
 
   /**
@@ -83,7 +91,11 @@ export class DesignTemplatesService {
    * GET /v1/templates/slug/{slug}
    */
   public async findBySlug(slug: string): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>(`/v1/templates/slug/${slug}`);
+    return this.fetcher.request<DesignTemplate>(
+      `/v1/templates/slug/${slug}`,
+      {},
+      { auth: false }
+    );
   }
 
   /**
@@ -103,7 +115,7 @@ export class DesignTemplatesService {
     const queryString = queryParams.toString();
     const url = `/v1/templates/by-product/${productId}${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<DesignTemplate[]>(url);
+    return this.fetcher.request<DesignTemplate[]>(url, {}, { auth: false });
   }
 
   /**
@@ -111,10 +123,14 @@ export class DesignTemplatesService {
    * POST /v1/templates
    */
   public async create(values: CreateTemplateDto): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>("/v1/templates", {
-      method: "POST",
-      data: values,
-    });
+    return this.fetcher.request<DesignTemplate>(
+      "/v1/templates",
+      {
+        method: "POST",
+        data: values,
+      },
+      { auth: false }
+    );
   }
 
   /**
@@ -125,10 +141,14 @@ export class DesignTemplatesService {
     templateId: string,
     values: UpdateTemplateDto
   ): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>(`/v1/templates/${templateId}`, {
-      method: "PATCH",
-      data: values,
-    });
+    return this.fetcher.request<DesignTemplate>(
+      `/v1/templates/${templateId}`,
+      {
+        method: "PATCH",
+        data: values,
+      },
+      { auth: false }
+    );
   }
 
   /**
@@ -136,9 +156,13 @@ export class DesignTemplatesService {
    * DELETE /v1/templates/{id}
    */
   public async delete(templateId: string): Promise<void> {
-    return this.fetcher.request<void>(`/v1/templates/${templateId}`, {
-      method: "DELETE",
-    });
+    return this.fetcher.request<void>(
+      `/v1/templates/${templateId}`,
+      {
+        method: "DELETE",
+      },
+      { auth: false }
+    );
   }
 
   /**
@@ -154,7 +178,8 @@ export class DesignTemplatesService {
       {
         method: "POST",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -166,7 +191,9 @@ export class DesignTemplatesService {
    */
   public async getSizeVariants(templateId: string): Promise<SizeVariant[]> {
     return this.fetcher.request<SizeVariant[]>(
-      `/v1/templates/${templateId}/variants`
+      `/v1/templates/${templateId}/variants`,
+      {},
+      { auth: false }
     );
   }
 
@@ -183,7 +210,8 @@ export class DesignTemplatesService {
       {
         method: "POST",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -201,7 +229,8 @@ export class DesignTemplatesService {
       {
         method: "PATCH",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -217,7 +246,8 @@ export class DesignTemplatesService {
       `/v1/templates/${templateId}/variants/${variantId}`,
       {
         method: "DELETE",
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -231,7 +261,9 @@ export class DesignTemplatesService {
     templateId: string
   ): Promise<CustomizationOption[]> {
     return this.fetcher.request<CustomizationOption[]>(
-      `/v1/templates/${templateId}/customizations/options`
+      `/v1/templates/${templateId}/customizations/options`,
+      {},
+      { auth: false }
     );
   }
 
@@ -248,7 +280,8 @@ export class DesignTemplatesService {
       {
         method: "POST",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -276,6 +309,10 @@ export class DesignTemplatesService {
     const queryString = queryParams.toString();
     const url = `/v1/templates/analytics/performance${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<TemplatePerformanceAnalytics>(url);
+    return this.fetcher.request<TemplatePerformanceAnalytics>(
+      url,
+      {},
+      { auth: false }
+    );
   }
 }

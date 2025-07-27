@@ -50,10 +50,10 @@ export default function LandingPage() {
                 Products
               </Link>
               <Link
-                href="/categories"
+                href="/design-studio"
                 className="text-gray-700 hover:text-green-600 transition-colors"
               >
-                Categories
+                Design Studio
               </Link>
               <Link
                 href="/about"
@@ -118,11 +118,11 @@ export default function LandingPage() {
                   Products
                 </Link>
                 <Link
-                  href="/categories"
+                  href="/design-studio"
                   className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Categories
+                  Design Studio
                 </Link>
                 <Link
                   href="/about"

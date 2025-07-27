@@ -1,50 +1,34 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/rules-of-hooks */
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  createCanvasAction,
-  saveCanvasAction,
-  getCanvasConfigAction,
+  configureCanvasAction,
+  uploadArtworkAction,
   createDesignAction,
   getUserDesignsAction,
   getDesignAction,
   updateDesignAction,
   deleteDesignAction,
-  saveDesignAction,
-  createDesignVersionAction,
-  getDesignVersionsAction,
-  uploadDesignAssetAction,
-  getDesignAssetsAction,
-  removeDesignAssetAction,
+  getTemplatePresetsAction,
   exportDesignAction,
-  getDesignPresetsAction,
   validateDesignAction,
   shareDesignAction,
   getSharedDesignAction,
-  getDesignTemplatesAction,
-  getTemplateCustomizationAction,
-  useDesignTemplateAction,
   getFontsAction,
   uploadAssetAction,
   getUserAssetsAction,
 } from "@/lib/design-studio/design-studio.actions";
 import {
-  CreateCanvasDto,
-  SaveCanvasDto,
+  ConfigureCanvasDto,
+  UploadArtworkDto,
   CreateDesignDto,
   UpdateDesignDto,
-  SaveDesignDto,
-  VersionDesignDto,
-  UploadDesignAssetDto,
   ExportDesignDto,
   DesignValidationDto,
   ShareDesignDto,
   UploadAssetDto,
   GetDesignsDto,
-  GetPresetsDto,
   GetFontsDto,
+  GetUserAssetsDto,
 } from "@/lib/design-studio/dto/design-studio.dto";
 
 // Query Keys
@@ -53,143 +37,77 @@ export const designStudioKeys = {
 
   // Canvas
   canvas: () => [...designStudioKeys.all, "canvas"] as const,
-  canvasConfig: (productId: string, sizePresetId?: string) =>
-    [...designStudioKeys.canvas(), "config", productId, sizePresetId] as const,
 
   // Designs
   designs: () => [...designStudioKeys.all, "designs"] as const,
   designsList: (params?: GetDesignsDto) =>
     [...designStudioKeys.designs(), "list", params] as const,
   design: (id: string) => [...designStudioKeys.designs(), id] as const,
-  designVersions: (id: string) =>
-    [...designStudioKeys.design(id), "versions"] as const,
-  designAssets: (id: string) =>
-    [...designStudioKeys.design(id), "assets"] as const,
   sharedDesign: (token: string) =>
     [...designStudioKeys.designs(), "shared", token] as const,
 
-  // Presets and Resources
-  presets: (productId: string, params?: GetPresetsDto) =>
-    [...designStudioKeys.all, "presets", productId, params] as const,
+  // Templates and Presets
+  templatePresets: (templateId: string) =>
+    [...designStudioKeys.all, "template-presets", templateId] as const,
   fonts: (params?: GetFontsDto) =>
     [...designStudioKeys.all, "fonts", params] as const,
 
-  // Templates
-  templates: (params?: {
-    featured?: boolean;
-    categoryId?: string;
-    productId?: string;
-  }) => [...designStudioKeys.all, "templates", params] as const,
-  templateCustomization: (templateId: string, params: any) =>
-    [
-      ...designStudioKeys.all,
-      "template-customization",
-      templateId,
-      params,
-    ] as const,
-
   // User Assets
-  userAssets: (params?: { type?: string; folderId?: string }) =>
+  userAssets: (params?: GetUserAssetsDto) =>
     [...designStudioKeys.all, "user-assets", params] as const,
 };
 
-// Canvas Queries and Mutations
-export function useCanvasConfig(
-  productId: string,
-  sizePresetId?: string,
-  enabled = true
-) {
-  return useQuery({
-    queryKey: designStudioKeys.canvasConfig(productId, sizePresetId),
-    queryFn: () => getCanvasConfigAction(productId, sizePresetId),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!productId,
-  });
-}
-
-export function useCreateCanvas() {
+/**
+ * Configure design canvas
+ * POST /v1/design-studio/configure
+ */
+export function useConfigureCanvas() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (values: CreateCanvasDto) => createCanvasAction(values),
+    mutationFn: (values: ConfigureCanvasDto) => configureCanvasAction(values),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success("Canvas created successfully");
+        toast.success("Canvas configured successfully");
         queryClient.invalidateQueries({ queryKey: designStudioKeys.canvas() });
       } else {
         toast.error(data.error);
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create canvas");
+      toast.error(error.message || "Failed to configure canvas");
     },
   });
 }
 
-export function useSaveCanvas() {
+/**
+ * Upload artwork file
+ * POST /v1/design-studio/upload-artwork
+ */
+export function useUploadArtwork() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (values: SaveCanvasDto) => saveCanvasAction(values),
+    mutationFn: ({ file, values }: { file: File; values: UploadArtworkDto }) =>
+      uploadArtworkAction(file, values),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success("Canvas saved successfully");
+        toast.success("Artwork uploaded successfully");
         queryClient.invalidateQueries({ queryKey: designStudioKeys.designs() });
       } else {
         toast.error(data.error);
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to save canvas");
+      toast.error(error.message || "Failed to upload artwork");
     },
   });
 }
 
-// Design Queries and Mutations
-export function useUserDesigns(params?: GetDesignsDto) {
-  return useQuery({
-    queryKey: designStudioKeys.designsList(params),
-    queryFn: () => getUserDesignsAction(params),
-    select: (data) => (data.success ? data.data : undefined),
-  });
-}
-
-export function useDesign(designId: string, enabled = true) {
-  return useQuery({
-    queryKey: designStudioKeys.design(designId),
-    queryFn: () => getDesignAction(designId),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!designId,
-  });
-}
-
-export function useDesignVersions(designId: string, enabled = true) {
-  return useQuery({
-    queryKey: designStudioKeys.designVersions(designId),
-    queryFn: () => getDesignVersionsAction(designId),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!designId,
-  });
-}
-
-export function useDesignAssets(designId: string, enabled = true) {
-  return useQuery({
-    queryKey: designStudioKeys.designAssets(designId),
-    queryFn: () => getDesignAssetsAction(designId),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!designId,
-  });
-}
-
-export function useSharedDesign(token: string, enabled = true) {
-  return useQuery({
-    queryKey: designStudioKeys.sharedDesign(token),
-    queryFn: () => getSharedDesignAction(token),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!token,
-  });
-}
-
+/**
+ * Create new design
+ * POST /v1/design-studio/designs
+ */
 export function useCreateDesign() {
   const queryClient = useQueryClient();
 
@@ -209,6 +127,35 @@ export function useCreateDesign() {
   });
 }
 
+/**
+ * Get user designs
+ * GET /v1/design-studio/designs
+ */
+export function useUserDesigns(params?: GetDesignsDto) {
+  return useQuery({
+    queryKey: designStudioKeys.designsList(params),
+    queryFn: () => getUserDesignsAction(params),
+    select: (data) => (data.success ? data.data : undefined),
+  });
+}
+
+/**
+ * Get design details
+ * GET /v1/design-studio/designs/{id}
+ */
+export function useDesign(designId: string, enabled = true) {
+  return useQuery({
+    queryKey: designStudioKeys.design(designId),
+    queryFn: () => getDesignAction(designId),
+    select: (data) => (data.success ? data.data : undefined),
+    enabled: enabled && !!designId,
+  });
+}
+
+/**
+ * Update design
+ * PUT /v1/design-studio/designs/{id}
+ */
 export function useUpdateDesign() {
   const queryClient = useQueryClient();
 
@@ -237,6 +184,10 @@ export function useUpdateDesign() {
   });
 }
 
+/**
+ * Delete design
+ * DELETE /v1/design-studio/designs/{id}
+ */
 export function useDeleteDesign() {
   const queryClient = useQueryClient();
 
@@ -259,118 +210,23 @@ export function useDeleteDesign() {
   });
 }
 
-export function useSaveDesign() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      designId,
-      values,
-    }: {
-      designId: string;
-      values: SaveDesignDto;
-    }) => saveDesignAction(designId, values),
-    onSuccess: (data, variables) => {
-      if (data.success) {
-        toast.success("Design saved successfully");
-        queryClient.invalidateQueries({
-          queryKey: designStudioKeys.design(variables.designId),
-        });
-      } else {
-        toast.error(data.error);
-      }
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to save design");
-    },
+/**
+ * Get template presets
+ * GET /v1/design-studio/templates/{templateId}/presets
+ */
+export function useTemplatePresets(templateId: string, enabled = true) {
+  return useQuery({
+    queryKey: designStudioKeys.templatePresets(templateId),
+    queryFn: () => getTemplatePresetsAction(templateId),
+    select: (data) => (data.success ? data.data : undefined),
+    enabled: enabled && !!templateId,
   });
 }
 
-export function useCreateDesignVersion() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      designId,
-      values,
-    }: {
-      designId: string;
-      values: VersionDesignDto;
-    }) => createDesignVersionAction(designId, values),
-    onSuccess: (data, variables) => {
-      if (data.success) {
-        toast.success("Design version created successfully");
-        queryClient.invalidateQueries({
-          queryKey: designStudioKeys.designVersions(variables.designId),
-        });
-      } else {
-        toast.error(data.error);
-      }
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to create design version");
-    },
-  });
-}
-
-// Asset Mutations
-export function useUploadDesignAsset() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      designId,
-      file,
-      assetData,
-    }: {
-      designId: string;
-      file: File;
-      assetData: UploadDesignAssetDto;
-    }) => uploadDesignAssetAction(designId, file, assetData),
-    onSuccess: (data, variables) => {
-      if (data.success) {
-        toast.success("Asset uploaded successfully");
-        queryClient.invalidateQueries({
-          queryKey: designStudioKeys.designAssets(variables.designId),
-        });
-      } else {
-        toast.error(data.error);
-      }
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to upload asset");
-    },
-  });
-}
-
-export function useRemoveDesignAsset() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      designId,
-      assetId,
-    }: {
-      designId: string;
-      assetId: string;
-    }) => removeDesignAssetAction(designId, assetId),
-    onSuccess: (data, variables) => {
-      if (data.success) {
-        toast.success("Asset removed successfully");
-        queryClient.invalidateQueries({
-          queryKey: designStudioKeys.designAssets(variables.designId),
-        });
-      } else {
-        toast.error(data.error);
-      }
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to remove asset");
-    },
-  });
-}
-
-// Export and Validation
+/**
+ * Export design
+ * POST /v1/design-studio/designs/{id}/export
+ */
 export function useExportDesign() {
   return useMutation({
     mutationFn: ({
@@ -398,6 +254,10 @@ export function useExportDesign() {
   });
 }
 
+/**
+ * Validate design
+ * POST /v1/design-studio/designs/{id}/validate
+ */
 export function useValidateDesign() {
   return useMutation({
     mutationFn: ({
@@ -424,6 +284,10 @@ export function useValidateDesign() {
   });
 }
 
+/**
+ * Share design
+ * POST /v1/design-studio/designs/{id}/share
+ */
 export function useShareDesign() {
   return useMutation({
     mutationFn: ({
@@ -449,20 +313,23 @@ export function useShareDesign() {
   });
 }
 
-// Presets and Resources Queries
-export function useDesignPresets(
-  productId: string,
-  params?: GetPresetsDto,
-  enabled = true
-) {
+/**
+ * View shared design
+ * GET /v1/design-studio/shared/{token}
+ */
+export function useSharedDesign(token: string, enabled = true) {
   return useQuery({
-    queryKey: designStudioKeys.presets(productId, params),
-    queryFn: () => getDesignPresetsAction(productId, params),
+    queryKey: designStudioKeys.sharedDesign(token),
+    queryFn: () => getSharedDesignAction(token),
     select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!productId,
+    enabled: enabled && !!token,
   });
 }
 
+/**
+ * Get available fonts
+ * GET /v1/design-studio/fonts
+ */
 export function useFonts(params?: GetFontsDto) {
   return useQuery({
     queryKey: designStudioKeys.fonts(params),
@@ -471,64 +338,10 @@ export function useFonts(params?: GetFontsDto) {
   });
 }
 
-// Templates
-export function useDesignTemplates(params?: {
-  featured?: boolean;
-  categoryId?: string;
-  productId?: string;
-}) {
-  return useQuery({
-    queryKey: designStudioKeys.templates(params),
-    queryFn: () => getDesignTemplatesAction(params),
-    select: (data) => (data.success ? data.data : undefined),
-  });
-}
-
-export function useTemplateCustomization(
-  templateId: string,
-  params: {
-    templateId: string;
-    customizations?: object;
-    productVariant?: string;
-  },
-  enabled = true
-) {
-  return useQuery({
-    queryKey: designStudioKeys.templateCustomization(templateId, params),
-    queryFn: () => getTemplateCustomizationAction(templateId, params),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!templateId,
-  });
-}
-
-export function useUseDesignTemplate() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (templateId: string) => useDesignTemplateAction(templateId),
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success("Template applied successfully");
-        queryClient.invalidateQueries({ queryKey: designStudioKeys.designs() });
-      } else {
-        toast.error(data.error);
-      }
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to apply template");
-    },
-  });
-}
-
-// User Assets
-export function useUserAssets(params?: { type?: string; folderId?: string }) {
-  return useQuery({
-    queryKey: designStudioKeys.userAssets(params),
-    queryFn: () => getUserAssetsAction(params),
-    select: (data) => (data.success ? data.data : undefined),
-  });
-}
-
+/**
+ * Upload asset
+ * POST /v1/design-studio/assets
+ */
 export function useUploadAsset() {
   const queryClient = useQueryClient();
 
@@ -553,5 +366,17 @@ export function useUploadAsset() {
     onError: (error: Error) => {
       toast.error(error.message || "Failed to upload asset");
     },
+  });
+}
+
+/**
+ * Get user assets
+ * GET /v1/design-studio/assets
+ */
+export function useUserAssets(params?: GetUserAssetsDto) {
+  return useQuery({
+    queryKey: designStudioKeys.userAssets(params),
+    queryFn: () => getUserAssetsAction(params),
+    select: (data) => (data.success ? data.data : undefined),
   });
 }
