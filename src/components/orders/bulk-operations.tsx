@@ -60,7 +60,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 
-import { OrderResponse } from "@/lib/orders/types/orders.types";
+import { OrderListItem } from "@/lib/orders/types/orders.types";
 import { useUpdateOrderStatus, useAddOrderNote } from "@/hooks/use-orders";
 import {
   updateOrderStatusAction,
@@ -69,10 +69,11 @@ import {
 import {
   UpdateOrderStatusDto,
   CreateOrderNoteDto,
+  ORDER_STATUS,
 } from "@/lib/orders/dto/orders.dto";
 
 interface BulkOperationsProps {
-  orders: OrderResponse[];
+  orders: OrderListItem[];
   selectedOrders: string[];
   onSelectionChange: (orderIds: string[]) => void;
   onOrdersUpdated?: () => void;
@@ -85,21 +86,6 @@ type BulkActionType =
   | "ADD_NOTE"
   | "CANCEL_ORDERS"
   | "ARCHIVE";
-
-// Define the exact order status type from the DTO
-type OrderStatus =
-  | "PENDING"
-  | "DESIGN_PENDING"
-  | "DESIGN_APPROVED"
-  | "DESIGN_REJECTED"
-  | "PAYMENT_PENDING"
-  | "PAYMENT_CONFIRMED"
-  | "PROCESSING"
-  | "PRODUCTION"
-  | "SHIPPED"
-  | "DELIVERED"
-  | "CANCELLED"
-  | "REFUNDED";
 
 interface BulkAction {
   id: BulkActionType;
@@ -144,21 +130,6 @@ const BULK_ACTIONS: BulkAction[] = [
   },
 ];
 
-const ORDER_STATUSES: Array<{ value: OrderStatus; label: string }> = [
-  { value: "PENDING", label: "Pending" },
-  { value: "DESIGN_PENDING", label: "Design Pending" },
-  { value: "DESIGN_APPROVED", label: "Design Approved" },
-  { value: "DESIGN_REJECTED", label: "Design Rejected" },
-  { value: "PAYMENT_PENDING", label: "Payment Pending" },
-  { value: "PAYMENT_CONFIRMED", label: "Payment Confirmed" },
-  { value: "PROCESSING", label: "Processing" },
-  { value: "PRODUCTION", label: "In Production" },
-  { value: "SHIPPED", label: "Shipped" },
-  { value: "DELIVERED", label: "Delivered" },
-  { value: "CANCELLED", label: "Cancelled" },
-  { value: "REFUNDED", label: "Refunded" },
-];
-
 const EMAIL_TEMPLATES = [
   {
     id: "status_update",
@@ -196,15 +167,13 @@ export default function BulkOperations({
   const [failedCount, setFailedCount] = useState(0);
 
   // State for different bulk actions - properly typed
-  const [bulkStatus, setBulkStatus] = useState<OrderStatus | null>(null);
+  const [bulkStatus, setBulkStatus] = useState<
+    (typeof ORDER_STATUS)[number] | null
+  >(null);
   const [bulkNote, setBulkNote] = useState("");
   const [emailTemplate, setEmailTemplate] = useState("");
   const [customEmailSubject, setCustomEmailSubject] = useState("");
   const [customEmailContent, setCustomEmailContent] = useState("");
-
-  // Use hooks for individual order operations
-  const updateOrderStatus = useUpdateOrderStatus("");
-  const addOrderNote = useAddOrderNote("");
 
   const selectAllRef = useRef<HTMLButtonElement>(null);
 
@@ -402,31 +371,23 @@ export default function BulkOperations({
     }
   };
 
-  const generateCSV = (orders: OrderResponse[]): string => {
+  const generateCSV = (orders: OrderListItem[]): string => {
     const headers = [
       "Order Number",
       "Status",
-      "Customer",
       "Total Amount",
       "Items",
       "Created Date",
-      "Expected Delivery",
-      "Tracking Number",
-      "Urgency Level",
+      "Template ID",
     ];
 
     const rows = orders.map((order) => [
       order.orderNumber,
       order.status,
-      order.customerId,
       order.totalAmount.toString(),
       order.orderItems.length.toString(),
       new Date(order.createdAt).toLocaleDateString(),
-      order.expectedDelivery
-        ? new Date(order.expectedDelivery).toLocaleDateString()
-        : "",
-      order.trackingNumber || "",
-      order.urgencyLevel || "",
+      order.templateId || "",
     ]);
 
     return [headers, ...rows].map((row) => row.join(",")).join("\n");
@@ -588,11 +549,6 @@ export default function BulkOperations({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {order.urgencyLevel && order.urgencyLevel !== "NORMAL" && (
-                    <Badge variant="secondary" className="text-xs">
-                      {order.urgencyLevel}
-                    </Badge>
-                  )}
                   <Badge variant="outline">
                     {order.status.replace(/_/g, " ")}
                   </Badge>
@@ -624,16 +580,16 @@ export default function BulkOperations({
               <Select
                 value={bulkStatus || ""}
                 onValueChange={(value: string) =>
-                  setBulkStatus(value as OrderStatus)
+                  setBulkStatus(value as (typeof ORDER_STATUS)[number])
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ORDER_STATUSES.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label}
+                  {ORDER_STATUS.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.replace(/_/g, " ")}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -66,13 +66,24 @@ export function NoteItem({
         return "bg-red-500";
       case "HIGH":
         return "bg-orange-500";
-      case "MEDIUM":
+      case "NORMAL":
         return "bg-yellow-500";
       case "LOW":
         return "bg-green-500";
       default:
         return "bg-gray-400";
     }
+  };
+
+  const formatNoteType = (type: string) => {
+    return type
+      .replace("_", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
+  const formatPriority = (priority: string) => {
+    return priority.toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   const config = getNoteTypeConfig(note.noteType);
@@ -98,7 +109,7 @@ export function NoteItem({
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2">
               <Badge className={config.color}>
-                {note.noteType.replace("_", " ")}
+                {formatNoteType(note.noteType)}
               </Badge>
 
               {note.priority && (
@@ -107,7 +118,7 @@ export function NoteItem({
                     className={`h-2 w-2 rounded-full ${getPriorityColor(note.priority)}`}
                   />
                   <span className="text-xs text-muted-foreground">
-                    {note.priority.toLowerCase()}
+                    {formatPriority(note.priority)}
                   </span>
                 </div>
               )}
@@ -128,7 +139,7 @@ export function NoteItem({
                     <Avatar className="h-6 w-6">
                       <AvatarImage src={note.user.avatar} />
                       <AvatarFallback className="text-xs">
-                        {note.user.name.charAt(0)}
+                        {note.user.name?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
                     <span className="text-xs text-muted-foreground">

@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useOrderNotes } from "@/hooks/use-orders";
 import { OrderNote } from "@/lib/orders/types/orders.types";
+import { NOTE_TYPES } from "@/lib/orders/dto/orders.dto";
 import { AddNoteDialog } from "./add-note-dialog";
 import { NoteItem } from "./note-item";
 
@@ -39,8 +40,12 @@ export default function NotesList({
   const [showInternal, setShowInternal] = useState(true);
 
   // Fetch notes using the hook
-  const { data: notesData, isLoading, refetch } = useOrderNotes(orderId);
-  const notes: OrderNote[] = notesData?.success ? notesData.data || [] : [];
+  const { data: notesResponse, isLoading, refetch } = useOrderNotes(orderId);
+
+  // Extract notes from response - the hook's select function returns data directly
+  const notes: OrderNote[] = React.useMemo(() => {
+    return notesResponse || [];
+  }, [notesResponse]);
 
   // Filter notes
   const filteredNotes = notes.filter((note) => {
@@ -61,6 +66,13 @@ export default function NotesList({
   const handleDeleteNote = (noteId: string) => {
     // Implement delete functionality
     console.log("Delete note:", noteId);
+  };
+
+  const formatNoteType = (type: string) => {
+    return type
+      .replace("_", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   if (isLoading) {
@@ -113,16 +125,11 @@ export default function NotesList({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="GENERAL">General</SelectItem>
-                    <SelectItem value="URGENCY">Urgency</SelectItem>
-                    <SelectItem value="TIMELINE">Timeline</SelectItem>
-                    <SelectItem value="SHIPPING">Shipping</SelectItem>
-                    <SelectItem value="CUSTOMIZATION">Customization</SelectItem>
-                    <SelectItem value="PRODUCTION">Production</SelectItem>
-                    <SelectItem value="QUALITY">Quality</SelectItem>
-                    <SelectItem value="DESIGN_APPROVAL">
-                      Design Approval
-                    </SelectItem>
+                    {NOTE_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {formatNoteType(type)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -187,16 +194,18 @@ export default function NotesList({
           <AlertDescription>
             <div className="flex justify-between text-sm">
               <span>
-                Total notes: {notes.length}(
+                Total notes: {notes.length} (
                 {notes.filter((n) => n.isInternal).length} internal)
               </span>
-              <span>
-                Latest:{" "}
-                {formatDistanceToNow(
-                  new Date(notes[0]?.createdAt || new Date()),
-                  { addSuffix: true }
-                )}
-              </span>
+              {notes.length > 0 && (
+                <span>
+                  Latest:{" "}
+                  {formatDistanceToNow(
+                    new Date(notes[0]?.createdAt || new Date()),
+                    { addSuffix: true }
+                  )}
+                </span>
+              )}
             </div>
           </AlertDescription>
         </Alert>

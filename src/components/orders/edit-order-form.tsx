@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Plus,
-  Minus,
   Package,
   User,
   MapPin,
@@ -38,31 +37,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
 import { useOrder, useUpdateOrder } from "@/hooks/use-orders";
-import { UpdateOrderDto, updateOrderSchema } from "@/lib/orders/dto/orders.dto";
+import {
+  UpdateOrderDto,
+  updateOrderSchema,
+  ORDER_STATUS,
+  URGENCY_LEVELS,
+} from "@/lib/orders/dto/orders.dto";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
-
-// Define the types explicitly to match the schema
-type OrderStatus =
-  | "PENDING"
-  | "DESIGN_PENDING"
-  | "DESIGN_APPROVED"
-  | "DESIGN_REJECTED"
-  | "PAYMENT_PENDING"
-  | "PAYMENT_CONFIRMED"
-  | "PROCESSING"
-  | "PRODUCTION"
-  | "SHIPPED"
-  | "DELIVERED"
-  | "CANCELLED"
-  | "REFUNDED";
-
-type UrgencyLevel = "NORMAL" | "EXPEDITED" | "RUSH" | "EMERGENCY";
 
 interface EditOrderFormProps {
   orderId: string;
@@ -79,12 +65,8 @@ export default function EditOrderForm({
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch order data
-  const { data: orderData } = useOrder(orderId);
-  const order: OrderResponse | null = orderData?.success
-    ? orderData.data
-    : null;
-
-  const updateOrder = useUpdateOrder(orderId);
+  const { data: order, isLoading: orderLoading } = useOrder(orderId);
+  const updateOrder = useUpdateOrder();
 
   const {
     register,
@@ -107,16 +89,34 @@ export default function EditOrderForm({
   useEffect(() => {
     if (order) {
       reset({
-        status: order.status as OrderStatus,
+        status: order.status as any,
         trackingNumber: order.trackingNumber || "",
         trackingUrl: order.trackingUrl || "",
         expectedDelivery: order.expectedDelivery
           ? new Date(order.expectedDelivery).toISOString().split("T")[0]
           : "",
         notes: order.notes || "",
-        urgencyLevel: (order.urgencyLevel as UrgencyLevel) || "NORMAL",
+        urgencyLevel: (order.urgencyLevel as any) || "NORMAL",
         expectedProductionDays: order.expectedProductionDays || 5,
         specialInstructions: order.specialInstructions || "",
+        designStartDate: order.designStartDate
+          ? new Date(order.designStartDate).toISOString().split("T")[0]
+          : "",
+        designCompletionDate: order.designCompletionDate
+          ? new Date(order.designCompletionDate).toISOString().split("T")[0]
+          : "",
+        productionStartDate: order.productionStartDate
+          ? new Date(order.productionStartDate).toISOString().split("T")[0]
+          : "",
+        productionEndDate: order.productionEndDate
+          ? new Date(order.productionEndDate).toISOString().split("T")[0]
+          : "",
+        shippingDate: order.shippingDate
+          ? new Date(order.shippingDate).toISOString().split("T")[0]
+          : "",
+        actualDeliveryDate: order.actualDeliveryDate
+          ? new Date(order.actualDeliveryDate).toISOString().split("T")[0]
+          : "",
       });
       setIsLoading(false);
     }
@@ -124,7 +124,7 @@ export default function EditOrderForm({
 
   const onSubmit = async (data: UpdateOrderDto) => {
     try {
-      await updateOrder.mutateAsync(data);
+      await updateOrder.mutateAsync({ orderId, values: data });
       onSuccess?.();
     } catch (error) {
       console.error("Failed to update order:", error);
@@ -171,7 +171,7 @@ export default function EditOrderForm({
     return <Badge className={statusConfig.color}>{statusConfig.label}</Badge>;
   };
 
-  if (isLoading || !order) {
+  if (orderLoading || isLoading || !order) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
@@ -226,11 +226,6 @@ export default function EditOrderForm({
                 CUSTOMER
               </Label>
               <p className="font-medium">{order.customerId}</p>
-              {/* {order.customerPhone && (
-                <p className="text-sm text-muted-foreground">
-                  {order.customerPhone}
-                </p>
-              )} */}
             </div>
             <div>
               <Label className="text-xs font-medium text-muted-foreground">
@@ -274,36 +269,17 @@ export default function EditOrderForm({
                 <Label htmlFor="status">Order Status</Label>
                 <Select
                   value={watchedValues.status}
-                  onValueChange={(value) =>
-                    setValue("status", value as OrderStatus)
-                  }
+                  onValueChange={(value) => setValue("status", value as any)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="DESIGN_PENDING">
-                      Design Pending
-                    </SelectItem>
-                    <SelectItem value="DESIGN_APPROVED">
-                      Design Approved
-                    </SelectItem>
-                    <SelectItem value="DESIGN_REJECTED">
-                      Design Rejected
-                    </SelectItem>
-                    <SelectItem value="PAYMENT_PENDING">
-                      Payment Pending
-                    </SelectItem>
-                    <SelectItem value="PAYMENT_CONFIRMED">
-                      Payment Confirmed
-                    </SelectItem>
-                    <SelectItem value="PROCESSING">Processing</SelectItem>
-                    <SelectItem value="PRODUCTION">In Production</SelectItem>
-                    <SelectItem value="SHIPPED">Shipped</SelectItem>
-                    <SelectItem value="DELIVERED">Delivered</SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    <SelectItem value="REFUNDED">Refunded</SelectItem>
+                    {ORDER_STATUS.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -359,17 +335,18 @@ export default function EditOrderForm({
                 <Select
                   value={watchedValues.urgencyLevel}
                   onValueChange={(value) =>
-                    setValue("urgencyLevel", value as UrgencyLevel)
+                    setValue("urgencyLevel", value as any)
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select urgency" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="NORMAL">Normal</SelectItem>
-                    <SelectItem value="EXPEDITED">Expedited</SelectItem>
-                    <SelectItem value="RUSH">Rush</SelectItem>
-                    <SelectItem value="EMERGENCY">Emergency</SelectItem>
+                    {URGENCY_LEVELS.map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {level.charAt(0) + level.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -412,6 +389,80 @@ export default function EditOrderForm({
           </CardContent>
         </Card>
 
+        {/* Timeline Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Timeline Management
+            </CardTitle>
+            <CardDescription>
+              Set and track important dates for this order
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="designStartDate">Design Start Date</Label>
+                <Input
+                  type="date"
+                  id="designStartDate"
+                  {...register("designStartDate")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="designCompletionDate">
+                  Design Completion Date
+                </Label>
+                <Input
+                  type="date"
+                  id="designCompletionDate"
+                  {...register("designCompletionDate")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="productionStartDate">
+                  Production Start Date
+                </Label>
+                <Input
+                  type="date"
+                  id="productionStartDate"
+                  {...register("productionStartDate")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="productionEndDate">Production End Date</Label>
+                <Input
+                  type="date"
+                  id="productionEndDate"
+                  {...register("productionEndDate")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="shippingDate">Shipping Date</Label>
+                <Input
+                  type="date"
+                  id="shippingDate"
+                  {...register("shippingDate")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="actualDeliveryDate">Actual Delivery Date</Label>
+                <Input
+                  type="date"
+                  id="actualDeliveryDate"
+                  {...register("actualDeliveryDate")}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Order Items (Read-only) */}
         <Card>
           <CardHeader>
@@ -425,21 +476,30 @@ export default function EditOrderForm({
             <div className="space-y-3">
               {order.orderItems.map((item, index) => (
                 <div
-                  key={item.id}
+                  key={item.id || index}
                   className="flex items-center justify-between p-3 border rounded-lg"
                 >
                   <div>
-                    <p className="font-medium">Product {item.productId}</p>
+                    <p className="font-medium">
+                      Template ID: {item.templateId}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Size Variant: {item.sizeVariantId}
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       Quantity: {item.quantity}
                     </p>
-                    {item.customizations &&
-                      Object.keys(item.customizations).length > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Customizations:{" "}
-                          {JSON.stringify(item.customizations, null, 1)}
-                        </p>
-                      )}
+                    {item.customizations && item.customizations.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Customizations:{" "}
+                        {item.customizations.map((c, i) => (
+                          <span key={i}>
+                            {c.customValue || c.valueId}
+                            {i < item.customizations!.length - 1 && ", "}
+                          </span>
+                        ))}
+                      </p>
+                    )}
                   </div>
                   <Badge variant="outline">Item {index + 1}</Badge>
                 </div>

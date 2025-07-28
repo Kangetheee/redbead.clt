@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -9,25 +9,13 @@ import {
   FileText,
   FileSpreadsheet,
   FileJson,
-  Printer,
-  Mail,
-  Settings,
-  Calendar,
-  Filter,
-  CheckCircle,
   Loader2,
   AlertTriangle,
   Info,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -35,26 +23,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 
-import { OrderResponse } from "@/lib/orders/types/orders.types";
+import { OrderListItem } from "@/lib/orders/types/orders.types";
 import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
 
 interface ExportOption {
@@ -71,13 +50,7 @@ interface ExportField {
   key: string;
   label: string;
   description?: string;
-  category:
-    | "basic"
-    | "customer"
-    | "items"
-    | "payment"
-    | "shipping"
-    | "advanced";
+  category: "basic" | "items" | "advanced";
   required?: boolean;
 }
 
@@ -91,7 +64,7 @@ interface ExportTemplate {
 }
 
 interface OrderExportProps {
-  orders?: OrderResponse[];
+  orders?: OrderListItem[];
   filters?: GetOrdersDto;
   onExport?: (data: any) => void;
 }
@@ -133,6 +106,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
   },
 ];
 
+// Updated fields to match OrderListItem structure
 const EXPORT_FIELDS: ExportField[] = [
   // Basic fields
   {
@@ -149,32 +123,14 @@ const EXPORT_FIELDS: ExportField[] = [
     category: "basic",
     required: true,
   },
-  { key: "subtotalAmount", label: "Subtotal", category: "basic" },
-  { key: "taxAmount", label: "Tax Amount", category: "basic" },
-  { key: "shippingAmount", label: "Shipping Cost", category: "basic" },
-  { key: "discountAmount", label: "Discount", category: "basic" },
-
-  // Customer fields
-  { key: "customerId", label: "Customer ID", category: "customer" },
-  { key: "customerPhone", label: "Customer Phone", category: "customer" },
+  { key: "templateId", label: "Template ID", category: "basic" },
 
   // Items fields
   { key: "itemCount", label: "Number of Items", category: "items" },
   { key: "totalQuantity", label: "Total Quantity", category: "items" },
-  { key: "productNames", label: "Product Names", category: "items" },
-
-  // Payment fields
-  { key: "paymentMethod", label: "Payment Method", category: "payment" },
-  { key: "paymentStatus", label: "Payment Status", category: "payment" },
-  { key: "transactionId", label: "Transaction ID", category: "payment" },
-
-  // Shipping fields
-  { key: "shippingAddress", label: "Shipping Address", category: "shipping" },
-  { key: "trackingNumber", label: "Tracking Number", category: "shipping" },
-  { key: "expectedDelivery", label: "Expected Delivery", category: "shipping" },
+  { key: "templateNames", label: "Template Names", category: "items" },
 
   // Advanced fields
-  { key: "urgencyLevel", label: "Urgency Level", category: "advanced" },
   {
     key: "designApprovalRequired",
     label: "Design Approval Required",
@@ -183,17 +139,6 @@ const EXPORT_FIELDS: ExportField[] = [
   {
     key: "designApprovalStatus",
     label: "Design Approval Status",
-    category: "advanced",
-  },
-  { key: "notes", label: "Order Notes", category: "advanced" },
-  {
-    key: "specialInstructions",
-    label: "Special Instructions",
-    category: "advanced",
-  },
-  {
-    key: "expectedProductionDays",
-    label: "Production Days",
     category: "advanced",
   },
 ];
@@ -208,57 +153,46 @@ const EXPORT_TEMPLATES: ExportTemplate[] = [
       "status",
       "createdAt",
       "totalAmount",
-      "customerId",
+      "templateId",
       "itemCount",
     ],
     format: "CSV",
   },
   {
-    id: "financial_report",
-    name: "Financial Report",
-    description: "Detailed financial breakdown for accounting",
+    id: "design_approval_report",
+    name: "Design Approval Report",
+    description: "Orders requiring design approval",
     fields: [
       "orderNumber",
       "createdAt",
       "totalAmount",
-      "subtotalAmount",
-      "taxAmount",
-      "shippingAmount",
-      "discountAmount",
-      "paymentMethod",
-      "paymentStatus",
+      "designApprovalRequired",
+      "designApprovalStatus",
     ],
     format: "XLSX",
   },
   {
-    id: "shipping_manifest",
-    name: "Shipping Manifest",
-    description: "Shipping and delivery information",
+    id: "template_analysis",
+    name: "Template Analysis",
+    description: "Order patterns by template",
     fields: [
       "orderNumber",
-      "customerId",
-      "shippingAddress",
-      "trackingNumber",
-      "expectedDelivery",
-      "totalQuantity",
-    ],
-    format: "PDF",
-  },
-  {
-    id: "customer_analysis",
-    name: "Customer Analysis",
-    description: "Customer behavior and order patterns",
-    fields: [
-      "orderNumber",
-      "customerId",
-      "customerPhone",
+      "templateId",
       "createdAt",
       "totalAmount",
-      "urgencyLevel",
+      "itemCount",
     ],
     format: "CSV",
   },
 ];
+
+const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
 
 export default function OrderExport({
   orders = [],
@@ -316,14 +250,6 @@ export default function OrderExport({
     };
   }, [orders.length, selectedFields.length]);
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
   const handleTemplateSelect = (templateId: string) => {
     const template = EXPORT_TEMPLATES.find((t) => t.id === templateId);
     if (template) {
@@ -347,7 +273,7 @@ export default function OrderExport({
     }
   };
 
-  const transformOrderData = (order: OrderResponse) => {
+  const transformOrderData = (order: OrderListItem) => {
     const data: Record<string, any> = {};
 
     selectedFields.forEach((fieldKey) => {
@@ -367,24 +293,9 @@ export default function OrderExport({
         case "totalAmount":
           data[fieldKey] = order.totalAmount;
           break;
-        case "subtotalAmount":
-          data[fieldKey] = order.subtotalAmount;
+        case "templateId":
+          data[fieldKey] = order.templateId || "";
           break;
-        case "taxAmount":
-          data[fieldKey] = order.taxAmount;
-          break;
-        case "shippingAmount":
-          data[fieldKey] = order.shippingAmount;
-          break;
-        case "discountAmount":
-          data[fieldKey] = order.discountAmount;
-          break;
-        case "customerId":
-          data[fieldKey] = order.customerId;
-          break;
-        // case "customerPhone":
-        //   data[fieldKey] = order.customerPhone;
-        //   break;
         case "itemCount":
           data[fieldKey] = order.orderItems.length;
           break;
@@ -394,50 +305,16 @@ export default function OrderExport({
             0
           );
           break;
-        case "productNames":
+        case "templateNames":
           data[fieldKey] = order.orderItems
-            .map((item) => `Product ${item.productId}`)
+            .map((item) => item.template?.name || `Template ${item.templateId}`)
             .join(", ");
-          break;
-        case "paymentMethod":
-          data[fieldKey] = order.payment?.method || "";
-          break;
-        case "paymentStatus":
-          data[fieldKey] = order.payment?.status || "";
-          break;
-        case "transactionId":
-          data[fieldKey] = order.payment?.transactionId || "";
-          break;
-        case "shippingAddress":
-          data[fieldKey] = order.shippingAddress
-            ? `${order.shippingAddress.id}`
-            : ""; // Simplified since we don't have full address structure
-          break;
-        case "trackingNumber":
-          data[fieldKey] = order.trackingNumber || "";
-          break;
-        case "expectedDelivery":
-          data[fieldKey] = order.expectedDelivery
-            ? format(new Date(order.expectedDelivery), "yyyy-MM-dd")
-            : "";
-          break;
-        case "urgencyLevel":
-          data[fieldKey] = order.urgencyLevel || "";
           break;
         case "designApprovalRequired":
           data[fieldKey] = order.designApprovalRequired ? "Yes" : "No";
           break;
         case "designApprovalStatus":
-          data[fieldKey] = order.designApproval?.status || "";
-          break;
-        case "notes":
-          data[fieldKey] = order.notes || "";
-          break;
-        case "specialInstructions":
-          data[fieldKey] = order.specialInstructions || "";
-          break;
-        case "expectedProductionDays":
-          data[fieldKey] = order.expectedProductionDays || "";
+          data[fieldKey] = order.designApprovalStatus || "";
           break;
         default:
           data[fieldKey] = "";

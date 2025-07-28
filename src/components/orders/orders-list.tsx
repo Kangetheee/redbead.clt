@@ -63,7 +63,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useOrders } from "@/hooks/use-orders";
 import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
-import { OrderResponse } from "@/lib/orders/types/orders.types";
+import { OrderListItem } from "@/lib/orders/types/orders.types";
 import OrderStatusBadge from "./order-status-badge";
 
 interface OrdersListProps {
@@ -81,7 +81,7 @@ type SortField =
   | "status"
   | "totalAmount"
   | "createdAt"
-  | "customerId";
+  | "templateId";
 type SortDirection = "asc" | "desc";
 
 interface SortConfig {
@@ -110,7 +110,7 @@ export default function OrdersList({
   // Fetch orders using the hook
   const { data: ordersData, isLoading, refetch } = useOrders(localFilters);
 
-  const orders: OrderResponse[] = ordersData?.success
+  const orders: OrderListItem[] = ordersData?.success
     ? ordersData.data?.items || []
     : [];
   const pagination = ordersData?.success ? ordersData.data?.meta : null;
@@ -248,7 +248,7 @@ export default function OrdersList({
                   <RefreshCw className="h-4 w-4" />
                 </Button>
                 <Button size="sm" asChild>
-                  <Link href="/dashboard/customer/orders/new">
+                  <Link href="/orders/create">
                     <Plus className="h-4 w-4 mr-2" />
                     New Order
                   </Link>
@@ -323,7 +323,7 @@ export default function OrdersList({
                   : "Get started by creating your first order"}
               </p>
               <Button asChild>
-                <Link href="/dashboard/customer/orders/new">
+                <Link href="/orders/create">
                   <Plus className="mr-2 h-4 w-4" />
                   Create Order
                 </Link>
@@ -365,16 +365,7 @@ export default function OrdersList({
                       </Button>
                     </TableHead>
 
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("customerId")}
-                        className="h-auto p-0 font-medium"
-                      >
-                        Customer
-                        {getSortIcon("customerId")}
-                      </Button>
-                    </TableHead>
+                    <TableHead>Template</TableHead>
 
                     <TableHead>Items</TableHead>
 
@@ -388,6 +379,8 @@ export default function OrdersList({
                         {getSortIcon("totalAmount")}
                       </Button>
                     </TableHead>
+
+                    <TableHead>Design Approval</TableHead>
 
                     <TableHead>
                       <Button
@@ -420,7 +413,7 @@ export default function OrdersList({
 
                       <TableCell className="font-medium">
                         <Link
-                          href={`/dashboard/customer/orders/${order.id}`}
+                          href={`/orders/${order.id}`}
                           className="hover:underline"
                         >
                           {order.orderNumber}
@@ -432,13 +425,8 @@ export default function OrdersList({
                       </TableCell>
 
                       <TableCell>
-                        <div>
-                          <p className="font-medium">{order.customerId}</p>
-                          {/* {order.customerPhone && (
-                            <p className="text-sm text-muted-foreground">
-                              {order.customerPhone}
-                            </p>
-                          )} */}
+                        <div className="text-sm text-muted-foreground">
+                          {order.templateId || "No template"}
                         </div>
                       </TableCell>
 
@@ -451,6 +439,37 @@ export default function OrdersList({
 
                       <TableCell className="font-medium">
                         ${order.totalAmount.toFixed(2)}
+                      </TableCell>
+
+                      <TableCell>
+                        {order.designApprovalRequired ? (
+                          <div className="text-sm">
+                            {order.designApprovalStatus ? (
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs ${
+                                  order.designApprovalStatus === "APPROVED"
+                                    ? "bg-green-100 text-green-800"
+                                    : order.designApprovalStatus === "PENDING"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : order.designApprovalStatus ===
+                                          "REJECTED"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {order.designApprovalStatus}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                Required
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            Not required
+                          </span>
+                        )}
                       </TableCell>
 
                       <TableCell className="text-muted-foreground">
@@ -468,17 +487,13 @@ export default function OrdersList({
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
-                                <Link
-                                  href={`/dashboard/customer/orders/${order.id}`}
-                                >
+                                <Link href={`/orders/${order.id}`}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link
-                                  href={`/dashboard/customer/orders/${order.id}/edit`}
-                                >
+                                <Link href={`/orders/${order.id}/edit`}>
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit Order
                                 </Link>

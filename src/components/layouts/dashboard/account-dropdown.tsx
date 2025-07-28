@@ -10,6 +10,7 @@ import {
   Loader2,
   LayoutDashboard,
   MapPinHouse,
+  Bike,
 } from "lucide-react";
 import { FiChevronDown } from "react-icons/fi";
 
@@ -151,6 +152,24 @@ export default function AccountDropdown() {
           >
             <LayoutDashboard className="mr-2 size-4" />
             Dashboard
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
+          <Link
+            href="/orders"
+            className={cn(
+              "w-full text-start",
+              buttonVariants({
+                variant: "ghost",
+                size: "sm",
+                className:
+                  "w-full cursor-pointer justify-start text-muted-foreground",
+              })
+            )}
+          >
+            <Bike className="mr-2 size-4" />
+            Orders
           </Link>
         </DropdownMenuItem>
 

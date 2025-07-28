@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   Save,
   ArrowLeft,
+  Loader2,
+  Search,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,10 +47,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
 import { useCreateOrder } from "@/hooks/use-orders";
+import { useAddresses } from "@/hooks/use-address";
+import {
+  useDesignTemplates,
+  useSizeVariants,
+} from "@/hooks/use-design-templates";
 import {
   CreateOrderDto,
   createOrderSchema,
   OrderItemDto,
+  URGENCY_LEVELS,
 } from "@/lib/orders/dto/orders.dto";
 
 interface CreateOrderFormProps {
@@ -62,7 +70,27 @@ export default function CreateOrderForm({
 }: CreateOrderFormProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [templateSearch, setTemplateSearch] = useState("");
+
   const createOrder = useCreateOrder();
+
+  // Fetch templates with search
+  const {
+    data: templatesData,
+    isLoading: templatesLoading,
+    error: templatesError,
+  } = useDesignTemplates({
+    search: templateSearch || undefined,
+    isActive: true,
+    limit: 50,
+  });
+
+  // Fetch addresses
+  const {
+    data: addressesData,
+    isLoading: addressesLoading,
+    error: addressesError,
+  } = useAddresses();
 
   const {
     register,
@@ -70,6 +98,7 @@ export default function CreateOrderForm({
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<CreateOrderDto>({
     resolver: zodResolver(createOrderSchema),
@@ -80,9 +109,10 @@ export default function CreateOrderForm({
       useCartItems: false,
       items: [
         {
-          productId: "",
+          templateId: "",
+          sizeVariantId: "",
           quantity: 1,
-          customizations: {},
+          customizations: [],
         },
       ],
     },
@@ -95,12 +125,56 @@ export default function CreateOrderForm({
 
   const watchedValues = watch();
 
+  // Size variants state management
+  const [sizeVariantsByTemplate, setSizeVariantsByTemplate] = useState<
+    Record<string, any[]>
+  >({});
+  const [loadingSizeVariants, setLoadingSizeVariants] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Function to fetch size variants for a template
+  const fetchSizeVariants = async (templateId: string) => {
+    if (!templateId || sizeVariantsByTemplate[templateId]) return;
+
+    setLoadingSizeVariants((prev) => ({ ...prev, [templateId]: true }));
+
+    try {
+      // We'll need to import the action directly
+      const { getSizeVariantsAction } = await import(
+        "@/lib/design-templates/design-templates.actions"
+      );
+      const result = await getSizeVariantsAction(templateId);
+
+      if (result.success) {
+        setSizeVariantsByTemplate((prev) => ({
+          ...prev,
+          [templateId]: result.data || [],
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to fetch size variants:", error);
+    } finally {
+      setLoadingSizeVariants((prev) => ({ ...prev, [templateId]: false }));
+    }
+  };
+
+  // Effect to fetch size variants when template is selected
+  useEffect(() => {
+    const currentItems = getValues("items") || [];
+    currentItems.forEach((item) => {
+      if (item.templateId && !sizeVariantsByTemplate[item.templateId]) {
+        fetchSizeVariants(item.templateId);
+      }
+    });
+  }, [watchedValues.items, sizeVariantsByTemplate, getValues]);
+
   const onSubmit = async (data: CreateOrderDto) => {
     try {
       const result = await createOrder.mutateAsync(data);
       if (result.success && result.data) {
         onSuccess?.(result.data.id);
-        router.push(`/dashboard/customer/orders/${result.data.id}`);
+        router.push(`/orders/${result.data.id}`);
       }
     } catch (error) {
       console.error("Failed to create order:", error);
@@ -109,15 +183,34 @@ export default function CreateOrderForm({
 
   const addItem = () => {
     append({
-      productId: "",
+      templateId: "",
+      sizeVariantId: "",
       quantity: 1,
-      customizations: {},
+      customizations: [],
     });
   };
 
   const removeItem = (index: number) => {
     if (fields.length > 1) {
       remove(index);
+    }
+  };
+
+  // Fixed template selection handler
+  const handleTemplateSelect = (index: number, templateId: string) => {
+    // Update form values directly
+    setValue(`items.${index}.templateId`, templateId);
+    setValue(`items.${index}.sizeVariantId`, ""); // Reset size variant when template changes
+
+    // Trigger form validation
+    const items = getValues("items");
+    items[index].templateId = templateId;
+    items[index].sizeVariantId = "";
+    setValue("items", items);
+
+    // Fetch size variants for this template
+    if (templateId && !sizeVariantsByTemplate[templateId]) {
+      fetchSizeVariants(templateId);
     }
   };
 
@@ -140,7 +233,7 @@ export default function CreateOrderForm({
     switch (stepNumber) {
       case 1:
         return watchedValues.items?.every(
-          (item) => item.productId && item.quantity > 0
+          (item) => item.templateId && item.sizeVariantId && item.quantity > 0
         );
       case 2:
         return true; // Customer info is optional for now
@@ -175,6 +268,27 @@ export default function CreateOrderForm({
       description: "Payment method and confirmation",
     },
   ];
+
+  // Format address for display
+  const formatAddress = (address: any) => {
+    const parts = [
+      address.street,
+      address.street2,
+      address.city,
+      address.state,
+      address.country,
+      address.postalCode,
+    ].filter(Boolean);
+
+    return parts.join(", ");
+  };
+
+  // Get template by ID for display
+  const getTemplateById = (templateId: string) => {
+    return templatesData?.success
+      ? templatesData.data?.items.find((t) => t.id === templateId)
+      : undefined;
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -246,7 +360,7 @@ export default function CreateOrderForm({
       </Card>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Step 1: Order Items */}
+        {/* Step 1: Order Items - FIXED SECTION */}
         {step === 1 && (
           <Card>
             <CardHeader>
@@ -259,92 +373,267 @@ export default function CreateOrderForm({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {fields.map((field, index) => (
-                <div key={field.id} className="p-4 border rounded-lg space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">
-                      Item {index + 1}
-                    </Label>
-                    {fields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+              {/* Template Search */}
+              <div className="space-y-2">
+                <Label htmlFor="template-search">Search Templates</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    id="template-search"
+                    placeholder="Search for templates..."
+                    value={templateSearch}
+                    onChange={(e) => setTemplateSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor={`items.${index}.productId`}>
-                        Product
+              {templatesError && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Failed to load templates. Please try again.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {fields.map((field, index) => {
+                // Get current values for this item
+                const currentItem = watchedValues.items?.[index] || field;
+                const selectedTemplate = getTemplateById(
+                  currentItem.templateId
+                );
+                const sizeVariants = currentItem.templateId
+                  ? sizeVariantsByTemplate[currentItem.templateId] || []
+                  : [];
+                const isLoadingSizeVariants = currentItem.templateId
+                  ? loadingSizeVariants[currentItem.templateId] || false
+                  : false;
+
+                return (
+                  <div
+                    key={field.id}
+                    className="p-4 border rounded-lg space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">
+                        Item {index + 1}
+                        {selectedTemplate && (
+                          <Badge variant="secondary" className="ml-2">
+                            {selectedTemplate.name}
+                          </Badge>
+                        )}
                       </Label>
-                      <Select
-                        value={field.productId}
-                        onValueChange={(value) =>
-                          setValue(`items.${index}.productId`, value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="product1">
-                            Custom T-Shirt
-                          </SelectItem>
-                          <SelectItem value="product2">
-                            Business Cards
-                          </SelectItem>
-                          <SelectItem value="product3">
-                            Promotional Banner
-                          </SelectItem>
-                          <SelectItem value="product4">Coffee Mug</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.items?.[index]?.productId && (
-                        <p className="text-sm text-red-500">
-                          Product is required
-                        </p>
+                      {fields.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(index)}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor={`items.${index}.quantity`}>
-                        Quantity
-                      </Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        {...register(`items.${index}.quantity`, {
-                          valueAsNumber: true,
-                        })}
-                        placeholder="1"
-                      />
-                      {errors.items?.[index]?.quantity && (
-                        <p className="text-sm text-red-500">
-                          {errors.items[index]?.quantity?.message}
-                        </p>
-                      )}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`items.${index}.templateId`}>
+                          Template
+                        </Label>
+                        <Select
+                          value={currentItem.templateId || ""}
+                          onValueChange={(value) =>
+                            handleTemplateSelect(index, value)
+                          }
+                          disabled={templatesLoading}
+                        >
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                templatesLoading
+                                  ? "Loading templates..."
+                                  : "Select template"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {templatesLoading ? (
+                              <SelectItem value="loading" disabled>
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Loading templates...
+                                </div>
+                              </SelectItem>
+                            ) : templatesData?.success &&
+                              templatesData.data?.items.length > 0 ? (
+                              templatesData.data.items.map((template) => (
+                                <SelectItem
+                                  key={template.id}
+                                  value={template.id}
+                                >
+                                  <div className="flex flex-col items-start">
+                                    <span className="font-medium">
+                                      {template.name}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground truncate max-w-[300px]">
+                                      {template.description}
+                                    </span>
+                                    <span className="text-sm text-green-600 font-medium">
+                                      Base Price: ${template.basePrice}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-templates" disabled>
+                                {templateSearch
+                                  ? "No templates found for search"
+                                  : "No templates available"}
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {errors.items?.[index]?.templateId && (
+                          <p className="text-sm text-red-500">
+                            Template is required
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`items.${index}.sizeVariantId`}>
+                          Size Variant
+                        </Label>
+                        <Select
+                          value={currentItem.sizeVariantId || ""}
+                          onValueChange={(value) => {
+                            setValue(`items.${index}.sizeVariantId`, value);
+                          }}
+                          disabled={
+                            !currentItem.templateId || isLoadingSizeVariants
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                !currentItem.templateId
+                                  ? "Select template first"
+                                  : isLoadingSizeVariants
+                                    ? "Loading sizes..."
+                                    : "Select size"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {!currentItem.templateId ? (
+                              <SelectItem value="no-template" disabled>
+                                Select a template first
+                              </SelectItem>
+                            ) : isLoadingSizeVariants ? (
+                              <SelectItem value="loading" disabled>
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Loading sizes...
+                                </div>
+                              </SelectItem>
+                            ) : sizeVariants.length > 0 ? (
+                              sizeVariants.map((variant) => (
+                                <SelectItem key={variant.id} value={variant.id}>
+                                  <div className="flex flex-col items-start">
+                                    <span className="font-medium">
+                                      {variant.displayName}
+                                    </span>
+                                    {variant.dimensions && (
+                                      <span className="text-sm text-muted-foreground">
+                                        {variant.dimensions.width} x{" "}
+                                        {variant.dimensions.height}{" "}
+                                        {variant.dimensions.unit}
+                                      </span>
+                                    )}
+                                    <span className="text-sm text-green-600 font-medium">
+                                      Price: ${variant.price}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-variants" disabled>
+                                No size variants available
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {errors.items?.[index]?.sizeVariantId && (
+                          <p className="text-sm text-red-500">
+                            Size variant is required
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`items.${index}.quantity`}>
+                          Quantity
+                        </Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          {...register(`items.${index}.quantity`, {
+                            valueAsNumber: true,
+                          })}
+                          placeholder="1"
+                        />
+                        {errors.items?.[index]?.quantity && (
+                          <p className="text-sm text-red-500">
+                            {errors.items[index]?.quantity?.message}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Customization</Label>
+                      <Label>Customization Options</Label>
                       <Textarea
-                        placeholder="Special requests, text, colors..."
+                        placeholder="Special requests, text, colors, customization details..."
                         rows={2}
                         onChange={(e) =>
-                          setValue(`items.${index}.customizations`, {
-                            text: e.target.value,
-                          })
+                          setValue(`items.${index}.customizations`, [
+                            {
+                              optionId: "custom_text",
+                              valueId: "text_value",
+                              customValue: e.target.value,
+                            },
+                          ])
                         }
                       />
                     </div>
+
+                    {/* Template Details */}
+                    {selectedTemplate && (
+                      <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium">SKU:</span>{" "}
+                            {selectedTemplate.sku}
+                          </div>
+                          <div>
+                            <span className="font-medium">Stock:</span>{" "}
+                            {selectedTemplate.stock}
+                          </div>
+                          <div>
+                            <span className="font-medium">Min Qty:</span>{" "}
+                            {selectedTemplate.minOrderQuantity}
+                          </div>
+                          <div>
+                            <span className="font-medium">Lead Time:</span>{" "}
+                            {selectedTemplate.leadTime}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               <Button
                 type="button"
@@ -412,10 +701,11 @@ export default function CreateOrderForm({
                         <SelectValue placeholder="Select urgency" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="NORMAL">Normal</SelectItem>
-                        <SelectItem value="EXPEDITED">Expedited</SelectItem>
-                        <SelectItem value="RUSH">Rush</SelectItem>
-                        <SelectItem value="EMERGENCY">Emergency</SelectItem>
+                        {URGENCY_LEVELS.map((level) => (
+                          <SelectItem key={level} value={level}>
+                            {level.charAt(0) + level.slice(1).toLowerCase()}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -489,26 +779,62 @@ export default function CreateOrderForm({
                   onValueChange={(value) =>
                     setValue("shippingAddressId", value)
                   }
+                  disabled={addressesLoading}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select shipping address" />
+                    <SelectValue
+                      placeholder={
+                        addressesLoading
+                          ? "Loading addresses..."
+                          : "Select shipping address"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="address1">
-                      123 Main St, Nairobi, Kenya
-                    </SelectItem>
-                    <SelectItem value="address2">
-                      456 Business Ave, Mombasa, Kenya
-                    </SelectItem>
-                    <SelectItem value="address3">
-                      789 Corporate Blvd, Kisumu, Kenya
-                    </SelectItem>
+                    {addressesLoading ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading addresses...
+                        </div>
+                      </SelectItem>
+                    ) : addressesError ? (
+                      <SelectItem value="error" disabled>
+                        Error loading addresses
+                      </SelectItem>
+                    ) : addressesData?.success &&
+                      addressesData.data?.items.length > 0 ? (
+                      addressesData.data.items.map((address: any) => (
+                        <SelectItem key={address.id} value={address.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {address.name || address.recipientName}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {formatAddress(address)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-addresses" disabled>
+                        No addresses found
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 {errors.shippingAddressId && (
                   <p className="text-sm text-red-500">
                     Shipping address is required
                   </p>
+                )}
+                {addressesError && (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Failed to load addresses. Please try again.
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
 
@@ -517,22 +843,54 @@ export default function CreateOrderForm({
                   Billing Address (Optional)
                 </Label>
                 <Select
-                  value={watchedValues.billingAddressId || ""}
+                  value={watchedValues.billingAddressId || "same-as-shipping"}
                   onValueChange={(value) =>
-                    setValue("billingAddressId", value || undefined)
+                    setValue(
+                      "billingAddressId",
+                      value === "same-as-shipping" ? undefined : value
+                    )
                   }
+                  disabled={addressesLoading}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Same as shipping address" />
+                    <SelectValue
+                      placeholder={
+                        addressesLoading
+                          ? "Loading addresses..."
+                          : "Same as shipping address"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Same as shipping address</SelectItem>
-                    <SelectItem value="address1">
-                      123 Main St, Nairobi, Kenya
+                    <SelectItem value="same-as-shipping">
+                      Same as shipping address
                     </SelectItem>
-                    <SelectItem value="address2">
-                      456 Business Ave, Mombasa, Kenya
-                    </SelectItem>
+                    {addressesLoading ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading addresses...
+                        </div>
+                      </SelectItem>
+                    ) : addressesData?.success &&
+                      addressesData.data?.items?.length > 0 ? (
+                      addressesData.data.items.map((address: any) => (
+                        <SelectItem key={address.id} value={address.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {address.name || address.recipientName}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {formatAddress(address)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-addresses" disabled>
+                        No addresses found
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -622,7 +980,10 @@ export default function CreateOrderForm({
                 disabled={createOrder.isPending || !isStepValid(step)}
               >
                 {createOrder.isPending ? (
-                  <>Creating Order...</>
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating Order...
+                  </>
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />

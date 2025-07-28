@@ -52,6 +52,8 @@ import { useOrder } from "@/hooks/use-orders";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
 import OrderStatusUpdate from "./order-status-update";
 import OrderTimeline from "./order-timeline";
+import NotesList from "./order-notes/notes-list";
+import { formatCurrency } from "@/lib/utils";
 
 interface OrderDetailViewProps {
   orderId: string;
@@ -60,11 +62,8 @@ interface OrderDetailViewProps {
 export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Fetch order data
-  const { data: orderData, isLoading, refetch } = useOrder(orderId);
-  const order: OrderResponse | null = orderData?.success
-    ? orderData.data
-    : null;
+  // Fetch order data - the hook uses select to return data directly
+  const { data: order, isLoading, refetch } = useOrder(orderId);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -144,8 +143,69 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
     );
   };
 
+  const getUrgencyBadgeVariant = (urgencyLevel: string) => {
+    switch (urgencyLevel) {
+      case "EMERGENCY":
+        return "destructive";
+      case "RUSH":
+        return "destructive";
+      case "EXPEDITED":
+        return "secondary";
+      default:
+        return "outline";
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const formatAddress = (address: any) => {
+    if (!address) return "No address provided";
+
+    const parts = [
+      address.street,
+      address.city,
+      address.state,
+      address.postalCode,
+      address.country,
+    ].filter(Boolean);
+
+    return parts.length > 0 ? parts.join(", ") : `Address ID: ${address.id}`;
+  };
+
+  // Helper function to get customer display info
+  const getCustomerInfo = (order: any) => {
+    if (order.customerId) {
+      return {
+        displayName: `Customer ${order.customerId}`,
+        initials: order.customerId.slice(0, 2).toUpperCase(),
+        isGuest: false,
+      };
+    }
+
+    // For guest orders, try to use shipping address info
+    if (order.shippingAddress?.recipientName) {
+      const name = order.shippingAddress.recipientName;
+      const nameParts = name.split(" ");
+      const initials =
+        nameParts.length > 1
+          ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+          : name.slice(0, 2).toUpperCase();
+
+      return {
+        displayName: name,
+        initials,
+        isGuest: true,
+      };
+    }
+
+    // Fallback for guest orders without customer info
+    return {
+      displayName: "Guest Customer",
+      initials: "GU",
+      isGuest: true,
+    };
   };
 
   if (isLoading) {
@@ -172,13 +232,15 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
     );
   }
 
+  const customerInfo = getCustomerInfo(order);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/customer/orders">
+            <Link href="/orders">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Orders
             </Link>
@@ -192,10 +254,12 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
               {getStatusBadge(order.status)}
               <span className="text-sm text-muted-foreground">
                 Created{" "}
-                {format(new Date(order.createdAt), "MMM dd, yyyy 'at' hH:mm")}
+                {format(new Date(order.createdAt), "MMM dd, yyyy 'at' HH:mm")}
               </span>
               {order.urgencyLevel && order.urgencyLevel !== "NORMAL" && (
-                <Badge variant="destructive">{order.urgencyLevel}</Badge>
+                <Badge variant={getUrgencyBadgeVariant(order.urgencyLevel)}>
+                  {order.urgencyLevel}
+                </Badge>
               )}
             </div>
           </div>
@@ -230,7 +294,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href={`/dashboard/customer/orders/${order.id}/edit`}>
+                <Link href={`/orders/${order.id}/edit`}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Order
                 </Link>
@@ -239,7 +303,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
           </DropdownMenu>
 
           <Button asChild>
-            <Link href={`/dashboard/customer/orders/${order.id}/edit`}>
+            <Link href={`/orders/${order.id}/edit`}>
               <Edit className="h-4 w-4 mr-2" />
               Edit Order
             </Link>
@@ -276,7 +340,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                         SUBTOTAL
                       </Label>
                       <p className="font-medium">
-                        ${order.subtotalAmount.toFixed(2)}
+                        {formatCurrency(order.subtotalAmount)}
                       </p>
                     </div>
                     <div>
@@ -284,7 +348,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                         TAX
                       </Label>
                       <p className="font-medium">
-                        ${order.taxAmount.toFixed(2)}
+                        {formatCurrency(order.taxAmount)}
                       </p>
                     </div>
                     <div>
@@ -292,7 +356,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                         SHIPPING
                       </Label>
                       <p className="font-medium">
-                        ${order.shippingAmount.toFixed(2)}
+                        {formatCurrency(order.shippingAmount)}
                       </p>
                     </div>
                     <div>
@@ -300,7 +364,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                         TOTAL
                       </Label>
                       <p className="text-lg font-bold">
-                        ${order.totalAmount.toFixed(2)}
+                        {formatCurrency(order.totalAmount)}
                       </p>
                     </div>
                   </div>
@@ -321,7 +385,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                 </CardContent>
               </Card>
 
-              {/* Customer Information */}
+              {/* Customer Information - UPDATED */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -333,20 +397,22 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <Avatar>
-                        <AvatarFallback>
-                          {order.customerId.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
+                        <AvatarFallback>{customerInfo.initials}</AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="font-medium">
-                          Customer {order.customerId}
+                          {customerInfo.displayName}
                         </p>
-                        {/* {order.customerPhone && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {order.customerPhone}
-                          </div>
-                        )} */}
+                        {customerInfo.isGuest && (
+                          <Badge variant="secondary" className="text-xs">
+                            Guest Order
+                          </Badge>
+                        )}
+                        {order.customerId && (
+                          <p className="text-sm text-muted-foreground">
+                            ID: {order.customerId}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -367,9 +433,20 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                       SHIPPING ADDRESS
                     </Label>
                     <p className="mt-1">
-                      Address ID: {order.shippingAddress.id}
+                      {formatAddress(order.shippingAddress)}
                     </p>
                   </div>
+
+                  {order.billingAddress && (
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        BILLING ADDRESS
+                      </Label>
+                      <p className="mt-1">
+                        {formatAddress(order.billingAddress)}
+                      </p>
+                    </div>
+                  )}
 
                   {order.trackingNumber && (
                     <div>
@@ -389,6 +466,13 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                             </a>
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(order.trackingNumber!)}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -424,22 +508,39 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                         <Label className="text-xs font-medium text-muted-foreground">
                           METHOD
                         </Label>
-                        <p className="font-medium">{order.payment.method}</p>
+                        <p className="font-medium">
+                          {order.payment.method || "N/A"}
+                        </p>
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground">
                           STATUS
                         </Label>
-                        <p className="font-medium">{order.payment.status}</p>
+                        <p className="font-medium">
+                          {order.payment.status || "N/A"}
+                        </p>
                       </div>
                       {order.payment.transactionId && (
                         <div className="md:col-span-2">
                           <Label className="text-xs font-medium text-muted-foreground">
                             TRANSACTION ID
                           </Label>
-                          <p className="font-medium font-mono">
-                            {order.payment.transactionId}
-                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="font-medium font-mono">
+                              {order.payment.transactionId}
+                            </p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                copyToClipboard(
+                                  order.payment?.transactionId || ""
+                                )
+                              }
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -461,41 +562,107 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                   <div className="space-y-4">
                     {order.orderItems.map((item, index) => (
                       <div
-                        key={item.id}
+                        key={item.id || index}
                         className="flex items-start justify-between p-4 border rounded-lg"
                       >
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium">
-                              Product {item.productId}
+                              {item.template?.name ||
+                                `Template ${item.templateId}`}
                             </h4>
                             <Badge variant="outline">
                               Qty: {item.quantity}
                             </Badge>
+                            {item.status && (
+                              <Badge variant="secondary">
+                                {item.status.replace("_", " ")}
+                              </Badge>
+                            )}
                           </div>
 
+                          {item.sizeVariant && (
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground">
+                                SIZE
+                              </Label>
+                              <p className="text-sm">
+                                {item.sizeVariant.displayName} (
+                                {item.sizeVariant.dimensions.width}x
+                                {item.sizeVariant.dimensions.height}{" "}
+                                {item.sizeVariant.dimensions.unit})
+                              </p>
+                            </div>
+                          )}
+
                           {item.customizations &&
-                            Object.keys(item.customizations).length > 0 && (
+                            item.customizations.length > 0 && (
                               <div>
                                 <Label className="text-xs font-medium text-muted-foreground">
                                   CUSTOMIZATIONS
                                 </Label>
-                                <div className="mt-1 p-2 bg-muted rounded text-sm">
-                                  <pre className="text-xs">
-                                    {JSON.stringify(
-                                      item.customizations,
-                                      null,
-                                      2
-                                    )}
-                                  </pre>
+                                <div className="mt-1 space-y-1">
+                                  {item.customizations.map(
+                                    (customization, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="text-sm p-2 bg-muted rounded"
+                                      >
+                                        <span className="font-medium">
+                                          Option:
+                                        </span>{" "}
+                                        {customization.optionId} |
+                                        <span className="font-medium">
+                                          {" "}
+                                          Value:
+                                        </span>{" "}
+                                        {customization.valueId}
+                                        {customization.customValue && (
+                                          <>
+                                            <br />
+                                            <span className="font-medium">
+                                              Custom:
+                                            </span>{" "}
+                                            {customization.customValue}
+                                          </>
+                                        )}
+                                      </div>
+                                    )
+                                  )}
                                 </div>
                               </div>
                             )}
+
+                          {item.designId && (
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground">
+                                DESIGN ID
+                              </Label>
+                              <p className="text-sm font-mono">
+                                {item.designId}
+                              </p>
+                            </div>
+                          )}
+
+                          {item.notes && (
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground">
+                                NOTES
+                              </Label>
+                              <p className="text-sm">{item.notes}</p>
+                            </div>
+                          )}
                         </div>
 
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">
                             Item {index + 1}
+                          </p>
+                          <p className="font-medium">
+                            ${(item.unitPrice * item.quantity).toFixed(2)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            ${item.unitPrice.toFixed(2)} each
                           </p>
                         </div>
                       </div>
@@ -512,37 +679,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
             {/* Notes Tab */}
             <TabsContent value="notes">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Order Notes</CardTitle>
-                  <CardDescription>
-                    Internal and customer notes for this order
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {order.notes ? (
-                    <div className="p-4 bg-muted rounded-lg">
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        ORDER NOTES
-                      </Label>
-                      <p className="mt-1">{order.notes}</p>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">
-                      No notes available for this order.
-                    </p>
-                  )}
-
-                  {order.specialInstructions && (
-                    <div className="mt-4 p-4 bg-muted rounded-lg">
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        SPECIAL INSTRUCTIONS
-                      </Label>
-                      <p className="mt-1">{order.specialInstructions}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <NotesList orderId={order.id} />
             </TabsContent>
           </Tabs>
         </div>
@@ -613,6 +750,58 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                     Design approval not yet requested
                   </p>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Production Information */}
+          {order.expectedProductionDays && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Production
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      EXPECTED PRODUCTION DAYS
+                    </Label>
+                    <p className="text-sm font-medium">
+                      {order.expectedProductionDays} days
+                    </p>
+                  </div>
+
+                  {order.productionStartDate && (
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        PRODUCTION START
+                      </Label>
+                      <p className="text-sm">
+                        {format(
+                          new Date(order.productionStartDate),
+                          "MMM dd, yyyy"
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  {order.productionEndDate && (
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        PRODUCTION END
+                      </Label>
+                      <p className="text-sm">
+                        {format(
+                          new Date(order.productionEndDate),
+                          "MMM dd, yyyy"
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
