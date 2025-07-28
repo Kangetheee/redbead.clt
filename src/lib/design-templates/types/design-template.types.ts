@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
-// Base interfaces
 export interface Dimensions {
   width: number;
   height: number;
@@ -18,11 +17,18 @@ export interface DesignConstraints {
   allowLogos: boolean;
   allowCustomColors: boolean;
   maxColors: number;
+  printArea?: {
+    unit: string;
+    width: number;
+    height: number;
+  };
 }
 
 export interface CanvasSettings {
   backgroundColor: string;
   printable: boolean;
+  snapToGrid?: boolean;
+  gridEnabled?: boolean;
 }
 
 // Related entity interfaces
@@ -30,9 +36,11 @@ export interface ProductInfo {
   id: string;
   name: string;
   slug: string;
-  thumbnailImage: string;
-  basePrice: number;
-  isFeatured: boolean;
+  thumbnailImage?: string;
+  basePrice?: number;
+  isFeatured?: boolean;
+  type?: string;
+  material?: string;
 }
 
 export interface CategoryInfo {
@@ -41,26 +49,26 @@ export interface CategoryInfo {
   slug: string;
 }
 
-// Size variant interface
+// Size variant interface (updated to match API response)
 export interface SizeVariant {
   id: string;
   name: string;
   displayName: string;
-  dimensions: Dimensions;
+  dimensions?: Dimensions;
   description?: string;
   price: number;
-  sku: string;
-  stock: number;
-  minOrderQty: number;
-  maxOrderQty: number;
+  sku?: string;
+  stock?: number;
+  minOrderQty?: number;
+  maxOrderQty?: number;
   isDefault: boolean;
   isActive: boolean;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-// Main template interface
+// Main template interface (updated to match API response)
 export interface DesignTemplate {
   id: string;
   name: string;
@@ -94,7 +102,7 @@ export interface DesignTemplate {
   product: ProductInfo;
   category: CategoryInfo;
   sizeVariants: SizeVariant[];
-  customizationOptions: string[];
+  customizationOptions?: string[];
 }
 
 // List response for templates

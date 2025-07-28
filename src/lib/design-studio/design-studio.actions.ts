@@ -1,83 +1,71 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 "use server";
 
 import { getErrorMessage } from "../get-error-message";
 import { ActionResponse } from "../shared/types";
 import {
-  CreateCanvasDto,
-  SaveCanvasDto,
+  ConfigureCanvasDto,
+  UploadArtworkDto,
   CreateDesignDto,
   UpdateDesignDto,
-  SaveDesignDto,
-  VersionDesignDto,
-  UploadDesignAssetDto,
   ExportDesignDto,
   DesignValidationDto,
   ShareDesignDto,
   UploadAssetDto,
   GetDesignsDto,
-  GetPresetsDto,
   GetFontsDto,
+  GetUserAssetsDto,
 } from "./dto/design-studio.dto";
 import {
-  CanvasResponse,
-  SaveCanvasResponse,
-  CanvasConfig,
+  CanvasConfigResponse,
+  ArtworkUploadResponse,
   DesignResponse,
   DesignListResponse,
-  UploadDesignAssetResponse,
+  TemplatePresetsResponse,
   ExportDesignResponse,
-  DesignPresetsResponse,
   DesignValidationResponse,
   ShareDesignResponse,
-  CustomizeTemplateResponse,
   Font,
-  UploadAssetResponse,
+  AssetResponse,
 } from "./types/design-studio.types";
 import { DesignStudioService } from "./design-studio.service";
 
 const designStudioService = new DesignStudioService();
 
-// Canvas Actions
-export async function createCanvasAction(
-  values: CreateCanvasDto
-): Promise<ActionResponse<CanvasResponse>> {
+/**
+ * Configure design canvas
+ * POST /v1/design-studio/configure
+ */
+export async function configureCanvasAction(
+  values: ConfigureCanvasDto
+): Promise<ActionResponse<CanvasConfigResponse>> {
   try {
-    const res = await designStudioService.createCanvas(values);
+    const res = await designStudioService.configureCanvas(values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function saveCanvasAction(
-  values: SaveCanvasDto
-): Promise<ActionResponse<SaveCanvasResponse>> {
+/**
+ * Upload artwork file
+ * POST /v1/design-studio/upload-artwork
+ */
+export async function uploadArtworkAction(
+  file: File,
+  values: UploadArtworkDto
+): Promise<ActionResponse<ArtworkUploadResponse>> {
   try {
-    const res = await designStudioService.saveCanvas(values);
+    const res = await designStudioService.uploadArtwork(file, values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getCanvasConfigAction(
-  productId: string,
-  sizePresetId?: string
-): Promise<ActionResponse<CanvasConfig>> {
-  try {
-    const res = await designStudioService.getCanvasConfig(
-      productId,
-      sizePresetId
-    );
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-// Design Actions
+/**
+ * Create new design
+ * POST /v1/design-studio/designs
+ */
 export async function createDesignAction(
   values: CreateDesignDto
 ): Promise<ActionResponse<DesignResponse>> {
@@ -89,6 +77,10 @@ export async function createDesignAction(
   }
 }
 
+/**
+ * Get user designs
+ * GET /v1/design-studio/designs
+ */
 export async function getUserDesignsAction(
   params?: GetDesignsDto
 ): Promise<ActionResponse<DesignListResponse>> {
@@ -100,6 +92,10 @@ export async function getUserDesignsAction(
   }
 }
 
+/**
+ * Get design details
+ * GET /v1/design-studio/designs/{id}
+ */
 export async function getDesignAction(
   designId: string
 ): Promise<ActionResponse<DesignResponse>> {
@@ -111,6 +107,10 @@ export async function getDesignAction(
   }
 }
 
+/**
+ * Update design
+ * PUT /v1/design-studio/designs/{id}
+ */
 export async function updateDesignAction(
   designId: string,
   values: UpdateDesignDto
@@ -123,6 +123,10 @@ export async function updateDesignAction(
   }
 }
 
+/**
+ * Delete design
+ * DELETE /v1/design-studio/designs/{id}
+ */
 export async function deleteDesignAction(
   designId: string
 ): Promise<ActionResponse<void>> {
@@ -134,83 +138,25 @@ export async function deleteDesignAction(
   }
 }
 
-export async function saveDesignAction(
-  designId: string,
-  values: SaveDesignDto
-): Promise<ActionResponse<DesignResponse>> {
+/**
+ * Get template presets
+ * GET /v1/design-studio/templates/{templateId}/presets
+ */
+export async function getTemplatePresetsAction(
+  templateId: string
+): Promise<ActionResponse<TemplatePresetsResponse>> {
   try {
-    const res = await designStudioService.saveDesign(designId, values);
+    const res = await designStudioService.getTemplatePresets(templateId);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function createDesignVersionAction(
-  designId: string,
-  values: VersionDesignDto
-): Promise<ActionResponse<DesignResponse>> {
-  try {
-    const res = await designStudioService.createDesignVersion(designId, values);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function getDesignVersionsAction(
-  designId: string
-): Promise<ActionResponse<DesignResponse[]>> {
-  try {
-    const res = await designStudioService.getDesignVersions(designId);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-// Asset Actions
-export async function uploadDesignAssetAction(
-  designId: string,
-  file: File,
-  assetData: UploadDesignAssetDto
-): Promise<ActionResponse<UploadDesignAssetResponse>> {
-  try {
-    const res = await designStudioService.uploadDesignAsset(
-      designId,
-      file,
-      assetData
-    );
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function getDesignAssetsAction(
-  designId: string
-): Promise<ActionResponse<UploadDesignAssetResponse[]>> {
-  try {
-    const res = await designStudioService.getDesignAssets(designId);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function removeDesignAssetAction(
-  designId: string,
-  assetId: string
-): Promise<ActionResponse<void>> {
-  try {
-    await designStudioService.removeDesignAsset(designId, assetId);
-    return { success: true, data: undefined };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-// Export Actions
+/**
+ * Export design
+ * POST /v1/design-studio/designs/{id}/export
+ */
 export async function exportDesignAction(
   designId: string,
   values: ExportDesignDto
@@ -223,19 +169,10 @@ export async function exportDesignAction(
   }
 }
 
-// Presets and Resources Actions
-export async function getDesignPresetsAction(
-  productId: string,
-  params?: GetPresetsDto
-): Promise<ActionResponse<DesignPresetsResponse>> {
-  try {
-    const res = await designStudioService.getDesignPresets(productId, params);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
+/**
+ * Validate design
+ * POST /v1/design-studio/designs/{id}/validate
+ */
 export async function validateDesignAction(
   designId: string,
   values: DesignValidationDto
@@ -248,6 +185,10 @@ export async function validateDesignAction(
   }
 }
 
+/**
+ * Share design
+ * POST /v1/design-studio/designs/{id}/share
+ */
 export async function shareDesignAction(
   designId: string,
   values: ShareDesignDto
@@ -260,6 +201,10 @@ export async function shareDesignAction(
   }
 }
 
+/**
+ * View shared design
+ * GET /v1/design-studio/shared/{token}
+ */
 export async function getSharedDesignAction(
   token: string
 ): Promise<ActionResponse<DesignResponse>> {
@@ -271,51 +216,10 @@ export async function getSharedDesignAction(
   }
 }
 
-// Template Actions
-export async function getDesignTemplatesAction(params?: {
-  featured?: boolean;
-  categoryId?: string;
-  productId?: string;
-}): Promise<ActionResponse<any[]>> {
-  try {
-    const res = await designStudioService.getDesignTemplates(params);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function getTemplateCustomizationAction(
-  templateId: string,
-  params: {
-    templateId: string;
-    customizations?: object;
-    productVariant?: string;
-  }
-): Promise<ActionResponse<CustomizeTemplateResponse>> {
-  try {
-    const res = await designStudioService.getTemplateCustomization(
-      templateId,
-      params
-    );
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function useDesignTemplateAction(
-  templateId: string
-): Promise<ActionResponse<DesignResponse>> {
-  try {
-    const res = await designStudioService.useDesignTemplate(templateId);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-// Font Actions
+/**
+ * Get available fonts
+ * GET /v1/design-studio/fonts
+ */
 export async function getFontsAction(
   params?: GetFontsDto
 ): Promise<ActionResponse<Font[]>> {
@@ -327,11 +231,14 @@ export async function getFontsAction(
   }
 }
 
-// User Asset Actions
+/**
+ * Upload asset
+ * POST /v1/design-studio/assets
+ */
 export async function uploadAssetAction(
   file: File,
   assetData: UploadAssetDto
-): Promise<ActionResponse<UploadAssetResponse>> {
+): Promise<ActionResponse<AssetResponse>> {
   try {
     const res = await designStudioService.uploadAsset(file, assetData);
     return { success: true, data: res };
@@ -340,10 +247,13 @@ export async function uploadAssetAction(
   }
 }
 
-export async function getUserAssetsAction(params?: {
-  type?: string;
-  folderId?: string;
-}): Promise<ActionResponse<UploadAssetResponse[]>> {
+/**
+ * Get user assets
+ * GET /v1/design-studio/assets
+ */
+export async function getUserAssetsAction(
+  params?: GetUserAssetsDto
+): Promise<ActionResponse<AssetResponse[]>> {
   try {
     const res = await designStudioService.getUserAssets(params);
     return { success: true, data: res };

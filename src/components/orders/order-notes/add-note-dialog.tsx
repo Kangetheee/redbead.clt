@@ -65,6 +65,8 @@ import { useAddOrderNote, useOrderNotes } from "@/hooks/use-orders";
 import {
   CreateOrderNoteDto,
   createOrderNoteSchema,
+  NOTE_TYPES,
+  NOTE_PRIORITIES,
 } from "@/lib/orders/dto/orders.dto";
 import { OrderNote } from "@/lib/orders/types/orders.types";
 import { useForm } from "react-hook-form";
@@ -83,7 +85,7 @@ export function AddNoteDialog({
   trigger,
 }: AddNoteDialogProps) {
   const [open, setOpen] = useState(false);
-  const addOrderNote = useAddOrderNote(orderId);
+  const addOrderNote = useAddOrderNote();
 
   const {
     register,
@@ -96,6 +98,7 @@ export function AddNoteDialog({
     resolver: zodResolver(createOrderNoteSchema),
     defaultValues: {
       noteType: "GENERAL",
+      priority: "NORMAL",
       isInternal: false,
     },
   });
@@ -104,7 +107,11 @@ export function AddNoteDialog({
 
   const onSubmit = async (data: CreateOrderNoteDto) => {
     try {
-      await addOrderNote.mutateAsync(data);
+      // Fix: Pass the correct parameters to the mutation
+      await addOrderNote.mutateAsync({
+        orderId,
+        values: data,
+      });
       setOpen(false);
       reset();
       onNoteAdded?.();
@@ -155,37 +162,40 @@ export function AddNoteDialog({
                   <SelectValue placeholder="Select note type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="GENERAL">General</SelectItem>
-                  <SelectItem value="URGENCY">Urgency</SelectItem>
-                  <SelectItem value="TIMELINE">Timeline</SelectItem>
-                  <SelectItem value="SHIPPING">Shipping</SelectItem>
-                  <SelectItem value="CUSTOMIZATION">Customization</SelectItem>
-                  <SelectItem value="PRODUCTION">Production</SelectItem>
-                  <SelectItem value="QUALITY">Quality</SelectItem>
-                  <SelectItem value="DESIGN_APPROVAL">
-                    Design Approval
-                  </SelectItem>
+                  {NOTE_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type
+                        .replace("_", " ")
+                        .toLowerCase()
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {errors.noteType && (
+                <p className="text-sm text-red-500">
+                  {errors.noteType.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="priority">Priority (Optional)</Label>
+              <Label htmlFor="priority">Priority</Label>
               <Select
-                value={watchedValues.priority || ""}
-                onValueChange={(value) =>
-                  setValue("priority", value || undefined)
-                }
+                value={watchedValues.priority || "NORMAL"}
+                onValueChange={(value) => setValue("priority", value as any)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No priority</SelectItem>
-                  <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
-                  <SelectItem value="URGENT">Urgent</SelectItem>
+                  {NOTE_PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priority
+                        .toLowerCase()
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -198,6 +208,9 @@ export function AddNoteDialog({
               {...register("title")}
               placeholder="Brief note title..."
             />
+            {errors.title && (
+              <p className="text-sm text-red-500">{errors.title.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">

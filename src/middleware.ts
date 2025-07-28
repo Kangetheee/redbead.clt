@@ -1,144 +1,200 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { type NextRequest, NextResponse } from "next/server";
-import { getStoredSession } from "./lib/session/session";
+import { jwtVerify } from "jose";
+import { SESSION_OPTIONS, CHUNK_SIZE } from "@/lib/session/session.constants";
+import type { Session } from "@/lib/session/session.types";
+import env from "@/config/server.env";
 
 const signInRoute = "/sign-in";
-const authRoutes = [signInRoute, "/forgot-password", "/sign-up"];
-
-// Public routes - no authentication required
+const authRoutes = [signInRoute, "/sign-up"];
 const publicRoutes = [
   "/",
-  "/api",
-  "/products", // Public product browsing
-  "/categories", // Public category browsing
+  "/products",
+  "/products/.*",
+  "/design-studio",
+  "/design-studio/.*",
+  "/cart",
+  "/about",
+  "/contact",
 ];
 
-// Role-based dashboard routes
-const roleDashboards = {
-  Customer: "/dashboard/customer",
-  Staff: "/dashboard/staff",
-  Admin: "/dashboard/admin",
-} as const;
+// Middleware-specific session store for cookie handling
+class MiddlewareSessionStore {
+  private chunks: Record<string, string> = {};
+  private cookieName: string;
 
-// Define protected routes by role - ALL these require authentication
-const roleProtectedRoutes = {
-  Customer: [
-    "/dashboard/customer",
-    "/design-studio",
-    "/cart",
-    "/checkout",
-    "/orders",
-    "/profile",
-  ],
-  Staff: [
-    "/dashboard/staff",
-    "/staff", // Staff-specific routes
-    "/design-approvals", // Design approval workflow
-    "/production", // Production management
-    "/customer-support", // Customer support tools
-  ],
-  Admin: [
-    "/dashboard/admin",
-    "/dashboard/staff", // Admin can access staff routes
-    "/admin", // Admin-specific routes
-    "/settings", // System settings
-    "/analytics", // Analytics and reports
-    "/users", // User management
-    "/roles", // Role management
-  ],
-} as const;
+  constructor(cookieName: string, cookies: NextRequest["cookies"]) {
+    this.cookieName = cookieName;
 
-// All protected routes (union of all role-specific routes)
-const allProtectedRoutes = [
-  ...roleProtectedRoutes.Customer,
-  ...roleProtectedRoutes.Staff,
-  ...roleProtectedRoutes.Admin,
-  "/dashboard", // Legacy dashboard route
-];
+    // Get all cookies related to the session
+    cookies.getAll().forEach((cookie) => {
+      if (cookie.name.startsWith(this.cookieName)) {
+        this.chunks[cookie.name] = cookie.value;
+      }
+    });
+  }
 
-// Helper function to normalize role casing
-function normalizeRole(role: string): string {
-  return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+  get value(): string {
+    return Object.keys(this.chunks)
+      .sort((a, b) => {
+        const aSuffix = Number.parseInt(a.split(".").pop() || "0", 10);
+        const bSuffix = Number.parseInt(b.split(".").pop() || "0", 10);
+        return aSuffix - bSuffix;
+      })
+      .map((key) => this.chunks[key])
+      .join("");
+  }
 }
 
-function getRoleBasedDashboard(role: string): string {
-  const normalizedRole = normalizeRole(role);
-  return (
-    roleDashboards[normalizedRole as keyof typeof roleDashboards] ||
-    roleDashboards.Customer
+// Middleware-specific function to decrypt the session
+async function decryptSession(sessionValue?: string): Promise<Session | null> {
+  if (!sessionValue) return null;
+
+  try {
+    const secretKey = env.AUTH_SECRET;
+    const encodedSecretKey = new TextEncoder().encode(secretKey);
+
+    const { payload } = await jwtVerify<Session>(
+      sessionValue,
+      encodedSecretKey,
+      {
+        algorithms: [SESSION_OPTIONS.ALGORITHM],
+      }
+    );
+
+    return payload as Session;
+  } catch (error) {
+    console.error("Failed to verify session in middleware:", error);
+    return null;
+  }
+}
+
+// Middleware-specific function to get the session
+async function getMiddlewareSession(req: NextRequest): Promise<Session | null> {
+  const sessionStore = new MiddlewareSessionStore(
+    SESSION_OPTIONS.NAME,
+    req.cookies
   );
-}
-
-function canAccessRoute(userRole: string, path: string): boolean {
-  const normalizedRole = normalizeRole(userRole);
-  const userRoutes =
-    roleProtectedRoutes[normalizedRole as keyof typeof roleProtectedRoutes];
-  if (!userRoutes) return false;
-
-  return userRoutes.some((route) => path.startsWith(route));
+  const session = await decryptSession(sessionStore.value);
+  return session;
 }
 
 export default async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
-  // Check if the current path is an auth route
-  const isAuthRoute = authRoutes.some((route) => path.startsWith(route));
-
-  // Check if the current path is a public route
-  const isPublicRoute = publicRoutes.some(
-    (route) => path === route || path.startsWith(route)
-  );
-
-  // Check if the current path is any protected route
-  const isProtectedRoute = allProtectedRoutes.some((route) =>
-    path.startsWith(route)
-  );
-
-  const cookie = req.cookies;
-  const session = await getStoredSession(cookie);
-  const isAuth = !!session;
-  const userRole = session?.user?.role;
-
-  // If user is not authenticated and trying to access protected routes
-  if (isProtectedRoute && !isAuth) {
-    const loginUrl = new URL(signInRoute, req.url);
-    loginUrl.searchParams.set(
-      "callbackUrl",
-      req.nextUrl.pathname + req.nextUrl.search
-    );
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // If user is authenticated
-  if (isAuth && userRole) {
-    // Redirect from auth routes to appropriate dashboard
-    if (isAuthRoute) {
-      const dashboard = getRoleBasedDashboard(userRole);
-      return NextResponse.redirect(new URL(dashboard, req.url));
-    }
-
-    // Handle legacy /dashboard redirect
-    if (path === "/dashboard") {
-      const dashboard = getRoleBasedDashboard(userRole);
-      return NextResponse.redirect(new URL(dashboard, req.url));
-    }
-
-    // Check if user can access the requested protected route
-    if (isProtectedRoute && !canAccessRoute(userRole, path)) {
-      // Redirect to their appropriate dashboard if they can't access the route
-      const dashboard = getRoleBasedDashboard(userRole);
-      return NextResponse.redirect(new URL(dashboard, req.url));
-    }
-  }
-
-  // Allow access to public routes regardless of auth status
-  if (isPublicRoute) {
+  // Exclude API routes from middleware to avoid session issues
+  if (path.startsWith("/api/")) {
     return NextResponse.next();
   }
 
-  return NextResponse.next();
+  // Skip middleware for static assets
+  if (
+    path.startsWith("/_next/") ||
+    path.includes("/images/") ||
+    path.endsWith(".jpg") ||
+    path.endsWith(".png") ||
+    path.endsWith(".svg") ||
+    path.endsWith(".ico")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Debug logging - use less verbose logging in production
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Middleware running for path:", path);
+  }
+
+  // Check if this is an auth route
+  const isAuthRoute = authRoutes.some((route) => path.startsWith(route));
+
+  // Check if this is a public route
+  const isPublicRoute = publicRoutes.some((route) => {
+    if (route.endsWith(".*")) {
+      const baseRoute = route.replace(".*", "");
+      return path.startsWith(baseRoute);
+    }
+    return path === route;
+  });
+
+  try {
+    // Using our middleware-specific function to get the session
+    const session = await getMiddlewareSession(req);
+
+    // Debug session info - only in development
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Session in middleware:", {
+        hasSession: !!session,
+        userRole: session?.user?.role,
+        path,
+      });
+    }
+
+    // More strict validation - check if the session actually has valid data
+    const isAuth = !!session?.accessToken && !!session?.user?.id;
+
+    // Get user role
+    const userRole = session?.user?.role;
+    const isAdmin = userRole?.toLowerCase() === "admin";
+    const isCustomer = userRole?.toLowerCase() === "customer";
+
+    // Redirect to login if trying to access protected routes without auth
+    if (!isAuthRoute && !isPublicRoute && !isAuth) {
+      console.log("Redirecting to login - not authenticated");
+      const loginUrl = new URL(signInRoute, req.url);
+      loginUrl.searchParams.set(
+        "callbackUrl",
+        req.nextUrl.pathname + req.nextUrl.search
+      );
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // Only redirect from auth routes if the session is VALID
+    if (isAuth && isAuthRoute) {
+      console.log("Redirecting from auth route - already authenticated");
+
+      // Redirect to appropriate dashboard based on role
+      if (isAdmin) {
+        return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+      } else {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
+    }
+
+    // Handle app directory structure for customer and admin areas
+    const isAdminPath = path.includes("/(admin)") || path.startsWith("/admin");
+    const isCustomerPath =
+      path.includes("/(customer)") || path.startsWith("/dashboard");
+
+    // Redirect from customer dashboard to admin dashboard if user is admin
+    if (isAuth && isAdmin && isCustomerPath) {
+      console.log(
+        "Admin user accessing customer dashboard - redirecting to admin dashboard"
+      );
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    }
+
+    // Restrict admin routes to admin users
+    if (isAuth && isAdminPath && !isAdmin) {
+      console.log(
+        "Non-admin user accessing admin area - redirecting to customer dashboard"
+      );
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Middleware allowing access to:", path);
+    }
+    return NextResponse.next();
+  } catch (error) {
+    console.error("Error in middleware:", error);
+
+    // On error, allow the request to continue to avoid blocking users
+    return NextResponse.next();
+  }
 }
 
 export const config = {
+  // Improved matcher to exclude static files and API routes
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
@@ -146,8 +202,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder files (png, jpg, jpeg, gif, svg, webp)
+     * - static files (images, etc)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
   ],
 };

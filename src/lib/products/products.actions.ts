@@ -13,6 +13,9 @@ import { ProductTypeService } from "./products.service";
 
 const productTypeService = new ProductTypeService();
 
+/**
+ * Get paginated list of product types with optional filtering and sorting
+ */
 export async function getProductTypesAction(
   params?: GetProductTypesDto
 ): Promise<ActionResponse<PaginatedData<ProductTypeResponse>>> {
@@ -24,6 +27,9 @@ export async function getProductTypesAction(
   }
 }
 
+/**
+ * Get featured product types for homepage/marketing display
+ */
 export async function getFeaturedProductTypesAction(
   limit?: number
 ): Promise<ActionResponse<ProductTypeResponse[]>> {
@@ -35,6 +41,9 @@ export async function getFeaturedProductTypesAction(
   }
 }
 
+/**
+ * Get detailed product type information by ID
+ */
 export async function getProductTypeAction(
   productTypeId: string
 ): Promise<ActionResponse<ProductTypeResponse>> {
@@ -46,6 +55,9 @@ export async function getProductTypeAction(
   }
 }
 
+/**
+ * Get detailed product type information using URL-friendly slug
+ */
 export async function getProductTypeBySlugAction(
   slug: string
 ): Promise<ActionResponse<ProductTypeResponse>> {
@@ -57,6 +69,9 @@ export async function getProductTypeBySlugAction(
   }
 }
 
+/**
+ * Get product types for a specific category
+ */
 export async function getProductTypesByCategoryAction(
   params: GetProductTypesByCategoryDto
 ): Promise<ActionResponse<PaginatedData<ProductTypeResponse>>> {
@@ -68,6 +83,9 @@ export async function getProductTypesByCategoryAction(
   }
 }
 
+/**
+ * Create a new product type within a category
+ */
 export async function createProductTypeAction(
   values: CreateProductTypeDto
 ): Promise<ActionResponse<ProductTypeResponse>> {
@@ -79,6 +97,9 @@ export async function createProductTypeAction(
   }
 }
 
+/**
+ * Update product type information
+ */
 export async function updateProductTypeAction(
   productTypeId: string,
   values: UpdateProductTypeDto
@@ -91,6 +112,9 @@ export async function updateProductTypeAction(
   }
 }
 
+/**
+ * Permanently delete a product type (only if not used in orders or design templates)
+ */
 export async function deleteProductTypeAction(
   productTypeId: string
 ): Promise<ActionResponse<void>> {

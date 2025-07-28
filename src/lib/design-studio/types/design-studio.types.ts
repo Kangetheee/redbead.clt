@@ -1,21 +1,18 @@
-export interface Dimensions {
-  width: number;
-  height: number;
-  unit: string;
-  depth?: number;
-}
-
-export interface CanvasLayer {
+export interface CanvasElement {
   id: string;
-  type: string;
+  type: "text" | "image" | "shape" | "media";
   x: number;
   y: number;
   width: number;
   height: number;
   rotation?: number;
-  opacity?: number;
-  visible?: boolean;
-  zIndex?: number;
+  content?: string;
+  font?: string;
+  fontSize?: number;
+  fontWeight?: string;
+  color?: string;
+  mediaId?: string;
+  shapeType?: string;
   properties?: object;
 }
 
@@ -23,45 +20,48 @@ export interface CanvasData {
   width: number;
   height: number;
   backgroundColor?: string;
-  layers: CanvasLayer[];
+  elements: CanvasElement[];
   metadata?: object;
 }
 
-export interface CanvasResponse {
-  id: string;
-  canvas: CanvasData;
-  presets: object;
-  constraints: object;
-  createdAt: string;
+// Canvas Configuration Response
+export interface CanvasConfigResponse {
+  canvasId: string;
+  template: object;
+  sizeVariant: object;
+  constraints: {
+    maxFileSize: number;
+    allowedFormats: string[];
+    allowedTypes: string[];
+    requiredDPI: number;
+    maxColors: number;
+    printArea: object;
+  };
+  canvasSettings: {
+    width: number;
+    height: number;
+    dpi: number;
+    colorMode: string;
+    unit: string;
+  };
 }
 
-export interface SaveCanvasResponse {
-  id: string;
-  name: string;
-  preview: string;
-  createdAt: string;
-  updatedAt: string;
+// Artwork Upload Response
+export interface ArtworkUploadResponse {
+  mediaId: string;
+  url: string;
+  validation: {
+    isValid: boolean;
+    dpi: number;
+    colors: number;
+    warnings: string[];
+    dimensions: object;
+  };
+  processedUrl: string;
+  metadata: object;
 }
 
-export interface CanvasConfig {
-  canvasSettings: object;
-  colorPresets: string[];
-  fontPresets: string[];
-  sizePresets: string[];
-  mediaRestrictions: object;
-  constraints: object;
-  product: object;
-}
-
-export interface PrintSpecifications {
-  material: string;
-  colorMode: string;
-  dpi: number;
-  finish: string;
-  specialInstructions?: string;
-  estimatedProductionTime?: number;
-}
-
+// Design Response
 export interface DesignResponse {
   id: string;
   name: string;
@@ -69,11 +69,11 @@ export interface DesignResponse {
   preview: string;
   customizations: CanvasData;
   metadata?: object;
-  product: object;
-  status: string;
+  template?: object;
+  sizeVariant?: object;
+  status: "DRAFT" | "COMPLETED" | "ARCHIVED";
   version: number;
   parentDesignId?: string;
-  printSpecifications?: PrintSpecifications;
   estimatedCost?: number;
   isTemplate: boolean;
   isPublic: boolean;
@@ -86,13 +86,12 @@ export interface DesignListResponse {
   meta: object;
 }
 
-export interface UploadDesignAssetResponse {
-  id: string;
-  url: string;
-  assetType: string;
-  size: number;
-  mimeType: string;
-  createdAt: string;
+// Template Presets Response
+export interface TemplatePresetsResponse {
+  colors: string[];
+  fonts: string[];
+  sizes: string[];
+  mediaRestrictions: object;
 }
 
 export interface ExportDesignResponse {
@@ -101,13 +100,6 @@ export interface ExportDesignResponse {
   format: string;
   dimensions: object;
   metadata: object;
-}
-
-export interface DesignPresetsResponse {
-  colors: string[];
-  fonts: string[];
-  sizes: string[];
-  mediaRestrictions: object;
 }
 
 export interface DesignValidationResponse {
@@ -126,14 +118,7 @@ export interface ShareDesignResponse {
   createdAt: string;
 }
 
-export interface CustomizeTemplateResponse {
-  template: object;
-  customizableAreas: string[];
-  canvasSettings: object;
-  product: object;
-  constraints: object;
-}
-
+// Font
 export interface Font {
   id: string;
   family: string;
@@ -144,9 +129,13 @@ export interface Font {
   previewUrl: string;
   urls: object;
   isPremium: boolean;
+  description?: string;
+  license?: string;
+  designer?: string;
 }
 
-export interface UploadAssetResponse {
+// Asset Response
+export interface AssetResponse {
   id: string;
   name: string;
   url: string;
@@ -154,4 +143,6 @@ export interface UploadAssetResponse {
   mimeType: string;
   type: string;
   createdAt: string;
+  description?: string;
+  tags?: string[];
 }

@@ -1,201 +1,320 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Star, ShoppingCart, Eye, Grid3X3 } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
-import type { ProductResponse } from "@/lib/products/types/products.types";
+import { Grid3X3, List, LayoutGrid, Grid2X2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ProductTypeResponse } from "@/lib/products/types/products.types";
+import { ProductCard } from "./product-card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductGridProps {
-  products: ProductResponse[];
-  viewMode?: "grid" | "list";
+  products: ProductTypeResponse[];
   loading?: boolean;
+  viewMode?: "grid" | "list";
+  allowViewToggle?: boolean;
+  gridCols?: {
+    sm?: number;
+    md?: number;
+    lg?: number;
+    xl?: number;
+    "2xl"?: number;
+  };
+  cardSize?: "sm" | "md" | "lg";
+  showAddToCart?: boolean;
+  showTemplateList?: boolean;
+  showDescription?: boolean;
+  showCategory?: boolean;
+  showMaterial?: boolean;
+  className?: string;
+  emptyState?: {
+    title?: string;
+    description?: string;
+    action?: React.ReactNode;
+  };
 }
 
 export function ProductGrid({
   products,
-  viewMode = "grid",
   loading = false,
+  viewMode: initialViewMode = "grid",
+  allowViewToggle = false,
+  gridCols = { sm: 1, md: 2, lg: 3, xl: 4, "2xl": 5 }, // Increased default columns
+  cardSize = "md",
+  showAddToCart = true,
+  showTemplateList = true,
+  showDescription = true,
+  showCategory = true,
+  showMaterial = true,
+  className,
+  emptyState,
 }: ProductGridProps) {
+  const [viewMode, setViewMode] = useState<"grid" | "list">(initialViewMode);
+  const [gridDensity, setGridDensity] = useState<"comfortable" | "compact">(
+    "comfortable"
+  );
+
+  // Generate grid classes with better responsive breakpoints
+  const getGridClasses = () => {
+    const density = gridDensity === "compact" ? 1 : 0;
+    const classes = ["grid"];
+
+    // Responsive gap based on density
+    if (gridDensity === "compact") {
+      classes.push("gap-3 md:gap-4");
+    } else {
+      classes.push("gap-4 md:gap-6");
+    }
+
+    // Enhanced responsive columns
+    if (gridCols.sm) classes.push(`grid-cols-${gridCols.sm + density}`);
+    if (gridCols.md) classes.push(`md:grid-cols-${gridCols.md + density}`);
+    if (gridCols.lg) classes.push(`lg:grid-cols-${gridCols.lg + density}`);
+    if (gridCols.xl) classes.push(`xl:grid-cols-${gridCols.xl + density}`);
+    if (gridCols["2xl"])
+      classes.push(`2xl:grid-cols-${gridCols["2xl"] + density}`);
+
+    return classes.join(" ");
+  };
+
+  const containerClasses = viewMode === "grid" ? getGridClasses() : "space-y-3";
+
+  // Determine card size based on density and view mode
+  const getCardSize = () => {
+    if (viewMode === "list") return "sm";
+    if (gridDensity === "compact") {
+      return cardSize === "lg" ? "md" : "sm";
+    }
+    return cardSize;
+  };
+
+  // Loading state with themed skeleton
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <div className="aspect-square bg-muted"></div>
-            <CardHeader>
-              <div className="h-4 bg-muted rounded w-3/4"></div>
-              <div className="h-3 bg-muted rounded w-1/2"></div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-8 bg-muted rounded w-20 mb-2"></div>
-              <div className="h-9 bg-muted rounded"></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (products.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <Grid3X3 className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No products found</h3>
-          <p className="text-muted-foreground text-center">
-            Try adjusting your filters to see more products.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const containerClass =
-    viewMode === "grid"
-      ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-      : "space-y-4";
-
-  return (
-    <div className={containerClass}>
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} viewMode={viewMode} />
-      ))}
-    </div>
-  );
-}
-
-interface ProductCardProps {
-  product: ProductResponse;
-  viewMode: "grid" | "list";
-}
-
-function ProductCard({ product, viewMode }: ProductCardProps) {
-  if (viewMode === "list") {
-    return (
-      <Card className="flex flex-row overflow-hidden hover:shadow-lg transition-shadow">
-        <div className="w-48 h-32 relative bg-muted flex-shrink-0">
-          {product.thumbnailImage ? (
-            <Image
-              src={product.thumbnailImage}
-              alt={product.name}
-              fill
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <Grid3X3 className="h-8 w-8 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-        <div className="flex-1 p-6">
-          <div className="flex justify-between items-start mb-2">
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold">{product.name}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {product.description}
-              </p>
-            </div>
-            <div className="flex items-center gap-1">
-              {product.isFeatured && (
-                <Badge variant="secondary">
-                  <Star className="h-3 w-3 mr-1" />
-                  Featured
-                </Badge>
-              )}
-            </div>
-          </div>
+      <div className={cn("space-y-4", className)}>
+        {allowViewToggle && (
           <div className="flex justify-between items-center">
-            <div className="space-y-1">
-              <div className="text-2xl font-bold">
-                ${product.basePrice.toFixed(2)}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Min. {product.minOrderQuantity}{" "}
-                {product.minOrderQuantity === 1 ? "unit" : "units"}
-              </div>
-            </div>
+            <div className="text-sm text-gray-600">Loading products...</div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/dashboard/customer/products/${product.slug}`}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link href={`/dashboard/customer/design-studio/${product.id}`}>
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Design
-                </Link>
-              </Button>
+              <div className="flex border border-gray-200 rounded-lg p-1">
+                <Skeleton className="h-8 w-8" />
+                <Skeleton className="h-8 w-8 ml-1" />
+              </div>
+              <div className="flex border border-gray-200 rounded-lg p-1">
+                <Skeleton className="h-8 w-8" />
+                <Skeleton className="h-8 w-8 ml-1" />
+              </div>
             </div>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="group hover:shadow-lg transition-shadow">
-      <div className="aspect-square relative overflow-hidden">
-        {product.thumbnailImage ? (
-          <Image
-            src={product.thumbnailImage}
-            alt={product.name}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform"
-          />
-        ) : (
-          <div className="bg-muted flex items-center justify-center h-full">
-            <Grid3X3 className="h-12 w-12 text-muted-foreground" />
           </div>
         )}
-        <div className="absolute top-2 left-2 flex gap-1">
-          {product.isFeatured && (
-            <Badge className="bg-primary text-primary-foreground">
-              <Star className="h-3 w-3 mr-1" />
-              Featured
-            </Badge>
-          )}
+
+        <div className={viewMode === "grid" ? getGridClasses() : "space-y-3"}>
+          {Array.from({ length: gridCols.xl || 4 * 2 }).map((_, i) => (
+            <Card key={i} className="animate-pulse border-gray-200">
+              {viewMode === "grid" ? (
+                <>
+                  <Skeleton className="aspect-square rounded-t-lg" />
+                  <div className="p-3 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
+                </>
+              ) : (
+                <div className="flex">
+                  <Skeleton className="w-24 h-24 rounded-l-lg" />
+                  <div className="flex-1 p-3 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                    <Skeleton className="h-6 w-20" />
+                  </div>
+                </div>
+              )}
+            </Card>
+          ))}
         </div>
       </div>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg truncate">{product.name}</CardTitle>
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {product.description}
-        </p>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <div className="text-2xl font-bold">
-              ${product.basePrice.toFixed(2)}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Min. {product.minOrderQuantity}{" "}
-              {product.minOrderQuantity === 1 ? "unit" : "units"}
+    );
+  }
+
+  // Empty state with Red Bead theming
+  if (products.length === 0) {
+    const defaultEmptyState = {
+      title: "No products found",
+      description:
+        "Try adjusting your filters to discover our amazing custom products.",
+    };
+
+    const finalEmptyState = { ...defaultEmptyState, ...emptyState };
+
+    return (
+      <div className={cn("space-y-4", className)}>
+        {allowViewToggle && (
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-600">0 products found</div>
+            <div className="flex gap-2">
+              <div className="flex border border-gray-200 rounded-lg p-1">
+                <Button
+                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                  className={
+                    viewMode === "grid" ? "bg-green-600 hover:bg-green-700" : ""
+                  }
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                  className={
+                    viewMode === "list" ? "bg-green-600 hover:bg-green-700" : ""
+                  }
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
+        )}
+
+        <Card className="border-gray-200">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+              <Grid3X3 className="h-10 w-10 text-green-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+              {finalEmptyState.title}
+            </h3>
+            <p className="text-gray-600 text-center mb-6 max-w-md">
+              {finalEmptyState.description}
+            </p>
+            {finalEmptyState.action}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("space-y-4", className)}>
+      {/* Enhanced View Toggle with Density Control */}
+      {allowViewToggle && (
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            {products.length} product{products.length !== 1 ? "s" : ""} found
+          </div>
+
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="flex-1" asChild>
-              <Link href={`/dashboard/customer/products/${product.slug}`}>
-                <Eye className="h-4 w-4 mr-2" />
-                View
-              </Link>
-            </Button>
-            <Button size="sm" className="flex-1" asChild>
-              <Link href={`/dashboard/customer/design-studio/${product.id}`}>
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Design
-              </Link>
-            </Button>
+            {/* View Mode Toggle */}
+            <div className="flex border border-gray-200 rounded-lg p-1 bg-white">
+              <Button
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                title="Grid view"
+                className={cn(
+                  "transition-colors",
+                  viewMode === "grid"
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "hover:bg-green-50 hover:text-green-600"
+                )}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                title="List view"
+                className={cn(
+                  "transition-colors",
+                  viewMode === "list"
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "hover:bg-green-50 hover:text-green-600"
+                )}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Grid Density Toggle (only for grid view) */}
+            {viewMode === "grid" && (
+              <div className="flex border border-gray-200 rounded-lg p-1 bg-white">
+                <Button
+                  variant={gridDensity === "comfortable" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setGridDensity("comfortable")}
+                  title="Comfortable spacing"
+                  className={cn(
+                    "transition-colors",
+                    gridDensity === "comfortable"
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "hover:bg-green-50 hover:text-green-600"
+                  )}
+                >
+                  <Grid2X2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={gridDensity === "compact" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setGridDensity("compact")}
+                  title="Compact spacing (more products)"
+                  className={cn(
+                    "transition-colors",
+                    gridDensity === "compact"
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "hover:bg-green-50 hover:text-green-600"
+                  )}
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {/* Products */}
+      <div className={containerClasses}>
+        {products.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            layout={viewMode}
+            size={getCardSize()}
+            showAddToCart={showAddToCart}
+            showTemplateList={showTemplateList}
+            showDescription={showDescription}
+            showCategory={showCategory}
+            showMaterial={showMaterial}
+            className={cn(
+              "transition-all duration-200",
+              viewMode === "grid" &&
+                gridDensity === "compact" &&
+                "hover:scale-[1.02]"
+            )}
+          />
+        ))}
+      </div>
+
+      {/* Grid Info Footer */}
+      {products.length > 0 && (
+        <div className="flex justify-center pt-4">
+          <div className="text-xs text-gray-500 bg-gray-50 px-3 py-1 rounded-full">
+            Showing {products.length} products
+            {viewMode === "grid" && (
+              <span className="ml-2">
+                • {gridDensity === "compact" ? "Compact" : "Comfortable"} view
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

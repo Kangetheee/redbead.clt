@@ -205,7 +205,6 @@ export class OrderService {
     );
   }
 
-  // Order Item endpoints
   public async updateOrderItemStatus(
     orderItemId: string,
     values: UpdateOrderItemStatusDto

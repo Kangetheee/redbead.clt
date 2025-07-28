@@ -105,7 +105,7 @@ export default function OrderSummaryCard({
               </div>
               <div>
                 <Link
-                  href={`/dashboard/customer/orders/${order.id}`}
+                  href={`/orders/${order.id}`}
                   className="font-medium hover:underline"
                 >
                   {order.orderNumber}
@@ -127,15 +127,13 @@ export default function OrderSummaryCard({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
-                      <Link href={`/dashboard/customer/orders/${order.id}`}>
+                      <Link href={`/orders/${order.id}`}>
                         <Eye className="mr-2 h-4 w-4" />
                         View
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link
-                        href={`/dashboard/customer/orders/${order.id}/edit`}
-                      >
+                      <Link href={`/orders/${order.id}/edit`}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
                       </Link>
@@ -162,7 +160,7 @@ export default function OrderSummaryCard({
             </Avatar>
             <div>
               <Link
-                href={`/dashboard/customer/orders/${order.id}`}
+                href={`/orders/${order.id}`}
                 className="font-semibold hover:underline"
               >
                 {order.orderNumber}
@@ -189,13 +187,13 @@ export default function OrderSummaryCard({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href={`/dashboard/customer/orders/${order.id}`}>
+                    <Link href={`/orders/${order.id}`}>
                       <Eye className="mr-2 h-4 w-4" />
                       View Details
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href={`/dashboard/customer/orders/${order.id}/edit`}>
+                    <Link href={`/orders/${order.id}/edit`}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Order
                     </Link>
@@ -365,13 +363,13 @@ export default function OrderSummaryCard({
         <CardFooter className="pt-0">
           <div className="flex w-full gap-2">
             <Button variant="outline" className="flex-1" asChild>
-              <Link href={`/dashboard/customer/orders/${order.id}`}>
+              <Link href={`/orders/${order.id}`}>
                 <Eye className="h-4 w-4 mr-2" />
                 View
               </Link>
             </Button>
             <Button variant="outline" className="flex-1" asChild>
-              <Link href={`/dashboard/customer/orders/${order.id}/edit`}>
+              <Link href={`/orders/${order.id}/edit`}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Link>

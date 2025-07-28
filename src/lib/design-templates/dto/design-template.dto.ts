@@ -12,16 +12,27 @@ const materialsSchema = z.object({
   options: z.array(z.string()),
 });
 
+const printAreaSchema = z
+  .object({
+    unit: z.string(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+  })
+  .optional();
+
 const designConstraintsSchema = z.object({
   allowText: z.boolean(),
   allowLogos: z.boolean(),
   allowCustomColors: z.boolean(),
   maxColors: z.number().min(1),
+  printArea: printAreaSchema,
 });
 
 const canvasSettingsSchema = z.object({
   backgroundColor: z.string(),
   printable: z.boolean(),
+  snapToGrid: z.boolean().optional(),
+  gridEnabled: z.boolean().optional(),
 });
 
 export const getTemplatesSchema = z.object({

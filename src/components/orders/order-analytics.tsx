@@ -56,8 +56,8 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useOrders } from "@/hooks/use-orders";
-import { OrderResponse } from "@/lib/orders/types/orders.types";
-import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
+import { OrderResponse, OrderListItem } from "@/lib/orders/types/orders.types";
+import { GetOrdersDto, ORDER_STATUS } from "@/lib/orders/dto/orders.dto";
 
 type DateRangeType = "7d" | "30d" | "90d" | "1y";
 type MetricType = "orders" | "revenue";
@@ -131,7 +131,7 @@ export default function OrderAnalytics({
   // Fetch orders data using the hook
   const { data: ordersData, isLoading, refetch } = useOrders(filters);
 
-  const orders: OrderResponse[] = ordersData?.success
+  const orders: OrderListItem[] = ordersData?.success
     ? ordersData.data?.items || []
     : [];
 
@@ -156,15 +156,15 @@ export default function OrderAnalytics({
       {} as Record<string, number>
     );
 
-    // Urgency distribution
-    const urgencyCounts = orders.reduce(
-      (acc, order) => {
-        const urgency = order.urgencyLevel || "NORMAL";
-        acc[urgency] = (acc[urgency] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
+    // // Urgency distribution
+    // const urgencyCounts = orders.reduce(
+    //   (acc, order) => {
+    //     const urgency = order.urgencyLevel || "NORMAL";
+    //     acc[urgency] = (acc[urgency] || 0) + 1;
+    //     return acc;
+    //   },
+    //   {} as Record<string, number>
+    // );
 
     // Daily data for charts
     const dailyData = [];
@@ -187,26 +187,26 @@ export default function OrderAnalytics({
       });
     }
 
-    // Top products (extract from order items)
-    const productCounts = orders.reduce(
+    // Top templates (from order items)
+    const templateCounts = orders.reduce(
       (acc, order) => {
         order.orderItems.forEach((item) => {
-          // Assuming we have product data in the order item
-          const productName = `Product ${item.productId}`;
-          if (!acc[productName]) {
-            acc[productName] = { name: productName, count: 0, revenue: 0 };
+          const templateName =
+            item.template?.name || `Template ${item.templateId}`;
+          if (!acc[templateName]) {
+            acc[templateName] = { name: templateName, count: 0, revenue: 0 };
           }
-          acc[productName].count += item.quantity;
-          // Calculate revenue - need to get price from somewhere
-          acc[productName].revenue +=
-            order.totalAmount / order.orderItems.length; // Simple division
+          acc[templateName].count += item.quantity;
+          // Calculate revenue per template - simplified calculation
+          acc[templateName].revenue +=
+            order.totalAmount / order.orderItems.length;
         });
         return acc;
       },
       {} as Record<string, { name: string; count: number; revenue: number }>
     );
 
-    const topProducts = Object.values(productCounts)
+    const topTemplates = Object.values(templateCounts)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
@@ -246,9 +246,9 @@ export default function OrderAnalytics({
       ordersTrend,
       revenueTrend,
       statusCounts,
-      urgencyCounts,
+      // urgencyCounts,
       dailyData,
-      topProducts,
+      topTemplates,
     };
   }, [orders, days]);
 
@@ -261,12 +261,12 @@ export default function OrderAnalytics({
       }))
     : [];
 
-  const urgencyChartData = analytics
-    ? Object.entries(analytics.urgencyCounts).map(([urgency, count]) => ({
-        name: urgency,
-        value: count,
-      }))
-    : [];
+  // const urgencyChartData = analytics
+  //   ? Object.entries(analytics.urgencyCounts).map(([urgency, count]) => ({
+  //       name: urgency,
+  //       value: count,
+  //     }))
+  //   : [];
 
   // Handler functions with proper typing
   const handleDateRangeChange = (value: string) => {
@@ -514,7 +514,7 @@ export default function OrderAnalytics({
             <CardTitle>Order Urgency Levels</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
+            {/* <ResponsiveContainer width="100%" height={250}>
               <BarChart data={urgencyChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
@@ -522,26 +522,26 @@ export default function OrderAnalytics({
                 <Tooltip />
                 <Bar dataKey="value" fill="#8b5cf6" />
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> */}
           </CardContent>
         </Card>
       </div>
 
       {/* Additional Insights */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Top Products */}
+        {/* Top Templates */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Products</CardTitle>
+            <CardTitle>Top Templates</CardTitle>
             <CardDescription>
-              Most ordered products in this period
+              Most ordered templates in this period
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analytics.topProducts.map((product, index) => (
+              {analytics.topTemplates.map((template, index) => (
                 <div
-                  key={product.name}
+                  key={template.name}
                   className="flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
@@ -549,13 +549,13 @@ export default function OrderAnalytics({
                       <span className="text-sm font-medium">{index + 1}</span>
                     </div>
                     <div>
-                      <p className="font-medium">{product.name}</p>
+                      <p className="font-medium">{template.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {product.count} units • ${product.revenue.toFixed(2)}
+                        {template.count} units • ${template.revenue.toFixed(2)}
                       </p>
                     </div>
                   </div>
-                  <Badge variant="outline">{product.count}</Badge>
+                  <Badge variant="outline">{template.count}</Badge>
                 </div>
               ))}
             </div>
