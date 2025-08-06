@@ -25,23 +25,25 @@ export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <CustomerNavbar />
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-green-50 via-white to-red-50 py-20 lg:py-32">
+      <section className="relative bg-gradient-to-br from-green-50 via-background to-red-50 dark:from-green-950/20 dark:via-background dark:to-red-950/20 py-20 lg:py-32">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <Badge className="mb-6 bg-green-100 text-green-800 hover:bg-green-200">
+            <Badge className="mb-6 bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-200 dark:hover:bg-green-900/70">
               🎉 Kenya&apos;s Leading Custom Print Solutions
             </Badge>
 
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
               Custom Print Solutions
-              <span className="block text-green-600">Made in Kenya</span>
+              <span className="block text-green-600 dark:text-green-400">
+                Made in Kenya
+              </span>
             </h1>
 
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               From corporate lanyards to custom wristbands, we deliver
               high-quality branded products that make your business stand out.
             </p>
@@ -49,7 +51,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
                 asChild
               >
                 <Link href="/products">
@@ -65,28 +67,30 @@ export default function LandingPage() {
       </section>
 
       {/* Trust Indicators */}
-      <section className="py-12 bg-gray-50 border-y">
+      <section className="py-12 bg-muted/50 border-y border-border">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div className="flex flex-col items-center">
-              <Users className="h-8 w-8 text-green-600 mb-2" />
-              <div className="text-2xl font-bold text-gray-900">500+</div>
-              <div className="text-sm text-gray-600">Happy Clients</div>
+              <Users className="h-8 w-8 text-green-600 dark:text-green-400 mb-2" />
+              <div className="text-2xl font-bold text-foreground">500+</div>
+              <div className="text-sm text-muted-foreground">Happy Clients</div>
             </div>
             <div className="flex flex-col items-center">
-              <Award className="h-8 w-8 text-green-600 mb-2" />
-              <div className="text-2xl font-bold text-gray-900">5 Years</div>
-              <div className="text-sm text-gray-600">Experience</div>
+              <Award className="h-8 w-8 text-green-600 dark:text-green-400 mb-2" />
+              <div className="text-2xl font-bold text-foreground">5 Years</div>
+              <div className="text-sm text-muted-foreground">Experience</div>
             </div>
             <div className="flex flex-col items-center">
-              <Clock className="h-8 w-8 text-green-600 mb-2" />
-              <div className="text-2xl font-bold text-gray-900">48Hr</div>
-              <div className="text-sm text-gray-600">Quick Delivery</div>
+              <Clock className="h-8 w-8 text-green-600 dark:text-green-400 mb-2" />
+              <div className="text-2xl font-bold text-foreground">48Hr</div>
+              <div className="text-sm text-muted-foreground">
+                Quick Delivery
+              </div>
             </div>
             <div className="flex flex-col items-center">
-              <Headphones className="h-8 w-8 text-green-600 mb-2" />
-              <div className="text-2xl font-bold text-gray-900">24/7</div>
-              <div className="text-sm text-gray-600">Support</div>
+              <Headphones className="h-8 w-8 text-green-600 dark:text-green-400 mb-2" />
+              <div className="text-2xl font-bold text-foreground">24/7</div>
+              <div className="text-sm text-muted-foreground">Support</div>
             </div>
           </div>
         </div>
@@ -104,13 +108,13 @@ export default function LandingPage() {
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-20 bg-muted/50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl font-bold text-foreground mb-4">
               Why Choose Red Bead?
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               We&apos;re committed to delivering exceptional quality and service
               that helps your brand make a lasting impression.
             </p>
@@ -119,7 +123,9 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: <Award className="h-12 w-12 text-green-600" />,
+                icon: (
+                  <Award className="h-12 w-12 text-green-600 dark:text-green-400" />
+                ),
                 title: "Premium Quality",
                 description:
                   "We use only the finest materials and latest printing technology to ensure your products meet the highest standards.",
@@ -130,7 +136,9 @@ export default function LandingPage() {
                 ],
               },
               {
-                icon: <Clock className="h-12 w-12 text-green-600" />,
+                icon: (
+                  <Clock className="h-12 w-12 text-green-600 dark:text-green-400" />
+                ),
                 title: "Fast Turnaround",
                 description:
                   "Need it urgently? Our streamlined production process ensures quick delivery without compromising quality.",
@@ -141,7 +149,9 @@ export default function LandingPage() {
                 ],
               },
               {
-                icon: <Users className="h-12 w-12 text-green-600" />,
+                icon: (
+                  <Users className="h-12 w-12 text-green-600 dark:text-green-400" />
+                ),
                 title: "Expert Support",
                 description:
                   "Our experienced team guides you through every step, from design consultation to final delivery.",
@@ -154,21 +164,21 @@ export default function LandingPage() {
             ].map((benefit, index) => (
               <Card
                 key={index}
-                className="text-center p-8 hover:shadow-lg transition-shadow"
+                className="text-center p-8 hover:shadow-lg transition-shadow border-border bg-card"
               >
                 <CardContent className="space-y-4">
                   <div className="flex justify-center">{benefit.icon}</div>
-                  <h3 className="text-xl font-semibold text-gray-900">
+                  <h3 className="text-xl font-semibold text-foreground">
                     {benefit.title}
                   </h3>
-                  <p className="text-gray-600">{benefit.description}</p>
+                  <p className="text-muted-foreground">{benefit.description}</p>
                   <ul className="space-y-2">
                     {benefit.features.map((feature, idx) => (
                       <li
                         key={idx}
-                        className="flex items-center justify-center text-sm text-gray-600"
+                        className="flex items-center justify-center text-sm text-muted-foreground"
                       >
-                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                         {feature}
                       </li>
                     ))}
@@ -181,12 +191,12 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-green-600 to-green-700">
+      <section className="py-20 bg-gradient-to-r from-green-600 to-green-700 dark:from-green-700 dark:to-green-800">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
             Ready to Create Something Amazing?
           </h2>
-          <p className="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-green-100 dark:text-green-200 mb-8 max-w-2xl mx-auto">
             Join hundreds of businesses that trust Red Bead for their custom
             printing needs. Let&apos;s bring your brand to life!
           </p>
@@ -194,7 +204,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
-              className="bg-white text-green-600 hover:bg-gray-50"
+              className="bg-white text-green-600 hover:bg-gray-50 dark:bg-gray-100 dark:text-green-700 dark:hover:bg-white"
               asChild
             >
               <Link href="/products">
@@ -204,7 +214,7 @@ export default function LandingPage() {
             <Button
               size="lg"
               variant="outline"
-              className="border-white text-white hover:bg-white hover:text-green-600"
+              className="border-white text-white hover:bg-white hover:text-green-600 dark:border-green-200 dark:text-green-100 dark:hover:bg-green-200 dark:hover:text-green-800"
               asChild
             >
               <Link href="/contact">Contact Us Today</Link>
@@ -213,14 +223,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Customer Testimonials (Optional) */}
+      {/* Customer Testimonials */}
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl font-bold text-foreground mb-4">
               What Our Customers Say
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-muted-foreground">
               Don&apos;t just take our word for it - hear from our satisfied
               clients
             </p>
@@ -250,24 +260,24 @@ export default function LandingPage() {
                 rating: 5,
               },
             ].map((testimonial, index) => (
-              <Card key={index} className="p-6">
+              <Card key={index} className="p-6 bg-card border-border">
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-1">
                     {[...Array(testimonial.rating)].map((_, i) => (
                       <Star
                         key={i}
-                        className="h-4 w-4 fill-yellow-400 text-yellow-400"
+                        className="h-4 w-4 fill-yellow-400 text-yellow-400 dark:fill-yellow-500 dark:text-yellow-500"
                       />
                     ))}
                   </div>
-                  <p className="text-gray-600 italic">
+                  <p className="text-muted-foreground italic">
                     &quot;{testimonial.review}&quot;
                   </p>
                   <div>
-                    <div className="font-semibold text-gray-900">
+                    <div className="font-semibold text-foreground">
                       {testimonial.name}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-muted-foreground">
                       {testimonial.company}
                     </div>
                   </div>

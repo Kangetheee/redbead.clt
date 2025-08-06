@@ -32,7 +32,7 @@ export function CustomerNavbar({ className }: NavbarProps) {
     return (
       <nav
         className={cn(
-          "sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200",
+          "sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border",
           className
         )}
       >
@@ -42,10 +42,12 @@ export function CustomerNavbar({ className }: NavbarProps) {
               <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-red-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">RB</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Red Bead</span>
+              <span className="text-xl font-bold text-foreground">
+                Red Bead
+              </span>
             </Link>
 
-            <div className="text-sm text-gray-500">Loading...</div>
+            <div className="text-sm text-muted-foreground">Loading...</div>
           </div>
         </div>
       </nav>
@@ -80,12 +82,12 @@ export function CustomerNavbar({ className }: NavbarProps) {
 
       {/* Mobile Authenticated Navigation */}
       {isMenuOpen && (
-        <div className="md:hidden py-4 border-t border-gray-200">
+        <div className="md:hidden py-4 border-t border-border">
           <div className="flex flex-col space-y-4">
             {/* User Info */}
-            <div className="flex items-center space-x-3 px-2 py-2 bg-green-50 rounded-lg">
-              <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-green-700 font-medium text-sm">
+            <div className="flex items-center space-x-3 px-2 py-2 bg-green-50 dark:bg-green-950/30 rounded-lg">
+              <div className="h-10 w-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
+                <span className="text-green-700 dark:text-green-300 font-medium text-sm">
                   {userProfile?.name
                     ?.split(" ")
                     .map((n) => n[0])
@@ -93,51 +95,53 @@ export function CustomerNavbar({ className }: NavbarProps) {
                 </span>
               </div>
               <div>
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-foreground">
                   {userProfile?.name || "User"}
                 </p>
-                <p className="text-sm text-gray-600">{userProfile?.email}</p>
+                <p className="text-sm text-muted-foreground">
+                  {userProfile?.email}
+                </p>
               </div>
             </div>
 
             {/* Main Navigation Links */}
             <Link
               href="/"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               Home
             </Link>
             <Link
               href="/products"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               Products
             </Link>
             <Link
               href="/design-studio"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               Design Studio
             </Link>
             <Link
               href="/about"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               About
             </Link>
             <Link
               href="/contact"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               Contact
             </Link>
 
-            <div className="border-t border-gray-200 pt-4 space-y-2">
+            <div className="border-t border-border pt-4 space-y-2">
               {/* Cart */}
               <Button variant="ghost" className="w-full justify-start" asChild>
                 <Link href="/cart" onClick={() => setIsMenuOpen(false)}>
@@ -209,53 +213,56 @@ export function CustomerNavbar({ className }: NavbarProps) {
           <Link href="/sign-in">Sign In</Link>
         </Button>
 
-        <Button className="bg-green-600 hover:bg-green-700" asChild>
+        <Button
+          className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+          asChild
+        >
           <Link href="/sign-up">Get Started</Link>
         </Button>
       </div>
 
       {/* Mobile Unauthenticated Navigation */}
       {isMenuOpen && (
-        <div className="md:hidden py-4 border-t border-gray-200">
+        <div className="md:hidden py-4 border-t border-border">
           <div className="flex flex-col space-y-4">
             {/* Main Navigation Links */}
             <Link
               href="/"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               Home
             </Link>
             <Link
               href="/products"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               Products
             </Link>
             <Link
               href="/design-studio"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               Design Studio
             </Link>
             <Link
               href="/about"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               About
             </Link>
             <Link
               href="/contact"
-              className="text-gray-700 hover:text-green-600 transition-colors px-2 py-1"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
               onClick={() => setIsMenuOpen(false)}
             >
               Contact
             </Link>
 
-            <div className="border-t border-gray-200 pt-4 space-y-2">
+            <div className="border-t border-border pt-4 space-y-2">
               <Button variant="ghost" className="w-full justify-start" asChild>
                 <Link href="/cart" onClick={() => setIsMenuOpen(false)}>
                   <ShoppingCart className="h-4 w-4 mr-2" />
@@ -270,7 +277,7 @@ export function CustomerNavbar({ className }: NavbarProps) {
               </Button>
 
               <Button
-                className="w-full bg-green-600 hover:bg-green-700"
+                className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
                 asChild
               >
                 <Link href="/sign-up" onClick={() => setIsMenuOpen(false)}>
@@ -287,7 +294,7 @@ export function CustomerNavbar({ className }: NavbarProps) {
   return (
     <nav
       className={cn(
-        "sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200",
+        "sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border",
         className
       )}
     >
@@ -298,38 +305,38 @@ export function CustomerNavbar({ className }: NavbarProps) {
             <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-red-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">RB</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">Red Bead</span>
+            <span className="text-xl font-bold text-foreground">Red Bead</span>
           </Link>
 
           {/* Desktop Main Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link
               href="/"
-              className="text-gray-700 hover:text-green-600 transition-colors"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
             >
               Home
             </Link>
             <Link
               href="/products"
-              className="text-gray-700 hover:text-green-600 transition-colors"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
             >
               Products
             </Link>
             <Link
               href="/design-studio"
-              className="text-gray-700 hover:text-green-600 transition-colors"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
             >
               Design Studio
             </Link>
             <Link
               href="/about"
-              className="text-gray-700 hover:text-green-600 transition-colors"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
             >
               About
             </Link>
             <Link
               href="/contact"
-              className="text-gray-700 hover:text-green-600 transition-colors"
+              className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
             >
               Contact
             </Link>
@@ -344,7 +351,7 @@ export function CustomerNavbar({ className }: NavbarProps) {
 
           {/* Mobile menu button */}
           <button
-            className="md:hidden p-2"
+            className="md:hidden p-2 text-foreground hover:text-muted-foreground transition-colors"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-label="Toggle menu"
           >

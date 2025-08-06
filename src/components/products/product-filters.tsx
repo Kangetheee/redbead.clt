@@ -47,11 +47,11 @@ export function ProductFilters({
     Object.values(currentFilters).filter(Boolean).length;
 
   return (
-    <Card>
+    <Card className="border-border bg-card">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4" />
+          <CardTitle className="text-base flex items-center gap-2 text-foreground">
+            <SlidersHorizontal className="h-4 w-4 text-green-600 dark:text-green-400" />
             Filters
             {activeFiltersCount > 0 && (
               <Badge variant="secondary" className="text-xs">
@@ -70,7 +70,9 @@ export function ProductFilters({
       <CardContent className="space-y-4">
         {/* Search */}
         <div className="space-y-2">
-          <Label htmlFor="search">Search Products</Label>
+          <Label htmlFor="search" className="text-foreground">
+            Search Products
+          </Label>
           <Input
             id="search"
             placeholder="Search by name, description..."
@@ -78,12 +80,13 @@ export function ProductFilters({
             onChange={(e) =>
               handleFilterUpdate("search", e.target.value || undefined)
             }
+            className="border-border bg-background text-foreground placeholder:text-muted-foreground"
           />
         </div>
 
         {/* Price Range */}
         <div className="space-y-3">
-          <Label>Price Range</Label>
+          <Label className="text-foreground">Price Range</Label>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label
@@ -103,6 +106,7 @@ export function ProductFilters({
                     e.target.value ? Number(e.target.value) : undefined
                   )
                 }
+                className="border-border bg-background text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <div className="space-y-1">
@@ -123,6 +127,7 @@ export function ProductFilters({
                     e.target.value ? Number(e.target.value) : undefined
                   )
                 }
+                className="border-border bg-background text-foreground placeholder:text-muted-foreground"
               />
             </div>
           </div>
@@ -139,7 +144,7 @@ export function ProductFilters({
           />
           <Label
             htmlFor="featured"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground"
           >
             Featured products only
           </Label>
@@ -159,7 +164,7 @@ export function ProductFilters({
           />
           <Label
             htmlFor="active"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground"
           >
             Available products only
           </Label>

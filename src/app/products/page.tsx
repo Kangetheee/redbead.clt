@@ -61,7 +61,7 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       {/* Navbar */}
       <CustomerNavbar />
 
@@ -73,7 +73,7 @@ export default function ProductsPage() {
               <BreadcrumbLink asChild>
                 <Link
                   href="/"
-                  className="text-gray-600 hover:text-green-600 transition-colors"
+                  className="text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
                 >
                   Home
                 </Link>
@@ -81,7 +81,7 @@ export default function ProductsPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage className="text-gray-900 font-medium">
+              <BreadcrumbPage className="text-foreground font-medium">
                 Products
               </BreadcrumbPage>
             </BreadcrumbItem>
@@ -92,15 +92,17 @@ export default function ProductsPage() {
         <section>
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">All Products</h2>
-              <p className="text-gray-600 mt-1">
+              <h2 className="text-2xl font-bold text-foreground">
+                All Products
+              </h2>
+              <p className="text-muted-foreground mt-1">
                 {productsData?.meta.totalItems || 0} products available
               </p>
             </div>
 
             <Badge
               variant="outline"
-              className="bg-green-50 text-green-700 border-green-200"
+              className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800"
             >
               <ShoppingCart className="h-4 w-4 mr-1" />
               Ready to Order
@@ -111,10 +113,10 @@ export default function ProductsPage() {
             {/* Filters Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-4">
-                <Card className="border-gray-200 shadow-sm">
+                <Card className="border-border shadow-sm bg-card">
                   <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center text-gray-900">
-                      <Filter className="h-5 w-5 mr-2 text-green-600" />
+                    <CardTitle className="flex items-center text-foreground">
+                      <Filter className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
                       Filters
                     </CardTitle>
                   </CardHeader>
@@ -148,7 +150,7 @@ export default function ProductsPage() {
                   action: (
                     <Button
                       variant="outline"
-                      className="border-green-600 text-green-600 hover:bg-green-50"
+                      className="border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
                       onClick={() => {
                         setFilters({});
                         setPage(1);
@@ -168,7 +170,7 @@ export default function ProductsPage() {
                       variant="outline"
                       disabled={page === 1}
                       onClick={() => handlePageChange(page - 1)}
-                      className="border-gray-300 hover:border-green-600 hover:text-green-600"
+                      className="border-border hover:border-green-600 hover:text-green-600 dark:hover:border-green-400 dark:hover:text-green-400"
                     >
                       Previous
                     </Button>
@@ -190,7 +192,9 @@ export default function ProductsPage() {
                           <div key={pageNum} className="flex items-center">
                             {/* Add ellipsis if there's a gap */}
                             {index > 0 && array[index - 1] < pageNum - 1 && (
-                              <span className="px-2 text-gray-500">...</span>
+                              <span className="px-2 text-muted-foreground">
+                                ...
+                              </span>
                             )}
                             <Button
                               variant={page === pageNum ? "default" : "outline"}
@@ -198,8 +202,8 @@ export default function ProductsPage() {
                               onClick={() => handlePageChange(pageNum)}
                               className={
                                 page === pageNum
-                                  ? "bg-green-600 hover:bg-green-700 text-white"
-                                  : "border-gray-300 hover:border-green-600 hover:text-green-600"
+                                  ? "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700"
+                                  : "border-border hover:border-green-600 hover:text-green-600 dark:hover:border-green-400 dark:hover:text-green-400"
                               }
                             >
                               {pageNum}
@@ -212,7 +216,7 @@ export default function ProductsPage() {
                       variant="outline"
                       disabled={page === productsData.meta.totalPages}
                       onClick={() => handlePageChange(page + 1)}
-                      className="border-gray-300 hover:border-green-600 hover:text-green-600"
+                      className="border-border hover:border-green-600 hover:text-green-600 dark:hover:border-green-400 dark:hover:text-green-400"
                     >
                       Next
                     </Button>
@@ -226,50 +230,50 @@ export default function ProductsPage() {
         {/* Additional Information Section */}
         <section className="mt-20">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl font-bold text-foreground mb-4">
               Why Choose Red Bead?
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               We&apos;re committed to delivering exceptional quality and service
               that helps your brand make a lasting impression.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <Card className="text-center p-6 hover:shadow-lg transition-all duration-300 border-gray-200 hover:border-green-200">
+            <Card className="text-center p-6 hover:shadow-lg transition-all duration-300 border-border hover:border-green-200 dark:hover:border-green-800 bg-card">
               <CardHeader className="pb-4">
                 <div className="flex justify-center mb-4">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                    <Award className="h-8 w-8 text-green-600" />
+                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <Award className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
-                <CardTitle className="text-gray-900">
+                <CardTitle className="text-foreground">
                   Custom Design Services
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Need a unique design? Our expert team can create custom
                   designs tailored to your specific requirements.
                 </p>
 
                 <ul className="space-y-2 text-sm">
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     Professional Design Team
                   </li>
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     Unlimited Revisions
                   </li>
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     Quick Turnaround
                   </li>
                 </ul>
 
                 <Button
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700"
                   asChild
                 >
                   <Link href="/contact">Get Quote</Link>
@@ -277,39 +281,39 @@ export default function ProductsPage() {
               </CardContent>
             </Card>
 
-            <Card className="text-center p-6 hover:shadow-lg transition-all duration-300 border-gray-200 hover:border-green-200">
+            <Card className="text-center p-6 hover:shadow-lg transition-all duration-300 border-border hover:border-green-200 dark:hover:border-green-800 bg-card">
               <CardHeader className="pb-4">
                 <div className="flex justify-center mb-4">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                    <Users className="h-8 w-8 text-green-600" />
+                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <Users className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
-                <CardTitle className="text-gray-900">Bulk Orders</CardTitle>
+                <CardTitle className="text-foreground">Bulk Orders</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Planning a large event? Contact us for special pricing on bulk
                   orders and volume discounts.
                 </p>
 
                 <ul className="space-y-2 text-sm">
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     Volume Discounts
                   </li>
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     Dedicated Account Manager
                   </li>
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     Flexible Payment Terms
                   </li>
                 </ul>
 
                 <Button
                   variant="outline"
-                  className="border-green-600 text-green-600 hover:bg-green-50"
+                  className="border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
                   asChild
                 >
                   <Link href="/bulk-orders">Learn More</Link>
@@ -317,41 +321,41 @@ export default function ProductsPage() {
               </CardContent>
             </Card>
 
-            <Card className="text-center p-6 hover:shadow-lg transition-all duration-300 border-gray-200 hover:border-green-200">
+            <Card className="text-center p-6 hover:shadow-lg transition-all duration-300 border-border hover:border-green-200 dark:hover:border-green-800 bg-card">
               <CardHeader className="pb-4">
                 <div className="flex justify-center mb-4">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
-                <CardTitle className="text-gray-900">
+                <CardTitle className="text-foreground">
                   Quality Guarantee
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   We stand behind our products with a 100% satisfaction
                   guarantee and premium materials.
                 </p>
 
                 <ul className="space-y-2 text-sm">
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     100% Satisfaction Guarantee
                   </li>
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     Premium Materials Only
                   </li>
-                  <li className="flex items-center justify-center text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <li className="flex items-center justify-center text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mr-2" />
                     ISO Certified Process
                   </li>
                 </ul>
 
                 <Button
                   variant="outline"
-                  className="border-green-600 text-green-600 hover:bg-green-50"
+                  className="border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
                   asChild
                 >
                   <Link href="/quality">Our Promise</Link>
@@ -362,11 +366,11 @@ export default function ProductsPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="mt-20 bg-gradient-to-r from-green-600 to-green-700 rounded-2xl p-8 md:p-12 text-center">
+        <section className="mt-20 bg-gradient-to-r from-green-600 to-green-700 dark:from-green-700 dark:to-green-800 rounded-2xl p-8 md:p-12 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
             Ready to Create Something Amazing?
           </h2>
-          <p className="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-green-100 dark:text-green-200 mb-8 max-w-2xl mx-auto">
             Join hundreds of businesses that trust Red Bead for their custom
             printing needs. Let&apos;s bring your brand to life!
           </p>
@@ -374,7 +378,7 @@ export default function ProductsPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
-              className="bg-white text-green-600 hover:bg-gray-50"
+              className="bg-white text-green-600 hover:bg-gray-50 dark:bg-gray-100 dark:text-green-700 dark:hover:bg-white"
               asChild
             >
               <Link href="/contact">Get Custom Quote</Link>
@@ -382,7 +386,7 @@ export default function ProductsPage() {
             <Button
               size="lg"
               variant="outline"
-              className="border-white text-white hover:bg-white hover:text-green-600"
+              className="border-white text-white hover:bg-white hover:text-green-600 dark:border-green-200 dark:text-green-100 dark:hover:bg-green-200 dark:hover:text-green-800"
               asChild
             >
               <Link href="/bulk-orders">Bulk Orders</Link>
