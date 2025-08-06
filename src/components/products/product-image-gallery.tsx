@@ -64,8 +64,8 @@ export function ProductImageGallery({
   return (
     <div className={cn("space-y-4", className)}>
       {/* Main Image */}
-      <Card className="overflow-hidden">
-        <div className="aspect-square relative bg-gradient-to-br from-gray-50 to-gray-100">
+      <Card className="overflow-hidden border-border bg-card">
+        <div className="aspect-square relative bg-gradient-to-br from-muted/50 to-muted">
           <Image
             src={currentImage}
             alt={`${productName} - Image ${selectedImageIndex + 1}`}
@@ -85,7 +85,7 @@ export function ProductImageGallery({
               <Button
                 variant="outline"
                 size="icon"
-                className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-background/80 hover:bg-background border-border"
                 onClick={handlePreviousImage}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -93,7 +93,7 @@ export function ProductImageGallery({
               <Button
                 variant="outline"
                 size="icon"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-background/80 hover:bg-background border-border"
                 onClick={handleNextImage}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -106,7 +106,7 @@ export function ProductImageGallery({
             <Button
               variant="outline"
               size="icon"
-              className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+              className="absolute top-2 right-2 bg-background/80 hover:bg-background border-border"
               onClick={handleFullscreenOpen}
             >
               <Expand className="h-4 w-4" />
@@ -140,7 +140,7 @@ export function ProductImageGallery({
                 "flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 transition-colors",
                 selectedImageIndex === index
                   ? "border-primary"
-                  : "border-gray-200 hover:border-gray-300"
+                  : "border-border hover:border-muted-foreground"
               )}
             >
               <Image
@@ -158,10 +158,10 @@ export function ProductImageGallery({
       {/* Fullscreen Modal */}
       {allowFullscreen && (
         <Dialog open={isFullscreenOpen} onOpenChange={setIsFullscreenOpen}>
-          <DialogContent className="max-w-4xl w-full h-[90vh]">
+          <DialogContent className="max-w-4xl w-full h-[90vh] bg-background border-border">
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between">
-                <span>{productName}</span>
+                <span className="text-foreground">{productName}</span>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -186,7 +186,7 @@ export function ProductImageGallery({
                     <Button
                       variant="outline"
                       size="icon"
-                      className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                      className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-background/80 hover:bg-background border-border"
                       onClick={handlePreviousImage}
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -194,7 +194,7 @@ export function ProductImageGallery({
                     <Button
                       variant="outline"
                       size="icon"
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-background/80 hover:bg-background border-border"
                       onClick={handleNextImage}
                     >
                       <ChevronRight className="h-4 w-4" />

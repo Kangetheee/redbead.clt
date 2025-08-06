@@ -51,30 +51,30 @@ export function FeaturedProductsSection({
     return (
       <div className={cn("space-y-8", className)}>
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl font-bold text-foreground mb-4">
             Featured Products
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Discover our most popular custom products for your business needs
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: limit }).map((_, index) => (
-            <Card key={index} className="overflow-hidden">
+            <Card key={index} className="overflow-hidden bg-card border-border">
               <div className="aspect-square relative">
-                <Skeleton className="w-full h-full" />
+                <Skeleton className="w-full h-full bg-muted" />
               </div>
               <CardContent className="p-4 space-y-3">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-5 w-3/4 bg-muted" />
+                <Skeleton className="h-4 w-full bg-muted" />
+                <Skeleton className="h-4 w-2/3 bg-muted" />
                 <div className="space-y-2">
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-3 w-full bg-muted" />
+                  <Skeleton className="h-3 w-full bg-muted" />
+                  <Skeleton className="h-3 w-2/3 bg-muted" />
                 </div>
-                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full bg-muted" />
               </CardContent>
             </Card>
           ))}
@@ -86,19 +86,19 @@ export function FeaturedProductsSection({
   if (error || isError) {
     return (
       <div className={cn("text-center py-12", className)}>
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">
           Featured Products
         </h2>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-          <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
-          <p className="text-red-600 mb-4">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 max-w-md mx-auto">
+          <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+          <p className="text-destructive mb-4">
             Unable to load featured products. Please try again later.
           </p>
           <details className="text-left">
-            <summary className="cursor-pointer text-sm text-red-500 mb-2">
+            <summary className="cursor-pointer text-sm text-muted-foreground mb-2 hover:text-foreground">
               Debug Info (Click to expand)
             </summary>
-            <pre className="text-xs bg-red-100 p-2 rounded overflow-auto">
+            <pre className="text-xs bg-muted p-2 rounded overflow-auto text-muted-foreground">
               {JSON.stringify(
                 {
                   error: error?.message || "Unknown error",
@@ -126,14 +126,14 @@ export function FeaturedProductsSection({
   if (!featuredProducts?.length) {
     return (
       <div className={cn("text-center py-12", className)}>
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">
           Featured Products
         </h2>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
-          <p className="text-yellow-700">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto dark:bg-yellow-900/20 dark:border-yellow-800/30">
+          <p className="text-yellow-700 dark:text-yellow-300">
             No featured products available at the moment.
           </p>
-          <p className="text-sm text-yellow-600 mt-2">
+          <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
             Data received: {JSON.stringify(featuredProducts)}
           </p>
         </div>
@@ -145,14 +145,14 @@ export function FeaturedProductsSection({
     <div className={cn("space-y-8", className)}>
       {/* Section Header */}
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">
           Featured Products
         </h2>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Discover our most popular custom products for your business needs
         </p>
         {/* Debug info */}
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           Loaded {featuredProducts.length} products
         </p>
       </div>
@@ -162,10 +162,10 @@ export function FeaturedProductsSection({
         {featuredProducts.map((product: ProductTypeResponse) => (
           <Card
             key={product.id}
-            className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-md"
+            className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-border bg-card shadow-md hover:shadow-lg dark:hover:shadow-2xl"
           >
             {/* Product Image */}
-            <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-muted/50 to-muted">
               <Image
                 src={product.thumbnailImage || "/placeholder-product.jpg"}
                 alt={product.name}
@@ -175,7 +175,7 @@ export function FeaturedProductsSection({
 
               {/* Featured Badge */}
               {product.isFeatured && (
-                <Badge className="absolute top-3 left-3 bg-yellow-500 text-white">
+                <Badge className="absolute top-3 left-3 bg-yellow-500 text-white dark:bg-yellow-600">
                   <Star className="w-3 h-3 mr-1" />
                   Featured
                 </Badge>
@@ -185,7 +185,7 @@ export function FeaturedProductsSection({
               {product.category && (
                 <Badge
                   variant="secondary"
-                  className="absolute top-3 right-3 bg-white/90 text-gray-700"
+                  className="absolute top-3 right-3 bg-background/90 text-foreground dark:bg-background/95"
                 >
                   {product.category.name}
                 </Badge>
@@ -196,12 +196,12 @@ export function FeaturedProductsSection({
             <CardContent className="p-4 space-y-3">
               {/* Product Title */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                <h3 className="font-semibold text-foreground mb-1 line-clamp-2 group-hover:text-primary transition-colors">
                   <Link href={`/products/${product.slug}`}>{product.name}</Link>
                 </h3>
 
                 {/* Product Type & Material */}
-                <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="capitalize">{product.type}</span>
                   <span>•</span>
                   <span className="capitalize">{product.material}</span>
@@ -209,7 +209,7 @@ export function FeaturedProductsSection({
               </div>
 
               {/* Product Description */}
-              <p className="text-sm text-gray-600 line-clamp-2">
+              <p className="text-sm text-muted-foreground line-clamp-2">
                 {product.description}
               </p>
 
@@ -217,7 +217,7 @@ export function FeaturedProductsSection({
               {product.designTemplates &&
                 product.designTemplates.length > 0 && (
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-gray-700">
+                    <p className="text-xs font-medium text-foreground">
                       Available Templates:
                     </p>
                     <ul className="space-y-1">
@@ -226,21 +226,21 @@ export function FeaturedProductsSection({
                         .map((template: any, idx: number) => (
                           <li
                             key={template.id}
-                            className="flex items-center text-xs text-gray-600"
+                            className="flex items-center text-xs text-muted-foreground"
                           >
-                            <CheckCircle className="h-3 w-3 text-green-600 mr-2 flex-shrink-0" />
+                            <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400 mr-2 flex-shrink-0" />
                             <span className="line-clamp-1">
                               {template.name}
                             </span>
                             {template.basePrice > 0 && (
-                              <span className="ml-auto font-medium text-green-600">
+                              <span className="ml-auto font-medium text-green-600 dark:text-green-400">
                                 From KES {template.basePrice.toLocaleString()}
                               </span>
                             )}
                           </li>
                         ))}
                       {product.designTemplates.length > 3 && (
-                        <li className="text-xs text-gray-500 ml-5">
+                        <li className="text-xs text-muted-foreground ml-5">
                           +{product.designTemplates.length - 3} more templates
                         </li>
                       )}
@@ -286,6 +286,7 @@ export function FeaturedProductsSection({
                   size="sm"
                   fullWidth={true}
                   showIcon={false}
+                  className="hover:bg-muted/50"
                 >
                   View Full Details →
                 </ViewDetailsButton>

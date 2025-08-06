@@ -95,15 +95,17 @@ export function ProductGrid({
       <div className={cn("space-y-4", className)}>
         {allowViewToggle && (
           <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">Loading products...</div>
+            <div className="text-sm text-muted-foreground">
+              Loading products...
+            </div>
             <div className="flex gap-2">
-              <div className="flex border border-gray-200 rounded-lg p-1">
-                <Skeleton className="h-8 w-8" />
-                <Skeleton className="h-8 w-8 ml-1" />
+              <div className="flex border border-border rounded-lg p-1 bg-background">
+                <Skeleton className="h-8 w-8 bg-muted" />
+                <Skeleton className="h-8 w-8 ml-1 bg-muted" />
               </div>
-              <div className="flex border border-gray-200 rounded-lg p-1">
-                <Skeleton className="h-8 w-8" />
-                <Skeleton className="h-8 w-8 ml-1" />
+              <div className="flex border border-border rounded-lg p-1 bg-background">
+                <Skeleton className="h-8 w-8 bg-muted" />
+                <Skeleton className="h-8 w-8 ml-1 bg-muted" />
               </div>
             </div>
           </div>
@@ -111,25 +113,25 @@ export function ProductGrid({
 
         <div className={viewMode === "grid" ? getGridClasses() : "space-y-3"}>
           {Array.from({ length: gridCols.xl || 4 * 2 }).map((_, i) => (
-            <Card key={i} className="animate-pulse border-gray-200">
+            <Card key={i} className="animate-pulse border-border bg-card">
               {viewMode === "grid" ? (
                 <>
-                  <Skeleton className="aspect-square rounded-t-lg" />
+                  <Skeleton className="aspect-square rounded-t-lg bg-muted" />
                   <div className="p-3 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-2/3" />
-                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-4 w-3/4 bg-muted" />
+                    <Skeleton className="h-3 w-full bg-muted" />
+                    <Skeleton className="h-3 w-2/3 bg-muted" />
+                    <Skeleton className="h-8 w-full bg-muted" />
                   </div>
                 </>
               ) : (
                 <div className="flex">
-                  <Skeleton className="w-24 h-24 rounded-l-lg" />
+                  <Skeleton className="w-24 h-24 rounded-l-lg bg-muted" />
                   <div className="flex-1 p-3 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-2/3" />
-                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-4 w-3/4 bg-muted" />
+                    <Skeleton className="h-3 w-full bg-muted" />
+                    <Skeleton className="h-3 w-2/3 bg-muted" />
+                    <Skeleton className="h-6 w-20 bg-muted" />
                   </div>
                 </div>
               )}
@@ -154,15 +156,19 @@ export function ProductGrid({
       <div className={cn("space-y-4", className)}>
         {allowViewToggle && (
           <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">0 products found</div>
+            <div className="text-sm text-muted-foreground">
+              0 products found
+            </div>
             <div className="flex gap-2">
-              <div className="flex border border-gray-200 rounded-lg p-1">
+              <div className="flex border border-border rounded-lg p-1 bg-background">
                 <Button
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("grid")}
                   className={
-                    viewMode === "grid" ? "bg-green-600 hover:bg-green-700" : ""
+                    viewMode === "grid"
+                      ? "bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                      : ""
                   }
                 >
                   <LayoutGrid className="h-4 w-4" />
@@ -172,7 +178,9 @@ export function ProductGrid({
                   size="sm"
                   onClick={() => setViewMode("list")}
                   className={
-                    viewMode === "list" ? "bg-green-600 hover:bg-green-700" : ""
+                    viewMode === "list"
+                      ? "bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                      : ""
                   }
                 >
                   <List className="h-4 w-4" />
@@ -182,15 +190,15 @@ export function ProductGrid({
           </div>
         )}
 
-        <Card className="border-gray-200">
+        <Card className="border-border bg-card">
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-              <Grid3X3 className="h-10 w-10 text-green-600" />
+            <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-6">
+              <Grid3X3 className="h-10 w-10 text-green-600 dark:text-green-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+            <h3 className="text-xl font-semibold text-foreground mb-3">
               {finalEmptyState.title}
             </h3>
-            <p className="text-gray-600 text-center mb-6 max-w-md">
+            <p className="text-muted-foreground text-center mb-6 max-w-md">
               {finalEmptyState.description}
             </p>
             {finalEmptyState.action}
@@ -205,13 +213,13 @@ export function ProductGrid({
       {/* Enhanced View Toggle with Density Control */}
       {allowViewToggle && (
         <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-muted-foreground">
             {products.length} product{products.length !== 1 ? "s" : ""} found
           </div>
 
           <div className="flex gap-2">
             {/* View Mode Toggle */}
-            <div className="flex border border-gray-200 rounded-lg p-1 bg-white">
+            <div className="flex border border-border rounded-lg p-1 bg-background">
               <Button
                 variant={viewMode === "grid" ? "default" : "ghost"}
                 size="sm"
@@ -220,8 +228,8 @@ export function ProductGrid({
                 className={cn(
                   "transition-colors",
                   viewMode === "grid"
-                    ? "bg-green-600 hover:bg-green-700 text-white"
-                    : "hover:bg-green-50 hover:text-green-600"
+                    ? "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700"
+                    : "hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/30 dark:hover:text-green-400"
                 )}
               >
                 <LayoutGrid className="h-4 w-4" />
@@ -234,8 +242,8 @@ export function ProductGrid({
                 className={cn(
                   "transition-colors",
                   viewMode === "list"
-                    ? "bg-green-600 hover:bg-green-700 text-white"
-                    : "hover:bg-green-50 hover:text-green-600"
+                    ? "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700"
+                    : "hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/30 dark:hover:text-green-400"
                 )}
               >
                 <List className="h-4 w-4" />
@@ -244,7 +252,7 @@ export function ProductGrid({
 
             {/* Grid Density Toggle (only for grid view) */}
             {viewMode === "grid" && (
-              <div className="flex border border-gray-200 rounded-lg p-1 bg-white">
+              <div className="flex border border-border rounded-lg p-1 bg-background">
                 <Button
                   variant={gridDensity === "comfortable" ? "default" : "ghost"}
                   size="sm"
@@ -253,8 +261,8 @@ export function ProductGrid({
                   className={cn(
                     "transition-colors",
                     gridDensity === "comfortable"
-                      ? "bg-green-600 hover:bg-green-700 text-white"
-                      : "hover:bg-green-50 hover:text-green-600"
+                      ? "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700"
+                      : "hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/30 dark:hover:text-green-400"
                   )}
                 >
                   <Grid2X2 className="h-4 w-4" />
@@ -267,8 +275,8 @@ export function ProductGrid({
                   className={cn(
                     "transition-colors",
                     gridDensity === "compact"
-                      ? "bg-green-600 hover:bg-green-700 text-white"
-                      : "hover:bg-green-50 hover:text-green-600"
+                      ? "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700"
+                      : "hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/30 dark:hover:text-green-400"
                   )}
                 >
                   <Grid3X3 className="h-4 w-4" />
@@ -305,7 +313,7 @@ export function ProductGrid({
       {/* Grid Info Footer */}
       {products.length > 0 && (
         <div className="flex justify-center pt-4">
-          <div className="text-xs text-gray-500 bg-gray-50 px-3 py-1 rounded-full">
+          <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
             Showing {products.length} products
             {viewMode === "grid" && (
               <span className="ml-2">

@@ -91,11 +91,11 @@ export function ProductCard({
       size: variant === "list" ? ("sm" as const) : config.buttonSize,
       className: cn(
         variant === "overlay" &&
-          "bg-white/90 text-gray-900 hover:bg-white border-0",
+          "bg-background/90 text-foreground hover:bg-background border-0",
         variant === "primary" &&
-          "border-green-600 text-green-600 hover:bg-green-50 w-full",
+          "border-green-600 text-green-600 hover:bg-green-50 w-full dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30",
         variant === "list" &&
-          "flex-1 text-xs border-green-200 text-green-600 hover:bg-green-50"
+          "flex-1 text-xs border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
       ),
     };
 
@@ -118,10 +118,12 @@ export function ProductCard({
         variant === "overlay" ? ("default" as const) : ("default" as const),
       size: variant === "list" ? ("sm" as const) : config.buttonSize,
       className: cn(
-        variant === "overlay" && "bg-green-600 hover:bg-green-700 text-white",
+        variant === "overlay" &&
+          "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700",
         variant === "primary" &&
-          "bg-green-600 hover:bg-green-700 text-white w-full",
-        variant === "list" && "flex-1 bg-green-600 hover:bg-green-700 text-xs"
+          "bg-green-600 hover:bg-green-700 text-white w-full dark:bg-green-600 dark:hover:bg-green-700",
+        variant === "list" &&
+          "flex-1 bg-green-600 hover:bg-green-700 text-xs dark:bg-green-600 dark:hover:bg-green-700"
       ),
     };
 
@@ -141,12 +143,12 @@ export function ProductCard({
     return (
       <Card
         className={cn(
-          "flex flex-row overflow-hidden hover:shadow-md transition-all duration-200 border-gray-200 hover:border-green-200 group",
+          "flex flex-row overflow-hidden hover:shadow-md transition-all duration-200 border-border hover:border-green-200 dark:hover:border-green-800 group bg-card",
           className
         )}
       >
         {/* Image */}
-        <div className="relative bg-gradient-to-br from-green-50 to-gray-50 flex-shrink-0 w-20 h-20">
+        <div className="relative bg-gradient-to-br from-green-50 to-muted dark:from-green-950/20 dark:to-muted flex-shrink-0 w-20 h-20">
           <Image
             src={product.thumbnailImage || "/placeholder-product.jpg"}
             alt={product.name}
@@ -156,7 +158,7 @@ export function ProductCard({
 
           {/* Featured badge - mini */}
           {product.isFeatured && (
-            <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs p-0 w-4 h-4 flex items-center justify-center">
+            <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-white dark:bg-yellow-600 text-xs p-0 w-4 h-4 flex items-center justify-center">
               <Star className="w-2 h-2" />
             </Badge>
           )}
@@ -167,12 +169,12 @@ export function ProductCard({
           <div className="space-y-1">
             {/* Header */}
             <div>
-              <h3 className="text-sm font-medium text-gray-900 line-clamp-1 group-hover:text-green-600 transition-colors">
+              <h3 className="text-sm font-medium text-foreground line-clamp-1 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
                 <Link href={`/products/${product.slug}`}>{product.name}</Link>
               </h3>
 
               {/* Meta info - compact */}
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {showMaterial && (
                   <>
                     <span className="capitalize">
@@ -187,7 +189,7 @@ export function ProductCard({
                 {showCategory && product.category && (
                   <>
                     {showMaterial && <span>•</span>}
-                    <span className="text-green-600">
+                    <span className="text-green-600 dark:text-green-400">
                       {product.category.name}
                     </span>
                   </>
@@ -197,10 +199,10 @@ export function ProductCard({
 
             {/* Quick info */}
             {templates.length > 0 && (
-              <div className="text-xs text-gray-600">
+              <div className="text-xs text-muted-foreground">
                 {templates.length} template{templates.length !== 1 ? "s" : ""}
                 {templates[0] && (
-                  <span className="text-green-600 font-medium ml-2">
+                  <span className="text-green-600 dark:text-green-400 font-medium ml-2">
                     from KES {templates[0].basePrice.toLocaleString()}
                   </span>
                 )}
@@ -222,14 +224,14 @@ export function ProductCard({
   return (
     <Card
       className={cn(
-        "group overflow-hidden hover:shadow-lg transition-all duration-300 border-gray-200 hover:border-green-200 bg-white",
+        "group overflow-hidden hover:shadow-lg transition-all duration-300 border-border hover:border-green-200 dark:hover:border-green-800 bg-card",
         className
       )}
     >
       {/* Product Image */}
       <div
         className={cn(
-          "relative overflow-hidden bg-gradient-to-br from-green-50 to-gray-50",
+          "relative overflow-hidden bg-gradient-to-br from-green-50 to-muted dark:from-green-950/20 dark:to-muted",
           aspectRatioClass
         )}
       >
@@ -245,7 +247,7 @@ export function ProductCard({
         <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
           {/* Featured Badge */}
           {product.isFeatured && (
-            <Badge className="bg-yellow-500 text-white text-xs">
+            <Badge className="bg-yellow-500 text-white dark:bg-yellow-600 text-xs">
               <Star className="w-2 h-2 mr-1" />
               Featured
             </Badge>
@@ -255,7 +257,7 @@ export function ProductCard({
           {showCategory && product.category && (
             <Badge
               variant="secondary"
-              className="bg-white/90 text-gray-700 text-xs ml-auto"
+              className="bg-background/90 text-foreground dark:bg-background/95 text-xs ml-auto"
             >
               {product.category.name}
             </Badge>
@@ -278,7 +280,7 @@ export function ProductCard({
           <h3
             className={cn(
               config.titleClass,
-              "text-gray-900 mb-1 line-clamp-2 group-hover:text-green-600 transition-colors"
+              "text-foreground mb-1 line-clamp-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors"
             )}
           >
             <Link
@@ -291,7 +293,7 @@ export function ProductCard({
 
           {/* Product Type & Material - compact */}
           {showMaterial && (
-            <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
               <span className="capitalize">{product.type.toLowerCase()}</span>
               <span>•</span>
               <span className="capitalize">
@@ -303,7 +305,12 @@ export function ProductCard({
 
         {/* Product Description - conditional */}
         {showDescription && size !== "sm" && (
-          <p className={cn(config.descClass, "text-gray-600 line-clamp-2")}>
+          <p
+            className={cn(
+              config.descClass,
+              "text-muted-foreground line-clamp-2"
+            )}
+          >
             {truncateText(product.description, config.maxDesc)}
           </p>
         )}
@@ -312,7 +319,7 @@ export function ProductCard({
         {showTemplateList && templates.length > 0 && (
           <div className="space-y-1">
             {size === "lg" && (
-              <p className="text-xs font-medium text-gray-700">
+              <p className="text-xs font-medium text-foreground">
                 Templates ({templates.length}):
               </p>
             )}
@@ -322,21 +329,21 @@ export function ProductCard({
                 .map((template, idx) => (
                   <li
                     key={template.id}
-                    className="flex items-center text-xs text-gray-600"
+                    className="flex items-center text-xs text-muted-foreground"
                   >
-                    <CheckCircle className="h-2 w-2 text-green-600 mr-1 flex-shrink-0" />
+                    <CheckCircle className="h-2 w-2 text-green-600 dark:text-green-400 mr-1 flex-shrink-0" />
                     <span className="line-clamp-1 flex-1 min-w-0">
                       {template.name}
                     </span>
                     {template.basePrice > 0 && (
-                      <span className="font-medium text-green-600 ml-1 text-xs">
+                      <span className="font-medium text-green-600 dark:text-green-400 ml-1 text-xs">
                         KES {template.basePrice.toLocaleString()}
                       </span>
                     )}
                   </li>
                 ))}
               {templates.length > maxTemplatesShown && size !== "sm" && (
-                <li className="text-xs text-gray-500">
+                <li className="text-xs text-muted-foreground">
                   +{templates.length - maxTemplatesShown} more
                 </li>
               )}

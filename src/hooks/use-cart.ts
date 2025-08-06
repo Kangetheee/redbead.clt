@@ -191,7 +191,7 @@ export function useCartItems() {
  */
 export function useCartItemCount() {
   const { data: cart } = useCart();
-  return cart?.meta.itemCount ?? 0;
+  return cart?.meta?.itemCount ?? 0;
 }
 
 /**
@@ -199,7 +199,7 @@ export function useCartItemCount() {
  */
 export function useCartTotalQuantity() {
   const { data: cart } = useCart();
-  return cart?.meta.totalQuantity ?? 0;
+  return cart?.meta?.totalQuantity ?? 0;
 }
 
 /**
@@ -207,7 +207,7 @@ export function useCartTotalQuantity() {
  */
 export function useCartSubtotal() {
   const { data: cart } = useCart();
-  return cart?.meta.subtotal ?? 0;
+  return cart?.meta?.subtotal ?? 0;
 }
 
 /**
@@ -215,7 +215,7 @@ export function useCartSubtotal() {
  */
 export function useCartCustomizationAdjustments() {
   const { data: cart } = useCart();
-  return cart?.meta.customizationAdjustments ?? 0;
+  return cart?.meta?.customizationAdjustments ?? 0;
 }
 
 /**
@@ -223,5 +223,5 @@ export function useCartCustomizationAdjustments() {
  */
 export function useCartTotal() {
   const { data: cart } = useCart();
-  return cart?.meta.total ?? 0;
+  return cart?.meta?.total ?? 0;
 }
