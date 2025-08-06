@@ -111,7 +111,7 @@ export default function OrdersList({
   const { data: ordersData, isLoading, refetch } = useOrders(localFilters);
 
   const orders: OrderListItem[] = ordersData?.success
-    ? ordersData.data?.items || []
+    ? ordersData.data?.data || []
     : [];
   const pagination = ordersData?.success ? ordersData.data?.meta : null;
 

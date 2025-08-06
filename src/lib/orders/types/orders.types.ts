@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
+import { AddressResponse } from "@/lib/address/types/address.types";
 export interface OrderAddress {
   id?: string;
   street?: string;
@@ -7,7 +7,6 @@ export interface OrderAddress {
   state?: string;
   country?: string;
   postalCode?: string;
-  // Add other address fields based on your requirements
 }
 
 export interface OrderItemCustomization {
@@ -170,8 +169,6 @@ export interface OrderResponse {
   designApprovalRequestedAt?: string;
   designApprovalCompletedAt?: string;
   designApproval?: DesignApproval;
-
-  // Timeline dates
   designStartDate?: string;
   designCompletionDate?: string;
   productionStartDate?: string;
@@ -179,8 +176,8 @@ export interface OrderResponse {
   shippingDate?: string;
   actualDeliveryDate?: string;
 
-  shippingAddress: OrderAddress;
-  billingAddress?: OrderAddress;
+  shippingAddress: AddressResponse;
+  billingAddress?: AddressResponse;
   orderItems: OrderItem[];
   payment?: OrderPayment;
   templateId?: string;

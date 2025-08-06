@@ -1,25 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAddresses } from "@/hooks/use-address";
-import { AddressResponse } from "@/lib/address/types/address.types";
-import { useCalculateShipping } from "@/hooks/use-checkout";
-import { addressInputSchema } from "@/lib/checkout/dto/checkout.dto";
-import {
-  AddressInput,
-  ShippingOption,
-} from "@/lib/checkout/types/checkout.types";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,344 +14,276 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Truck,
-  MapPin,
-  Clock,
-  DollarSign,
-  Plus,
-  Loader2,
-  Zap,
-  AlertCircle,
-} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, MapPin, Truck, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
-interface ShippingFormProps {
+// Import the correct types and hooks
+import {
+  shippingAddressSchema,
+  type ShippingAddressDto,
+  type CalculateShippingDto,
+} from "@/lib/shipping/dto/shipping.dto";
+import { type ShippingOptionResponse } from "@/lib/shipping/types/shipping.types";
+import { useCalculateShipping } from "@/hooks/use-shipping";
+
+// Define the response interface locally since it's not exported
+interface ShippingCalculationResponse {
   sessionId: string;
-  onShippingCalculated?: (
-    options: ShippingOption[],
-    selectedOption?: string
-  ) => void;
-  onAddressChange?: (address: AddressInput) => void;
-  initialAddress?: AddressInput;
-  urgencyLevel?: "NORMAL" | "EXPEDITED" | "RUSH" | "EMERGENCY";
-  onUrgencyChange?: (
-    level: "NORMAL" | "EXPEDITED" | "RUSH" | "EMERGENCY"
-  ) => void;
-  showUrgencySelector?: boolean;
+  shippingOptions: ShippingOptionResponse[];
+  updatedTotals: {
+    subtotal: number;
+    estimatedTax: number;
+    shippingCost: number;
+    discount: number;
+    estimatedTotal: number;
+  };
 }
+
+// Countries list - you might want to move this to a constants file
+const COUNTRIES = [
+  { code: "US", name: "United States" },
+  { code: "CA", name: "Canada" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "AU", name: "Australia" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  // Add more countries as needed
+];
 
 const URGENCY_LEVELS = [
   {
-    value: "NORMAL" as const,
-    label: "Normal",
-    description: "Standard processing time",
-    icon: Clock,
-    color: "bg-green-500",
+    value: "LOW",
+    label: "Standard (Low Priority)",
+    description: "5-7 business days",
   },
-  {
-    value: "EXPEDITED" as const,
-    label: "Expedited",
-    description: "Faster processing",
-    icon: Truck,
-    color: "bg-yellow-500",
-  },
-  {
-    value: "RUSH" as const,
-    label: "Rush",
-    description: "Priority processing",
-    icon: Zap,
-    color: "bg-orange-500",
-  },
-  {
-    value: "EMERGENCY" as const,
-    label: "Emergency",
-    description: "Urgent processing",
-    icon: AlertCircle,
-    color: "bg-red-500",
-  },
-];
+  { value: "NORMAL", label: "Normal", description: "3-5 business days" },
+  { value: "HIGH", label: "Expedited", description: "1-3 business days" },
+  { value: "URGENT", label: "Urgent", description: "Next business day" },
+] as const;
+
+interface ShippingFormProps {
+  sessionId: string;
+  onShippingCalculated?: (options: ShippingCalculationResponse) => void;
+  onShippingSelected?: (option: ShippingOptionResponse) => void;
+  defaultAddress?: Partial<ShippingAddressDto>;
+}
 
 export function ShippingForm({
   sessionId,
   onShippingCalculated,
-  onAddressChange,
-  initialAddress,
-  urgencyLevel = "NORMAL",
-  onUrgencyChange,
-  showUrgencySelector = true,
+  onShippingSelected,
+  defaultAddress,
 }: ShippingFormProps) {
-  const [useExistingAddress, setUseExistingAddress] = useState(true);
-  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [selectedShippingOption, setSelectedShippingOption] =
     useState<string>("");
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [shippingOptions, setShippingOptions] = useState<
+    ShippingOptionResponse[]
+  >([]);
+  const [calculationError, setCalculationError] = useState<string>("");
 
-  const { data: addressesData } = useAddresses();
   const calculateShippingMutation = useCalculateShipping();
 
-  // Helper function to convert AddressResponse to AddressInput
-  const convertAddressResponseToInput = useCallback(
-    (address: AddressResponse): AddressInput => ({
-      recipientName: address.recipientName,
-      companyName: address.companyName || undefined,
-      street: address.street,
-      street2: address.street2 || undefined,
-      city: address.city,
-      state: address.state || undefined,
-      postalCode: address.postalCode,
-      country: address.country,
-      phone: address.phone || undefined,
-    }),
-    []
-  );
-
-  const form = useForm<AddressInput>({
-    resolver: zodResolver(addressInputSchema),
-    defaultValues: initialAddress || {
-      recipientName: "",
-      companyName: "",
-      street: "",
-      street2: "",
-      city: "",
-      state: "",
-      postalCode: "",
-      country: "KE",
-      phone: "",
+  const form = useForm<
+    ShippingAddressDto & { urgencyLevel: "LOW" | "NORMAL" | "HIGH" | "URGENT" }
+  >({
+    resolver: zodResolver(
+      shippingAddressSchema.extend({
+        urgencyLevel: z
+          .enum(["LOW", "NORMAL", "HIGH", "URGENT"])
+          .default("NORMAL"),
+      })
+    ),
+    defaultValues: {
+      recipientName: defaultAddress?.recipientName || "",
+      companyName: defaultAddress?.companyName || "",
+      street: defaultAddress?.street || "",
+      street2: defaultAddress?.street2 || "",
+      city: defaultAddress?.city || "",
+      state: defaultAddress?.state || "",
+      postalCode: defaultAddress?.postalCode || "",
+      country: defaultAddress?.country || "",
+      phone: defaultAddress?.phone || "",
+      urgencyLevel: "NORMAL",
     },
   });
 
-  const watchedForm = form.watch();
+  const watchedCountry = form.watch("country");
+  const watchedUrgencyLevel = form.watch("urgencyLevel");
 
-  // Calculate shipping when address changes
+  // Calculate shipping when form is valid and complete
   useEffect(() => {
-    const selectedAddress = useExistingAddress
-      ? addressesData?.success
-        ? addressesData.data.items.find((addr) => addr.id === selectedAddressId)
-        : undefined
-      : undefined;
+    const subscription = form.watch((value, { name }) => {
+      // Only trigger calculation if key fields change and form is valid
+      const triggerFields = [
+        "country",
+        "state",
+        "city",
+        "postalCode",
+        "urgencyLevel",
+      ];
+      if (triggerFields.includes(name || "")) {
+        handleCalculateShipping();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch]);
 
-    const address: AddressInput | undefined =
-      useExistingAddress && selectedAddress
-        ? convertAddressResponseToInput(selectedAddress)
-        : !useExistingAddress
-          ? watchedForm
-          : undefined;
+  const handleCalculateShipping = async () => {
+    const values = form.getValues();
 
-    if (
-      address &&
-      sessionId &&
-      ((useExistingAddress && selectedAddressId) ||
-        (!useExistingAddress &&
-          address.recipientName &&
-          address.street &&
-          address.city &&
-          address.postalCode))
-    ) {
-      calculateShippingMutation.mutate(
-        {
-          sessionId,
-          shippingAddress: address,
-          urgencyLevel,
-        },
-        {
-          onSuccess: (data) => {
-            if (data.success) {
-              setShippingOptions(data.data.shippingOptions);
-              onShippingCalculated?.(
-                data.data.shippingOptions,
-                selectedShippingOption
-              );
-              onAddressChange?.(address);
-            }
-          },
-        }
-      );
+    // Check if minimum required fields are filled
+    if (!values.country || !values.city || !values.postalCode) {
+      setShippingOptions([]);
+      setCalculationError("");
+      return;
     }
-  }, [
-    sessionId,
-    selectedAddressId,
-    useExistingAddress,
-    watchedForm,
-    urgencyLevel,
-    addressesData,
-    calculateShippingMutation,
-    onShippingCalculated,
-    onAddressChange,
-    selectedShippingOption,
-    convertAddressResponseToInput,
-  ]);
 
-  const handleAddressSelect = (address: AddressResponse) => {
-    setSelectedAddressId(address.id);
+    const calculationData: CalculateShippingDto = {
+      sessionId,
+      shippingAddress: {
+        recipientName: values.recipientName,
+        companyName: values.companyName,
+        street: values.street,
+        street2: values.street2,
+        city: values.city,
+        state: values.state,
+        postalCode: values.postalCode,
+        country: values.country,
+        phone: values.phone,
+      },
+      urgencyLevel: values.urgencyLevel,
+    };
+
+    try {
+      setCalculationError("");
+      const result =
+        await calculateShippingMutation.mutateAsync(calculationData);
+
+      // Handle the response - the hook returns { success: true, data: ShippingOptionResponse[] }
+      if (result && typeof result === "object" && "success" in result) {
+        if (result.success === false) {
+          // Error response
+          setShippingOptions([]);
+          setCalculationError(result.error || "Failed to calculate shipping");
+          return;
+        } else if (
+          result.success === true &&
+          "data" in result &&
+          Array.isArray(result.data)
+        ) {
+          // Success response with data array
+          const shippingOptions = result.data as ShippingOptionResponse[];
+          setShippingOptions(shippingOptions);
+
+          // Create a full response object for the callback
+          const shippingResponse: ShippingCalculationResponse = {
+            sessionId,
+            shippingOptions,
+            updatedTotals: {
+              subtotal: 0,
+              estimatedTax: 0,
+              shippingCost: 0,
+              discount: 0,
+              estimatedTotal: 0,
+            },
+          };
+          onShippingCalculated?.(shippingResponse);
+
+          // Auto-select first option if none selected
+          if (shippingOptions.length > 0 && !selectedShippingOption) {
+            const firstOption = shippingOptions[0];
+            setSelectedShippingOption(firstOption.id);
+            onShippingSelected?.(firstOption);
+          }
+        }
+      } else {
+        // Fallback for unexpected response format
+        setShippingOptions([]);
+        setCalculationError("Unexpected response format");
+      }
+    } catch (error) {
+      setShippingOptions([]);
+      setCalculationError("Unable to calculate shipping for this address");
+    }
   };
 
-  const handleShippingOptionSelect = (optionId: string) => {
+  const handleShippingOptionChange = (optionId: string) => {
     setSelectedShippingOption(optionId);
-    const option = shippingOptions.find((opt) => opt.id === optionId);
-    if (option) {
-      onShippingCalculated?.(shippingOptions, optionId);
+    const selectedOption = shippingOptions.find(
+      (option) => option.id === optionId
+    );
+    if (selectedOption) {
+      onShippingSelected?.(selectedOption);
+    }
+  };
+
+  const onSubmit = (
+    values: ShippingAddressDto & {
+      urgencyLevel: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+    }
+  ) => {
+    if (!selectedShippingOption) {
+      toast.error("Please select a shipping option");
+      return;
+    }
+
+    // Form is valid and shipping option is selected
+    const selectedOption = shippingOptions.find(
+      (option) => option.id === selectedShippingOption
+    );
+    if (selectedOption) {
+      toast.success("Shipping information saved");
+      onShippingSelected?.(selectedOption);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Urgency Level Selector */}
-      {showUrgencySelector && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5" />
-              Processing Priority
-            </CardTitle>
-            <CardDescription>
-              Choose how quickly you need your order processed
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup value={urgencyLevel} onValueChange={onUrgencyChange}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {URGENCY_LEVELS.map((level) => {
-                  const Icon = level.icon;
-                  return (
-                    <div
-                      key={level.value}
-                      className="flex items-center space-x-2"
-                    >
-                      <RadioGroupItem value={level.value} id={level.value} />
-                      <Label
-                        htmlFor={level.value}
-                        className="flex items-center gap-2 cursor-pointer flex-1 p-3 border rounded-lg hover:bg-muted/50"
-                      >
-                        <div
-                          className={`w-3 h-3 rounded-full ${level.color}`}
-                        />
-                        <Icon className="h-4 w-4" />
-                        <div className="flex-1">
-                          <div className="font-medium">{level.label}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {level.description}
-                          </div>
-                        </div>
-                      </Label>
-                    </div>
-                  );
-                })}
-              </div>
-            </RadioGroup>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Shipping Address */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
             Shipping Address
           </CardTitle>
+          <CardDescription>
+            Enter your shipping address to calculate shipping options
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Address Source Toggle */}
-          {addressesData?.success && addressesData.data.items.length > 0 && (
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={useExistingAddress ? "default" : "outline"}
-                onClick={() => setUseExistingAddress(true)}
-                className="flex-1"
-              >
-                Use Saved Address
-              </Button>
-              <Button
-                type="button"
-                variant={!useExistingAddress ? "default" : "outline"}
-                onClick={() => setUseExistingAddress(false)}
-                className="flex-1"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New Address
-              </Button>
-            </div>
-          )}
-
-          {/* Existing Address Selection */}
-          {useExistingAddress &&
-            addressesData?.success &&
-            addressesData.data.items.length > 0 && (
-              <div className="space-y-3">
-                {addressesData.data.items.map((address) => (
-                  <Card
-                    key={address.id}
-                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                      selectedAddressId === address.id
-                        ? "ring-2 ring-primary"
-                        : ""
-                    }`}
-                    onClick={() => handleAddressSelect(address)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="font-medium">
-                            {address.name || "Unnamed Address"}
-                            {address.isDefault && (
-                              <Badge
-                                variant="secondary"
-                                className="text-xs ml-2"
-                              >
-                                Default
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            <div className="font-medium text-foreground">
-                              {address.recipientName}
-                            </div>
-                            <div className="whitespace-pre-line">
-                              {address.formattedAddress}
-                            </div>
-                          </div>
-                        </div>
-                        {selectedAddressId === address.id && (
-                          <Badge className="text-xs">Selected</Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-          {/* New Address Form */}
-          {!useExistingAddress && (
-            <Form {...form}>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="recipientName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Recipient Name *</FormLabel>
+                      <FormLabel>Full Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Full name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+254..." {...field} />
+                        <Input placeholder="John Doe" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -376,8 +294,8 @@ export function ShippingForm({
                   control={form.control}
                   name="companyName"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Company Name (Optional)</FormLabel>
+                    <FormItem>
+                      <FormLabel>Company (Optional)</FormLabel>
                       <FormControl>
                         <Input placeholder="Company name" {...field} />
                       </FormControl>
@@ -385,46 +303,45 @@ export function ShippingForm({
                     </FormItem>
                   )}
                 />
+              </div>
 
-                <FormField
-                  control={form.control}
-                  name="street"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Street Address *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Street address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="street"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Street Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="123 Main Street" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="street2"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Apartment, Suite, etc. (Optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Apartment, suite, unit, building, floor, etc."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="street2"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Apartment, suite, etc. (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Apt 4B" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City *</FormLabel>
+                      <FormLabel>City</FormLabel>
                       <FormControl>
-                        <Input placeholder="City" {...field} />
+                        <Input placeholder="New York" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -438,7 +355,7 @@ export function ShippingForm({
                     <FormItem>
                       <FormLabel>State/Province</FormLabel>
                       <FormControl>
-                        <Input placeholder="State or province" {...field} />
+                        <Input placeholder="NY" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -450,10 +367,40 @@ export function ShippingForm({
                   name="postalCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Postal Code *</FormLabel>
+                      <FormLabel>Postal Code</FormLabel>
                       <FormControl>
-                        <Input placeholder="Postal code" {...field} />
+                        <Input placeholder="10001" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select country" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COUNTRIES.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -461,121 +408,176 @@ export function ShippingForm({
 
                 <FormField
                   control={form.control}
-                  name="country"
+                  name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Country *</FormLabel>
+                      <FormLabel>Phone Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="Country code" {...field} />
+                        <Input placeholder="+1 (555) 123-4567" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-            </Form>
-          )}
+
+              <FormField
+                control={form.control}
+                name="urgencyLevel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Delivery Priority</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {URGENCY_LEVELS.map((level) => (
+                            <SelectItem key={level.value} value={level.value}>
+                              <div className="flex flex-col">
+                                <span>{level.label}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {level.description}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormDescription>
+                      Higher priority levels may increase shipping costs
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
       {/* Shipping Options */}
-      {(calculateShippingMutation.isPending || shippingOptions.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Shipping Options
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {calculateShippingMutation.isPending ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">
-                    Calculating shipping options...
-                  </span>
-                </div>
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-3 border rounded"
-                  >
-                    <div className="space-y-1">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-48" />
-                    </div>
-                    <Skeleton className="h-4 w-16" />
-                  </div>
-                ))}
-              </div>
-            ) : shippingOptions.length > 0 ? (
-              <RadioGroup
-                value={selectedShippingOption}
-                onValueChange={handleShippingOptionSelect}
-              >
-                <div className="space-y-3">
-                  {shippingOptions.map((option) => (
-                    <div
-                      key={option.id}
-                      className="flex items-center space-x-2"
-                    >
-                      <RadioGroupItem value={option.id} id={option.id} />
-                      <Label
-                        htmlFor={option.id}
-                        className="flex items-center justify-between w-full cursor-pointer p-3 border rounded-lg hover:bg-muted/50"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{option.name}</span>
-                            {option.isFree && (
-                              <Badge variant="secondary" className="text-xs">
-                                FREE
-                              </Badge>
-                            )}
-                            {option.urgencyMultiplier > 1 && (
-                              <Badge variant="outline" className="text-xs">
-                                {option.urgencyMultiplier}x Priority
-                              </Badge>
-                            )}
-                          </div>
-                          {option.description && (
-                            <p className="text-sm text-muted-foreground">
-                              {option.description}
-                            </p>
-                          )}
-                          {option.estimatedDays && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {option.estimatedDays}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium flex items-center gap-1">
-                            <DollarSign className="h-4 w-4" />
-                            {option.isFree
-                              ? "FREE"
-                              : `KES ${option.cost.toLocaleString()}`}
-                          </div>
-                          {option.originalCost !== option.cost && (
-                            <div className="text-xs text-muted-foreground line-through">
-                              KES {option.originalCost.toLocaleString()}
-                            </div>
-                          )}
-                        </div>
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            ) : (
-              <div className="text-center text-muted-foreground py-4">
-                No shipping options available for this address.
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Truck className="h-5 w-5" />
+            Shipping Options
+          </CardTitle>
+          <CardDescription>
+            Select your preferred shipping method
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {calculateShippingMutation.isPending && (
+            <div className="flex items-center gap-2 py-8">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Calculating shipping options...</span>
+            </div>
+          )}
+
+          {calculationError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{calculationError}</AlertDescription>
+            </Alert>
+          )}
+
+          {!calculateShippingMutation.isPending &&
+            !calculationError &&
+            shippingOptions.length === 0 &&
+            watchedCountry && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No shipping options available for the selected address. Please
+                  verify your address details.
+                </AlertDescription>
+              </Alert>
+            )}
+
+          {!calculateShippingMutation.isPending &&
+            !calculationError &&
+            shippingOptions.length === 0 &&
+            !watchedCountry && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Truck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Enter your shipping address to see available options</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+
+          {shippingOptions.length > 0 && (
+            <RadioGroup
+              value={selectedShippingOption}
+              onValueChange={handleShippingOptionChange}
+              className="space-y-3"
+            >
+              {shippingOptions.map((option) => (
+                <div
+                  key={option.id}
+                  className={`relative flex items-center space-x-3 rounded-lg border p-4 transition-colors ${
+                    selectedShippingOption === option.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                >
+                  <RadioGroupItem value={option.id} id={option.id} />
+                  <Label htmlFor={option.id} className="flex-1 cursor-pointer">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{option.name}</span>
+                          {option.isFree && (
+                            <Badge variant="secondary" className="text-xs">
+                              FREE
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {option.description}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Estimated delivery: {option.estimatedDays}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium">
+                          {option.isFree
+                            ? "FREE"
+                            : `$${option.cost.toFixed(2)}`}
+                        </div>
+                        {!option.isFree &&
+                          option.originalCost !== option.cost && (
+                            <div className="text-sm text-muted-foreground line-through">
+                              ${option.originalCost.toFixed(2)}
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          )}
+        </CardContent>
+      </Card>
+
+      {shippingOptions.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={
+              !selectedShippingOption || calculateShippingMutation.isPending
+            }
+            className="min-w-[150px]"
+          >
+            Continue to Payment
+          </Button>
+        </div>
       )}
     </div>
   );

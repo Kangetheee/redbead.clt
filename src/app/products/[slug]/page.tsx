@@ -4,15 +4,16 @@ import { getProductTypeBySlugAction } from "@/lib/products/products.actions";
 import { ProductDetailsView } from "@/components/products/product-details-view";
 
 interface ProductDetailsPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
 export async function generateMetadata({
   params,
 }: ProductDetailsPageProps): Promise<Metadata> {
-  const result = await getProductTypeBySlugAction(params.slug);
+  const { slug } = await params;
+  const result = await getProductTypeBySlugAction(slug);
 
   if (!result.success || !result.data) {
     return {
@@ -44,7 +45,9 @@ export async function generateMetadata({
 export default async function ProductDetailsPage({
   params,
 }: ProductDetailsPageProps) {
-  const result = await getProductTypeBySlugAction(params.slug);
+  const { slug } = await params;
+
+  const result = await getProductTypeBySlugAction(slug);
 
   if (!result.success || !result.data) {
     notFound();

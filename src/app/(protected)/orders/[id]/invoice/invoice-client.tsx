@@ -1,33 +1,24 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+"use client";
+
 import React from "react";
-import { getSession } from "@/lib/session/session";
-import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import OrderInvoices from "@/components/orders/order-invoice";
 import { useOrder } from "@/hooks/use-orders";
 
-interface OrderInvoicePageProps {
-  params: {
-    orderId: string;
-  };
+interface OrderInvoiceClientProps {
+  orderId: string;
 }
 
-export default function OrderInvoicePage({ params }: OrderInvoicePageProps) {
-  const session = getSession();
-  const { orderId } = params;
-
-  if (!orderId || orderId.length < 10) {
-    notFound();
-  }
-
+export default function OrderInvoiceClient({
+  orderId,
+}: OrderInvoiceClientProps) {
   const { data: order, isLoading, error } = useOrder(orderId);
 
   const handleDownload = () => {
-    // Implement PDF download
     window.print();
   };
 
@@ -36,7 +27,6 @@ export default function OrderInvoicePage({ params }: OrderInvoicePageProps) {
   };
 
   const handleEmail = () => {
-    // Implement email functionality
     const subject = `Invoice ${order?.orderNumber}`;
     const body = `Please find attached the invoice for order ${order?.orderNumber}.`;
     window.open(
@@ -92,7 +82,6 @@ export default function OrderInvoicePage({ params }: OrderInvoicePageProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="border-b bg-white print:hidden">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
@@ -112,7 +101,6 @@ export default function OrderInvoicePage({ params }: OrderInvoicePageProps) {
         </div>
       </div>
 
-      {/* Invoice Component */}
       <div className="max-w-6xl mx-auto px-4 py-6">
         <OrderInvoices
           order={order}

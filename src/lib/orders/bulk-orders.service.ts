@@ -109,6 +109,7 @@ export class BulkOrderService {
       `/v1/bulk-orders/${bulkOrderId}/accept-quote`,
       {
         method: "POST",
+        data: {},
       }
     );
   }

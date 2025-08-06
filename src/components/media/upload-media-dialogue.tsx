@@ -50,7 +50,7 @@ export default function UploadMediaDialogue({ folderId }: Props) {
     console.log(values);
   }
 
-  const folderItems = folders?.results || [];
+  const folderItems = folders?.summary || [];
 
   // Add debug info to help troubleshoot API issues
   const debugApiInfo = () => {

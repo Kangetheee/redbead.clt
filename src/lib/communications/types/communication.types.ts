@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { EmailStatus } from "@/lib/email-logs/dto/email-log.dto";
+// import { EmailStatus } from "@/lib/email-logs/dto/email-log.dto";
 import { EmailTemplateCategory } from "../dto/email-template.dto";
 
 export interface EmailTemplate {
@@ -68,48 +68,48 @@ export interface EmailPreviewResponse {
   previewUrl?: string;
 }
 
-export interface EmailLog {
-  id: string;
-  templateId: string;
-  templateName: string;
-  recipientEmail: string;
-  recipientName?: string;
-  subject: string;
-  status: EmailStatus;
-  orderId?: string;
-  sentAt?: string;
-  deliveredAt?: string;
-  openedAt?: string;
-  clickedAt?: string;
-  bounceReason?: string;
-  errorMessage?: string;
-  metadata?: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-}
+// export interface EmailLog {
+//   id: string;
+//   templateId: string;
+//   templateName: string;
+//   recipientEmail: string;
+//   recipientName?: string;
+//   subject: string;
+//   status: EmailStatus;
+//   orderId?: string;
+//   sentAt?: string;
+//   deliveredAt?: string;
+//   openedAt?: string;
+//   clickedAt?: string;
+//   bounceReason?: string;
+//   errorMessage?: string;
+//   metadata?: Record<string, any>;
+//   createdAt: string;
+//   updatedAt: string;
+// }
 
-export interface EmailLogDetail extends EmailLog {
-  htmlContent: string;
-  textContent?: string;
-  variables: Record<string, any>;
-  headers?: Record<string, any>;
-  tags?: string[];
-  trackOpens: boolean;
-  trackClicks: boolean;
-  deliveryAttempts: number;
-  lastDeliveryAttempt?: string;
-  clickEvents?: Array<{
-    url: string;
-    clickedAt: string;
-    userAgent?: string;
-    ipAddress?: string;
-  }>;
-  openEvents?: Array<{
-    openedAt: string;
-    userAgent?: string;
-    ipAddress?: string;
-  }>;
-}
+// export interface EmailLogDetail extends EmailLog {
+//   htmlContent: string;
+//   textContent?: string;
+//   variables: Record<string, any>;
+//   headers?: Record<string, any>;
+//   tags?: string[];
+//   trackOpens: boolean;
+//   trackClicks: boolean;
+//   deliveryAttempts: number;
+//   lastDeliveryAttempt?: string;
+//   clickEvents?: Array<{
+//     url: string;
+//     clickedAt: string;
+//     userAgent?: string;
+//     ipAddress?: string;
+//   }>;
+//   openEvents?: Array<{
+//     openedAt: string;
+//     userAgent?: string;
+//     ipAddress?: string;
+//   }>;
+// }
 
 export interface EmailAnalytics {
   totalSent: number;
@@ -170,7 +170,7 @@ export interface TemplateUsageStats {
   recentEmails: Array<{
     id: string;
     recipientEmail: string;
-    status: EmailStatus;
+    // status: EmailStatus;
     sentAt: string;
   }>;
 }

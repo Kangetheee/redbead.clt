@@ -24,6 +24,7 @@ import {
   Copy,
   MoreHorizontal,
   RefreshCw,
+  Building,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -47,9 +48,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 import { useOrder } from "@/hooks/use-orders";
+import { useAddress } from "@/hooks/use-address";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
+import { AddressResponse } from "@/lib/address/types/address.types";
+import { ORDER_STATUS, URGENCY_LEVELS } from "@/lib/orders/dto/orders.dto";
 import OrderStatusUpdate from "./order-status-update";
 import OrderTimeline from "./order-timeline";
 import NotesList from "./order-notes/notes-list";
@@ -62,10 +67,21 @@ interface OrderDetailViewProps {
 export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Fetch order data - the hook uses select to return data directly
-  const { data: order, isLoading, refetch } = useOrder(orderId);
+  // Fetch order data using the hook
+  const { data: orderData, isLoading, refetch, error } = useOrder(orderId);
 
-  const getStatusBadge = (status: string) => {
+  // orderData is directly the OrderResponse or undefined (hook's select function extracts it)
+  const order: OrderResponse | undefined = orderData;
+
+  // Fetch address details if we only have address IDs
+  const { data: shippingAddressData } = useAddress(
+    order?.shippingAddress?.id || ""
+  );
+  const { data: billingAddressData } = useAddress(
+    order?.billingAddress?.id || ""
+  );
+
+  const getStatusBadge = (status: (typeof ORDER_STATUS)[number]) => {
     const statusConfig = {
       PENDING: {
         color: "bg-yellow-100 text-yellow-800",
@@ -143,7 +159,9 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
     );
   };
 
-  const getUrgencyBadgeVariant = (urgencyLevel: string) => {
+  const getUrgencyBadgeVariant = (
+    urgencyLevel: (typeof URGENCY_LEVELS)[number]
+  ) => {
     switch (urgencyLevel) {
       case "EMERGENCY":
         return "destructive";
@@ -158,13 +176,21 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
   };
 
-  const formatAddress = (address: any) => {
+  // Updated formatAddress function to use AddressResponse structure
+  const formatAddress = (address: AddressResponse | null | undefined) => {
     if (!address) return "No address provided";
+
+    // Use formattedAddress if available, otherwise construct from parts
+    if (address.formattedAddress) {
+      return address.formattedAddress;
+    }
 
     const parts = [
       address.street,
+      address.street2,
       address.city,
       address.state,
       address.postalCode,
@@ -174,8 +200,114 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
     return parts.length > 0 ? parts.join(", ") : `Address ID: ${address.id}`;
   };
 
+  // Enhanced address display component
+  const AddressDisplay = ({
+    address,
+    title,
+    icon: Icon,
+  }: {
+    address: AddressResponse | null | undefined;
+    title: string;
+    icon: any;
+  }) => {
+    if (!address) return null;
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Icon className="h-5 w-5" />
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase">
+              Recipient
+            </p>
+            <p className="font-medium">{address.recipientName}</p>
+            {address.name && address.name !== address.recipientName && (
+              <p className="text-sm text-muted-foreground">({address.name})</p>
+            )}
+          </div>
+
+          {address.companyName && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase">
+                Company
+              </p>
+              <div className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm">{address.companyName}</p>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase">
+              Address
+            </p>
+            <div className="space-y-1">
+              <p className="text-sm">{address.street}</p>
+              {address.street2 && <p className="text-sm">{address.street2}</p>}
+              <p className="text-sm">
+                {[address.city, address.state, address.postalCode]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+              <p className="text-sm font-medium">{address.country}</p>
+            </div>
+          </div>
+
+          {address.phone && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase">
+                Phone
+              </p>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm">{address.phone}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(address.phone!)}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {address.email && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase">
+                Email
+              </p>
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm">{address.email}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(address.email!)}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">{address.addressType}</Badge>
+            {address.isDefault && <Badge variant="secondary">Default</Badge>}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // Helper function to get customer display info
-  const getCustomerInfo = (order: any) => {
+  const getCustomerInfo = (order: OrderResponse) => {
     if (order.customerId) {
       return {
         displayName: `Customer ${order.customerId}`,
@@ -219,13 +351,14 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
     );
   }
 
-  if (!order) {
+  if (error || !order) {
     return (
       <div className="max-w-6xl mx-auto space-y-6">
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Order not found or you don&apos;t have permission to view it.
+            {error?.message ||
+              "Order not found or you don't have permission to view it."}
           </AlertDescription>
         </Alert>
       </div>
@@ -233,6 +366,14 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
   }
 
   const customerInfo = getCustomerInfo(order);
+
+  // Get the actual address data (either from order directly or from separate fetch)
+  const shippingAddress =
+    (shippingAddressData?.success ? shippingAddressData.data : null) ||
+    order?.shippingAddress;
+  const billingAddress =
+    (billingAddressData?.success ? billingAddressData.data : null) ||
+    order?.billingAddress;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -316,9 +457,10 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
         {/* Left Column - Main Details */}
         <div className="lg:col-span-2 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="items">Items</TabsTrigger>
+              <TabsTrigger value="addresses">Addresses</TabsTrigger>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
             </TabsList>
@@ -336,33 +478,35 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        SUBTOTAL
-                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Subtotal
+                      </p>
                       <p className="font-medium">
                         {formatCurrency(order.subtotalAmount)}
                       </p>
                     </div>
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        TAX
-                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Tax
+                      </p>
                       <p className="font-medium">
                         {formatCurrency(order.taxAmount)}
                       </p>
                     </div>
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        SHIPPING
-                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Shipping
+                      </p>
                       <p className="font-medium">
-                        {formatCurrency(order.shippingAmount)}
+                        {order.shippingAmount > 0
+                          ? formatCurrency(order.shippingAmount)
+                          : "Free"}
                       </p>
                     </div>
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        TOTAL
-                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Total
+                      </p>
                       <p className="text-lg font-bold">
                         {formatCurrency(order.totalAmount)}
                       </p>
@@ -377,7 +521,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                           Discount Applied
                         </span>
                         <span className="font-medium text-green-600">
-                          -${order.discountAmount.toFixed(2)}
+                          -{formatCurrency(order.discountAmount)}
                         </span>
                       </div>
                     </>
@@ -385,7 +529,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                 </CardContent>
               </Card>
 
-              {/* Customer Information - UPDATED */}
+              {/* Customer Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -415,46 +559,68 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                         )}
                       </div>
                     </div>
+
+                    {/* Customer contact info from shipping address */}
+                    {shippingAddress && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t">
+                        {shippingAddress.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              {shippingAddress.email}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                copyToClipboard(shippingAddress.email!)
+                              }
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        {shippingAddress.phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              {shippingAddress.phone}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                copyToClipboard(shippingAddress.phone!)
+                              }
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Shipping Information */}
+              {/* Shipping & Tracking Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Shipping Information
+                    <Truck className="h-5 w-5" />
+                    Shipping & Tracking
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground">
-                      SHIPPING ADDRESS
-                    </Label>
-                    <p className="mt-1">
-                      {formatAddress(order.shippingAddress)}
-                    </p>
-                  </div>
-
-                  {order.billingAddress && (
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        BILLING ADDRESS
-                      </Label>
-                      <p className="mt-1">
-                        {formatAddress(order.billingAddress)}
-                      </p>
-                    </div>
-                  )}
-
                   {order.trackingNumber && (
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        TRACKING
-                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Tracking Number
+                      </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <p className="font-medium">{order.trackingNumber}</p>
+                        <p className="font-medium font-mono">
+                          {order.trackingNumber}
+                        </p>
                         {order.trackingUrl && (
                           <Button variant="ghost" size="sm" asChild>
                             <a
@@ -479,14 +645,39 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
                   {order.expectedDelivery && (
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        EXPECTED DELIVERY
-                      </Label>
-                      <p className="mt-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Expected Delivery
+                      </p>
+                      <p className="mt-1 font-medium">
                         {format(
                           new Date(order.expectedDelivery),
-                          "MMM dd, yyyy"
+                          "EEEE, MMM dd, yyyy"
                         )}
+                      </p>
+                    </div>
+                  )}
+
+                  {order.actualDeliveryDate && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Delivered On
+                      </p>
+                      <p className="mt-1 font-medium text-green-600">
+                        {format(
+                          new Date(order.actualDeliveryDate),
+                          "EEEE, MMM dd, yyyy"
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  {shippingAddress && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Delivery Address
+                      </p>
+                      <p className="mt-1 text-sm">
+                        {formatAddress(shippingAddress)}
                       </p>
                     </div>
                   )}
@@ -505,26 +696,34 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          METHOD
-                        </Label>
+                        <p className="text-xs font-medium text-muted-foreground uppercase">
+                          Method
+                        </p>
                         <p className="font-medium">
                           {order.payment.method || "N/A"}
                         </p>
                       </div>
                       <div>
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          STATUS
-                        </Label>
-                        <p className="font-medium">
-                          {order.payment.status || "N/A"}
+                        <p className="text-xs font-medium text-muted-foreground uppercase">
+                          Status
                         </p>
+                        <Badge
+                          variant={
+                            order.payment.status === "SUCCESS"
+                              ? "default"
+                              : order.payment.status === "PENDING"
+                                ? "secondary"
+                                : "destructive"
+                          }
+                        >
+                          {order.payment.status || "N/A"}
+                        </Badge>
                       </div>
                       {order.payment.transactionId && (
                         <div className="md:col-span-2">
-                          <Label className="text-xs font-medium text-muted-foreground">
-                            TRANSACTION ID
-                          </Label>
+                          <p className="text-xs font-medium text-muted-foreground uppercase">
+                            Transaction ID
+                          </p>
                           <div className="flex items-center gap-2 mt-1">
                             <p className="font-medium font-mono">
                               {order.payment.transactionId}
@@ -541,6 +740,16 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                               <Copy className="h-3 w-3" />
                             </Button>
                           </div>
+                        </div>
+                      )}
+                      {order.payment.amount && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase">
+                            Amount Paid
+                          </p>
+                          <p className="font-medium text-green-600">
+                            {formatCurrency(order.payment.amount)}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -583,9 +792,9 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
                           {item.sizeVariant && (
                             <div>
-                              <Label className="text-xs font-medium text-muted-foreground">
-                                SIZE
-                              </Label>
+                              <p className="text-xs font-medium text-muted-foreground uppercase">
+                                Size
+                              </p>
                               <p className="text-sm">
                                 {item.sizeVariant.displayName} (
                                 {item.sizeVariant.dimensions.width}x
@@ -598,9 +807,9 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                           {item.customizations &&
                             item.customizations.length > 0 && (
                               <div>
-                                <Label className="text-xs font-medium text-muted-foreground">
-                                  CUSTOMIZATIONS
-                                </Label>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">
+                                  Customizations
+                                </p>
                                 <div className="mt-1 space-y-1">
                                   {item.customizations.map(
                                     (customization, idx) => (
@@ -635,9 +844,9 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
                           {item.designId && (
                             <div>
-                              <Label className="text-xs font-medium text-muted-foreground">
-                                DESIGN ID
-                              </Label>
+                              <p className="text-xs font-medium text-muted-foreground uppercase">
+                                Design ID
+                              </p>
                               <p className="text-sm font-mono">
                                 {item.designId}
                               </p>
@@ -646,9 +855,9 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
                           {item.notes && (
                             <div>
-                              <Label className="text-xs font-medium text-muted-foreground">
-                                NOTES
-                              </Label>
+                              <p className="text-xs font-medium text-muted-foreground uppercase">
+                                Notes
+                              </p>
                               <p className="text-sm">{item.notes}</p>
                             </div>
                           )}
@@ -658,18 +867,53 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                           <p className="text-sm text-muted-foreground">
                             Item {index + 1}
                           </p>
-                          <p className="font-medium">
-                            ${(item.unitPrice * item.quantity).toFixed(2)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            ${item.unitPrice.toFixed(2)} each
-                          </p>
+                          {item.sizeVariant?.price && (
+                            <>
+                              <p className="font-medium">
+                                {formatCurrency(
+                                  item.sizeVariant.price * item.quantity
+                                )}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(item.sizeVariant.price)} each
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Addresses Tab */}
+            <TabsContent value="addresses" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <AddressDisplay
+                  address={shippingAddress}
+                  title="Shipping Address"
+                  icon={Truck}
+                />
+
+                {billingAddress && (
+                  <AddressDisplay
+                    address={billingAddress}
+                    title="Billing Address"
+                    icon={CreditCard}
+                  />
+                )}
+              </div>
+
+              {!billingAddress && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    No separate billing address - using shipping address for
+                    billing.
+                  </AlertDescription>
+                </Alert>
+              )}
             </TabsContent>
 
             {/* Timeline Tab */}
@@ -703,32 +947,51 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Status</span>
-                      <Badge variant="outline">
+                      <Badge
+                        variant={
+                          order.designApproval.status === "APPROVED"
+                            ? "default"
+                            : order.designApproval.status === "REJECTED"
+                              ? "destructive"
+                              : order.designApproval.status === "EXPIRED"
+                                ? "secondary"
+                                : "outline"
+                        }
+                      >
                         {order.designApproval.status}
                       </Badge>
                     </div>
 
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        REQUESTED
-                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Customer Email
+                      </p>
+                      <p className="text-sm">
+                        {order.designApproval.customerEmail}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Requested
+                      </p>
                       <p className="text-sm">
                         {format(
                           new Date(order.designApproval.requestedAt),
-                          "MMM dd, yyyy"
+                          "MMM dd, yyyy 'at' HH:mm"
                         )}
                       </p>
                     </div>
 
                     {order.designApproval.respondedAt && (
                       <div>
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          RESPONDED
-                        </Label>
+                        <p className="text-xs font-medium text-muted-foreground uppercase">
+                          Responded
+                        </p>
                         <p className="text-sm">
                           {format(
                             new Date(order.designApproval.respondedAt),
-                            "MMM dd, yyyy"
+                            "MMM dd, yyyy 'at' HH:mm"
                           )}
                         </p>
                       </div>
@@ -736,11 +999,25 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
                     {order.designApproval.rejectionReason && (
                       <div>
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          REJECTION REASON
-                        </Label>
+                        <p className="text-xs font-medium text-muted-foreground uppercase">
+                          Rejection Reason
+                        </p>
                         <p className="text-sm">
                           {order.designApproval.rejectionReason}
+                        </p>
+                      </div>
+                    )}
+
+                    {order.designApproval.expiresAt && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase">
+                          Expires At
+                        </p>
+                        <p className="text-sm">
+                          {format(
+                            new Date(order.designApproval.expiresAt),
+                            "MMM dd, yyyy 'at' HH:mm"
+                          )}
                         </p>
                       </div>
                     )}
@@ -766,9 +1043,9 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
               <CardContent>
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-xs font-medium text-muted-foreground">
-                      EXPECTED PRODUCTION DAYS
-                    </Label>
+                    <p className="text-xs font-medium text-muted-foreground uppercase">
+                      Expected Production Days
+                    </p>
                     <p className="text-sm font-medium">
                       {order.expectedProductionDays} days
                     </p>
@@ -776,9 +1053,9 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
                   {order.productionStartDate && (
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        PRODUCTION START
-                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Production Start
+                      </p>
                       <p className="text-sm">
                         {format(
                           new Date(order.productionStartDate),
@@ -790,9 +1067,9 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
                   {order.productionEndDate && (
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        PRODUCTION END
-                      </Label>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        Production End
+                      </p>
                       <p className="text-sm">
                         {format(
                           new Date(order.productionEndDate),
@@ -829,14 +1106,5 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
         </div>
       </div>
     </div>
-  );
-}
-
-// Helper component for labels
-function Label({ className, children, ...props }: any) {
-  return (
-    <label className={`text-sm font-medium ${className || ""}`} {...props}>
-      {children}
-    </label>
   );
 }

@@ -1,58 +1,86 @@
 import { Fetcher } from "../api/api.service";
+import { PaginatedData4 } from "../shared/types";
 import {
   CreateShippingZoneDto,
+  GetShippingZonesDto,
   CreateShippingRateDto,
-  ShippingCalculationDto,
+  GetShippingRatesDto,
+  CalculateShippingDto,
 } from "./dto/shipping.dto";
 import {
-  ShippingZone,
-  ShippingRate,
-  ShippingOption,
+  ShippingZoneResponse,
+  ShippingRateResponse,
+  ShippingOptionResponse,
 } from "./types/shipping.types";
 
 export class ShippingService {
   constructor(private fetcher = new Fetcher()) {}
 
   /**
-   * Get all active shipping zones with their countries
-   * GET /v1/shipping/zones
+   * Get paginated list of shipping zones
    */
-  public async getZones(): Promise<ShippingZone[]> {
-    return this.fetcher.request<ShippingZone[]>("/v1/shipping/zones");
+  public async findAllZones(
+    params?: GetShippingZonesDto
+  ): Promise<PaginatedData4<ShippingZoneResponse>> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.page) {
+      queryParams.append("page", params.page.toString());
+    }
+    if (params?.limit) {
+      queryParams.append("limit", params.limit.toString());
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/v1/shipping/zones${queryString ? `?${queryString}` : ""}`;
+
+    return this.fetcher.request<PaginatedData4<ShippingZoneResponse>>(url, {});
   }
 
   /**
-   * Create a new shipping zone with countries
-   * POST /v1/shipping/zones
+   * Create a new shipping zone (Admin only)
    */
   public async createZone(
     values: CreateShippingZoneDto
-  ): Promise<ShippingZone> {
-    return this.fetcher.request<ShippingZone>("/v1/shipping/zones", {
+  ): Promise<ShippingZoneResponse> {
+    return this.fetcher.request<ShippingZoneResponse>("/v1/shipping/zones", {
       method: "POST",
       data: values,
-    });
+    }); // Requires authentication (default auth: true)
   }
 
   /**
-   * Get all shipping rates for a specific zone
-   * GET /v1/shipping/zones/{id}/rates
+   * Get shipping rates for a specific zone
    */
-  public async getZoneRates(zoneId: string): Promise<ShippingRate[]> {
-    return this.fetcher.request<ShippingRate[]>(
-      `/v1/shipping/zones/${zoneId}/rates`
-    );
+  public async findRatesByZone(
+    zoneId: string,
+    params?: GetShippingRatesDto
+  ): Promise<PaginatedData4<ShippingRateResponse>> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.page) {
+      queryParams.append("page", params.page.toString());
+    }
+    if (params?.limit) {
+      queryParams.append("limit", params.limit.toString());
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/v1/shipping/zones/${zoneId}/rates${
+      queryString ? `?${queryString}` : ""
+    }`;
+
+    return this.fetcher.request<PaginatedData4<ShippingRateResponse>>(url, {});
   }
 
   /**
-   * Create a new shipping rate for a specific zone
-   * POST /v1/shipping/zones/{id}/rates
+   * Create a new shipping rate for a specific zone (Admin only)
    */
   public async createRate(
     zoneId: string,
     values: CreateShippingRateDto
-  ): Promise<ShippingRate> {
-    return this.fetcher.request<ShippingRate>(
+  ): Promise<ShippingRateResponse> {
+    return this.fetcher.request<ShippingRateResponse>(
       `/v1/shipping/zones/${zoneId}/rates`,
       {
         method: "POST",
@@ -62,15 +90,17 @@ export class ShippingService {
   }
 
   /**
-   * Calculate available shipping options and costs for a destination
-   * POST /v1/shipping/calculate
+   * Calculate shipping options and costs for a destination
    */
   public async calculateShipping(
-    values: ShippingCalculationDto
-  ): Promise<ShippingOption[]> {
-    return this.fetcher.request<ShippingOption[]>("/v1/shipping/calculate", {
-      method: "POST",
-      data: values,
-    });
+    values: CalculateShippingDto
+  ): Promise<ShippingOptionResponse[]> {
+    return this.fetcher.request<ShippingOptionResponse[]>(
+      "/v1/shipping/calculate",
+      {
+        method: "POST",
+        data: values,
+      }
+    );
   }
 }

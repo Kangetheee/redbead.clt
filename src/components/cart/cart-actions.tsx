@@ -25,13 +25,17 @@ import {
 } from "@/components/ui/dialog";
 import { Trash2, ShoppingCart, Mail } from "lucide-react";
 import { useClearCart } from "@/hooks/use-cart";
-import { useInitializeCheckout } from "@/hooks/use-checkout";
+import {
+  useInitializeCheckout,
+  useInitializeGuestCheckout,
+} from "@/hooks/use-checkout";
 import { useUserProfile } from "@/hooks/use-users";
 import { useRouter } from "next/navigation";
-import { CartResponse } from "@/lib/cart/types/cart.types";
+import { PaginatedData1 } from "@/lib/shared/types";
+import { CartItemResponse } from "@/lib/cart/types/cart.types";
 
 interface CartActionsProps {
-  cart: CartResponse;
+  cart: PaginatedData1<CartItemResponse>;
   disabled?: boolean;
 }
 
@@ -39,6 +43,7 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
   const router = useRouter();
   const clearCart = useClearCart();
   const initializeCheckout = useInitializeCheckout();
+  const initializeGuestCheckout = useInitializeGuestCheckout();
   const { data: userProfile, isLoading: isProfileLoading } = useUserProfile();
 
   const [guestEmail, setGuestEmail] = useState("");
@@ -55,23 +60,21 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
   };
 
   const handleCheckout = () => {
-    // If we have user profile with email, proceed directly
+    // If we have authenticated user, proceed with authenticated checkout
     if (userProfile?.email) {
+      // Authenticated checkout can use cart items directly via useCartItems flag
       initializeCheckout.mutate(
         {
           useCartItems: true,
-          guestEmail: userProfile.email, // Use user's email from profile
         },
         {
           onSuccess: (data) => {
-            if (data.success) {
-              router.push(`/checkout?session=${data.data.sessionId}`);
-            }
+            router.push(`/checkout?session=${data.sessionId}`);
           },
         }
       );
     } else {
-      // No user email available - show email input dialog
+      // No user authentication - show guest email dialog
       setIsGuestDialogOpen(true);
     }
   };
@@ -88,32 +91,51 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
       return;
     }
 
+    // Check if cart has items
+    if (cart.summary.length === 0) {
+      setEmailError("Your cart is empty");
+      return;
+    }
+
     setEmailError("");
 
+    // Transform cart items to checkout items format
+    const checkoutItems = cart.summary.map((item) => ({
+      productId: item.templateId,
+      quantity: item.quantity,
+      customizations: item.customizations.map((custom) => ({
+        optionId: custom.optionId,
+        valueId: custom.valueId,
+        customValue: custom.customValue,
+      })),
+      designId: item.designId,
+    }));
+
     // Proceed with guest checkout
-    initializeCheckout.mutate(
+    initializeGuestCheckout.mutate(
       {
-        useCartItems: true,
         guestEmail: guestEmail.trim(),
+        items: checkoutItems,
       },
       {
         onSuccess: (data) => {
-          if (data.success) {
-            setIsGuestDialogOpen(false);
-            setGuestEmail("");
-            router.push(`/checkout?session=${data.data.sessionId}`);
-          }
+          setIsGuestDialogOpen(false);
+          setGuestEmail("");
+          router.push(`/checkout?session=${data.sessionId}`);
         },
         onError: () => {
-          // Error handling is done in the hook
+          // Error handling is done in the hook via toast
         },
       }
     );
   };
 
-  const isEmpty = cart.items.length === 0;
+  const isEmpty = cart.summary.length === 0;
   const isLoading =
-    clearCart.isPending || initializeCheckout.isPending || isProfileLoading;
+    clearCart.isPending ||
+    initializeCheckout.isPending ||
+    initializeGuestCheckout.isPending ||
+    isProfileLoading;
 
   return (
     <div className="space-y-3">
@@ -125,7 +147,9 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
         size="lg"
       >
         <ShoppingCart className="mr-2 h-5 w-5" />
-        Proceed to Checkout (KES {cart.summary.total.toLocaleString()})
+        {isLoading
+          ? "Processing..."
+          : `Proceed to Checkout (KES ${cart.meta.total.toLocaleString()})`}
       </Button>
 
       {/* Guest Email Dialog */}
@@ -156,6 +180,7 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
                 }}
                 className={emailError ? "border-red-500" : ""}
                 autoFocus
+                disabled={initializeGuestCheckout.isPending}
               />
               {emailError && (
                 <p className="text-sm text-red-500">{emailError}</p>
@@ -171,12 +196,17 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
                 setGuestEmail("");
                 setEmailError("");
               }}
-              disabled={isLoading}
+              disabled={initializeGuestCheckout.isPending}
             >
               Cancel
             </Button>
-            <Button onClick={handleGuestCheckout} disabled={isLoading}>
-              {isLoading ? "Processing..." : "Continue to Checkout"}
+            <Button
+              onClick={handleGuestCheckout}
+              disabled={initializeGuestCheckout.isPending}
+            >
+              {initializeGuestCheckout.isPending
+                ? "Processing..."
+                : "Continue to Checkout"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -205,8 +235,11 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleClearCart}>
-                Clear Cart
+              <AlertDialogAction
+                onClick={handleClearCart}
+                disabled={clearCart.isPending}
+              >
+                {clearCart.isPending ? "Clearing..." : "Clear Cart"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -218,6 +251,7 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
         variant="ghost"
         onClick={() => router.push("/products")}
         className="w-full"
+        disabled={isLoading}
       >
         Continue Shopping
       </Button>

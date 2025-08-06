@@ -1,14 +1,11 @@
 import { Fetcher } from "../api/api.service";
+import { PaginatedData4 } from "../shared/types";
 import {
   CreateAddressDto,
   UpdateAddressDto,
   GetAddressesDto,
 } from "./dto/address.dto";
-import {
-  AddressResponse,
-  AddressType,
-  PaginatedAddressesResponse,
-} from "./types/address.types";
+import { AddressResponse, AddressType } from "./types/address.types";
 
 export class AddressService {
   constructor(private fetcher = new Fetcher()) {}
@@ -26,7 +23,7 @@ export class AddressService {
     const queryString = queryParams.toString();
     const url = `/v1/addresses${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<PaginatedAddressesResponse>(url);
+    return this.fetcher.request<PaginatedData4<AddressResponse>>(url);
   }
 
   public async findById(addressId: string) {

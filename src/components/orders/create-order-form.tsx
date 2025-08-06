@@ -21,6 +21,8 @@ import {
   ArrowLeft,
   Loader2,
   Search,
+  CheckCircle,
+  Truck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,9 +47,12 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
 import { useCreateOrder } from "@/hooks/use-orders";
 import { useAddresses } from "@/hooks/use-address";
+import { useCalculateShipping } from "@/hooks/use-shipping";
 import {
   useDesignTemplates,
   useSizeVariants,
@@ -58,6 +63,8 @@ import {
   OrderItemDto,
   URGENCY_LEVELS,
 } from "@/lib/orders/dto/orders.dto";
+import { AddressResponse } from "@/lib/address/types/address.types";
+import { ShippingOptionResponse } from "@/lib/shipping/types/shipping.types";
 
 interface CreateOrderFormProps {
   onSuccess?: (orderId: string) => void;
@@ -71,8 +78,11 @@ export default function CreateOrderForm({
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [templateSearch, setTemplateSearch] = useState("");
+  const [selectedShippingOption, setSelectedShippingOption] =
+    useState<ShippingOptionResponse | null>(null);
 
   const createOrder = useCreateOrder();
+  const calculateShipping = useCalculateShipping();
 
   // Fetch templates with search
   const {
@@ -85,7 +95,7 @@ export default function CreateOrderForm({
     limit: 50,
   });
 
-  // Fetch addresses
+  // Fetch addresses - using proper hook
   const {
     data: addressesData,
     isLoading: addressesLoading,
@@ -125,59 +135,97 @@ export default function CreateOrderForm({
 
   const watchedValues = watch();
 
-  // Size variants state management
-  const [sizeVariantsByTemplate, setSizeVariantsByTemplate] = useState<
-    Record<string, any[]>
-  >({});
-  const [loadingSizeVariants, setLoadingSizeVariants] = useState<
-    Record<string, boolean>
-  >({});
+  // Get templates from response - fix data access
+  const templates = templatesData?.success
+    ? templatesData.data?.items || []
+    : [];
 
-  // Function to fetch size variants for a template
-  const fetchSizeVariants = async (templateId: string) => {
-    if (!templateId || sizeVariantsByTemplate[templateId]) return;
+  // Get addresses from response - using proper AddressResponse structure
+  const addresses: AddressResponse[] = addressesData?.success
+    ? addressesData.data?.data || []
+    : [];
 
-    setLoadingSizeVariants((prev) => ({ ...prev, [templateId]: true }));
-
-    try {
-      // We'll need to import the action directly
-      const { getSizeVariantsAction } = await import(
-        "@/lib/design-templates/design-templates.actions"
-      );
-      const result = await getSizeVariantsAction(templateId);
-
-      if (result.success) {
-        setSizeVariantsByTemplate((prev) => ({
-          ...prev,
-          [templateId]: result.data || [],
-        }));
-      }
-    } catch (error) {
-      console.error("Failed to fetch size variants:", error);
-    } finally {
-      setLoadingSizeVariants((prev) => ({ ...prev, [templateId]: false }));
+  // Map order urgency levels to shipping urgency levels
+  const mapOrderUrgencyToShipping = (
+    orderUrgency: string
+  ): "LOW" | "NORMAL" | "HIGH" | "URGENT" => {
+    switch (orderUrgency) {
+      case "NORMAL":
+        return "NORMAL";
+      case "EXPEDITED":
+        return "HIGH";
+      case "RUSH":
+        return "HIGH";
+      case "EMERGENCY":
+        return "URGENT";
+      default:
+        return "NORMAL";
     }
   };
 
-  // Effect to fetch size variants when template is selected
+  // Calculate shipping when shipping address changes
   useEffect(() => {
-    const currentItems = getValues("items") || [];
-    currentItems.forEach((item) => {
-      if (item.templateId && !sizeVariantsByTemplate[item.templateId]) {
-        fetchSizeVariants(item.templateId);
+    const shippingAddressId = watchedValues.shippingAddressId;
+    if (shippingAddressId) {
+      const selectedAddress = addresses.find(
+        (addr) => addr.id === shippingAddressId
+      );
+      if (selectedAddress) {
+        // Calculate shipping options
+        calculateShipping.mutate({
+          sessionId: `order-${Date.now()}`, // Generate session ID
+          shippingAddress: {
+            recipientName: selectedAddress.recipientName,
+            companyName: selectedAddress.companyName || undefined,
+            street: selectedAddress.street,
+            street2: selectedAddress.street2 || undefined,
+            city: selectedAddress.city,
+            state: selectedAddress.state || selectedAddress.city, // Fallback to city if no state
+            postalCode: selectedAddress.postalCode,
+            country: selectedAddress.country.toUpperCase(), // Ensure uppercase for country code
+            phone: selectedAddress.phone || "",
+          },
+          urgencyLevel: mapOrderUrgencyToShipping(
+            watchedValues.urgencyLevel || "NORMAL"
+          ),
+        });
       }
-    });
-  }, [watchedValues.items, sizeVariantsByTemplate, getValues]);
+    }
+  }, [
+    watchedValues.shippingAddressId,
+    watchedValues.urgencyLevel,
+    addresses,
+    calculateShipping,
+  ]);
 
   const onSubmit = async (data: CreateOrderDto) => {
     try {
+      // Validate items before submission
+      if (!data.items || data.items.length === 0) {
+        toast.error("Please add at least one item to the order");
+        return;
+      }
+
+      // Check if all items have required fields
+      const invalidItems = data.items.filter(
+        (item) => !item.templateId || !item.sizeVariantId || item.quantity < 1
+      );
+
+      if (invalidItems.length > 0) {
+        toast.error("Please complete all item details");
+        setStep(1); // Go back to items step
+        return;
+      }
+
       const result = await createOrder.mutateAsync(data);
       if (result.success && result.data) {
+        toast.success("Order created successfully!");
         onSuccess?.(result.data.id);
         router.push(`/orders/${result.data.id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create order:", error);
+      toast.error(error?.message || "Failed to create order");
     }
   };
 
@@ -196,22 +244,10 @@ export default function CreateOrderForm({
     }
   };
 
-  // Fixed template selection handler
+  // Template selection handler - simplified
   const handleTemplateSelect = (index: number, templateId: string) => {
-    // Update form values directly
     setValue(`items.${index}.templateId`, templateId);
     setValue(`items.${index}.sizeVariantId`, ""); // Reset size variant when template changes
-
-    // Trigger form validation
-    const items = getValues("items");
-    items[index].templateId = templateId;
-    items[index].sizeVariantId = "";
-    setValue("items", items);
-
-    // Fetch size variants for this template
-    if (templateId && !sizeVariantsByTemplate[templateId]) {
-      fetchSizeVariants(templateId);
-    }
   };
 
   const getStepIcon = (stepNumber: number) => {
@@ -269,8 +305,8 @@ export default function CreateOrderForm({
     },
   ];
 
-  // Format address for display
-  const formatAddress = (address: any) => {
+  // Format address for display - using AddressResponse structure
+  const formatAddress = (address: AddressResponse) => {
     const parts = [
       address.street,
       address.street2,
@@ -285,10 +321,39 @@ export default function CreateOrderForm({
 
   // Get template by ID for display
   const getTemplateById = (templateId: string) => {
-    return templatesData?.success
-      ? templatesData.data?.items.find((t) => t.id === templateId)
-      : undefined;
+    return templates.find((t) => t.id === templateId);
   };
+
+  // Calculate estimated total including shipping
+  const calculateEstimatedTotal = () => {
+    const validItems =
+      watchedValues.items?.filter(
+        (item) => item.templateId && item.sizeVariantId && item.quantity > 0
+      ) || [];
+
+    let subtotal = 0;
+    validItems.forEach((item) => {
+      const template = getTemplateById(item.templateId);
+      if (template) {
+        // Use template base price - size variant pricing would need separate lookup
+        subtotal += template.basePrice * item.quantity;
+      }
+    });
+
+    const tax = subtotal * 0.16; // 16% VAT
+    const shippingCost = selectedShippingOption?.cost || 0;
+    const total = subtotal + tax + shippingCost;
+
+    return { subtotal, tax, shipping: shippingCost, total };
+  };
+
+  const { subtotal, tax, shipping, total } = calculateEstimatedTotal();
+
+  // Get shipping options from calculation result
+  const shippingOptions: ShippingOptionResponse[] = calculateShipping.data
+    ?.success
+    ? calculateShipping.data.data || []
+    : [];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -337,7 +402,11 @@ export default function CreateOrderForm({
                           : "border-muted bg-muted text-muted-foreground"
                     }`}
                   >
-                    <Icon className="h-5 w-5" />
+                    {isCompleted && isValid ? (
+                      <CheckCircle className="h-5 w-5" />
+                    ) : (
+                      <Icon className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="mt-2 text-center">
                     <p
@@ -356,11 +425,15 @@ export default function CreateOrderForm({
               );
             })}
           </div>
+
+          <div className="mt-4">
+            <Progress value={(step / steps.length) * 100} className="h-2" />
+          </div>
         </CardContent>
       </Card>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Step 1: Order Items - FIXED SECTION */}
+        {/* Step 1: Order Items */}
         {step === 1 && (
           <Card>
             <CardHeader>
@@ -398,240 +471,26 @@ export default function CreateOrderForm({
               )}
 
               {fields.map((field, index) => {
-                // Get current values for this item
                 const currentItem = watchedValues.items?.[index] || field;
                 const selectedTemplate = getTemplateById(
                   currentItem.templateId
                 );
-                const sizeVariants = currentItem.templateId
-                  ? sizeVariantsByTemplate[currentItem.templateId] || []
-                  : [];
-                const isLoadingSizeVariants = currentItem.templateId
-                  ? loadingSizeVariants[currentItem.templateId] || false
-                  : false;
 
                 return (
-                  <div
+                  <OrderItemForm
                     key={field.id}
-                    className="p-4 border rounded-lg space-y-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">
-                        Item {index + 1}
-                        {selectedTemplate && (
-                          <Badge variant="secondary" className="ml-2">
-                            {selectedTemplate.name}
-                          </Badge>
-                        )}
-                      </Label>
-                      {fields.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem(index)}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor={`items.${index}.templateId`}>
-                          Template
-                        </Label>
-                        <Select
-                          value={currentItem.templateId || ""}
-                          onValueChange={(value) =>
-                            handleTemplateSelect(index, value)
-                          }
-                          disabled={templatesLoading}
-                        >
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={
-                                templatesLoading
-                                  ? "Loading templates..."
-                                  : "Select template"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {templatesLoading ? (
-                              <SelectItem value="loading" disabled>
-                                <div className="flex items-center gap-2">
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Loading templates...
-                                </div>
-                              </SelectItem>
-                            ) : templatesData?.success &&
-                              templatesData.data?.items.length > 0 ? (
-                              templatesData.data.items.map((template) => (
-                                <SelectItem
-                                  key={template.id}
-                                  value={template.id}
-                                >
-                                  <div className="flex flex-col items-start">
-                                    <span className="font-medium">
-                                      {template.name}
-                                    </span>
-                                    <span className="text-sm text-muted-foreground truncate max-w-[300px]">
-                                      {template.description}
-                                    </span>
-                                    <span className="text-sm text-green-600 font-medium">
-                                      Base Price: ${template.basePrice}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="no-templates" disabled>
-                                {templateSearch
-                                  ? "No templates found for search"
-                                  : "No templates available"}
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        {errors.items?.[index]?.templateId && (
-                          <p className="text-sm text-red-500">
-                            Template is required
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor={`items.${index}.sizeVariantId`}>
-                          Size Variant
-                        </Label>
-                        <Select
-                          value={currentItem.sizeVariantId || ""}
-                          onValueChange={(value) => {
-                            setValue(`items.${index}.sizeVariantId`, value);
-                          }}
-                          disabled={
-                            !currentItem.templateId || isLoadingSizeVariants
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={
-                                !currentItem.templateId
-                                  ? "Select template first"
-                                  : isLoadingSizeVariants
-                                    ? "Loading sizes..."
-                                    : "Select size"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {!currentItem.templateId ? (
-                              <SelectItem value="no-template" disabled>
-                                Select a template first
-                              </SelectItem>
-                            ) : isLoadingSizeVariants ? (
-                              <SelectItem value="loading" disabled>
-                                <div className="flex items-center gap-2">
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Loading sizes...
-                                </div>
-                              </SelectItem>
-                            ) : sizeVariants.length > 0 ? (
-                              sizeVariants.map((variant) => (
-                                <SelectItem key={variant.id} value={variant.id}>
-                                  <div className="flex flex-col items-start">
-                                    <span className="font-medium">
-                                      {variant.displayName}
-                                    </span>
-                                    {variant.dimensions && (
-                                      <span className="text-sm text-muted-foreground">
-                                        {variant.dimensions.width} x{" "}
-                                        {variant.dimensions.height}{" "}
-                                        {variant.dimensions.unit}
-                                      </span>
-                                    )}
-                                    <span className="text-sm text-green-600 font-medium">
-                                      Price: ${variant.price}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="no-variants" disabled>
-                                No size variants available
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        {errors.items?.[index]?.sizeVariantId && (
-                          <p className="text-sm text-red-500">
-                            Size variant is required
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor={`items.${index}.quantity`}>
-                          Quantity
-                        </Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          {...register(`items.${index}.quantity`, {
-                            valueAsNumber: true,
-                          })}
-                          placeholder="1"
-                        />
-                        {errors.items?.[index]?.quantity && (
-                          <p className="text-sm text-red-500">
-                            {errors.items[index]?.quantity?.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Customization Options</Label>
-                      <Textarea
-                        placeholder="Special requests, text, colors, customization details..."
-                        rows={2}
-                        onChange={(e) =>
-                          setValue(`items.${index}.customizations`, [
-                            {
-                              optionId: "custom_text",
-                              valueId: "text_value",
-                              customValue: e.target.value,
-                            },
-                          ])
-                        }
-                      />
-                    </div>
-
-                    {/* Template Details */}
-                    {selectedTemplate && (
-                      <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium">SKU:</span>{" "}
-                            {selectedTemplate.sku}
-                          </div>
-                          <div>
-                            <span className="font-medium">Stock:</span>{" "}
-                            {selectedTemplate.stock}
-                          </div>
-                          <div>
-                            <span className="font-medium">Min Qty:</span>{" "}
-                            {selectedTemplate.minOrderQuantity}
-                          </div>
-                          <div>
-                            <span className="font-medium">Lead Time:</span>{" "}
-                            {selectedTemplate.leadTime}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    index={index}
+                    currentItem={currentItem}
+                    selectedTemplate={selectedTemplate}
+                    templates={templates}
+                    templatesLoading={templatesLoading}
+                    onTemplateSelect={handleTemplateSelect}
+                    onRemove={() => removeItem(index)}
+                    canRemove={fields.length > 1}
+                    register={register}
+                    setValue={setValue}
+                    errors={errors}
+                  />
                 );
               })}
 
@@ -644,6 +503,36 @@ export default function CreateOrderForm({
                 <Plus className="h-4 w-4 mr-2" />
                 Add Another Item
               </Button>
+
+              {/* Order Summary Preview */}
+              {total > 0 && (
+                <Card className="bg-muted/50">
+                  <CardHeader>
+                    <CardTitle className="text-sm">Order Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal:</span>
+                      <span>${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Tax (16%):</span>
+                      <span>${tax.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Shipping:</span>
+                      <span>
+                        {shipping > 0 ? `$${shipping.toFixed(2)}` : "TBD"}
+                      </span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between font-medium">
+                      <span>Total:</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
           </Card>
         )}
@@ -751,7 +640,7 @@ export default function CreateOrderForm({
                 <Textarea
                   id="specialInstructions"
                   {...register("specialInstructions")}
-                  placeholder="Any special requirements or notes..."
+                  placeholder="Any special requirements or changes from the original order..."
                   rows={3}
                 />
               </div>
@@ -773,12 +662,13 @@ export default function CreateOrderForm({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="shippingAddressId">Shipping Address</Label>
+                <Label htmlFor="shippingAddressId">Shipping Address *</Label>
                 <Select
                   value={watchedValues.shippingAddressId}
-                  onValueChange={(value) =>
-                    setValue("shippingAddressId", value)
-                  }
+                  onValueChange={(value) => {
+                    setValue("shippingAddressId", value);
+                    setSelectedShippingOption(null); // Reset shipping option when address changes
+                  }}
                   disabled={addressesLoading}
                 >
                   <SelectTrigger>
@@ -802,17 +692,22 @@ export default function CreateOrderForm({
                       <SelectItem value="error" disabled>
                         Error loading addresses
                       </SelectItem>
-                    ) : addressesData?.success &&
-                      addressesData.data?.items.length > 0 ? (
-                      addressesData.data.items.map((address: any) => (
+                    ) : addresses.length > 0 ? (
+                      addresses.map((address) => (
                         <SelectItem key={address.id} value={address.id}>
                           <div className="flex flex-col">
                             <span className="font-medium">
                               {address.name || address.recipientName}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                              {formatAddress(address)}
+                              {address.formattedAddress ||
+                                formatAddress(address)}
                             </span>
+                            {address.isDefault && (
+                              <Badge variant="secondary" className="w-fit mt-1">
+                                Default
+                              </Badge>
+                            )}
                           </div>
                         </SelectItem>
                       ))
@@ -837,6 +732,87 @@ export default function CreateOrderForm({
                   </Alert>
                 )}
               </div>
+
+              {/* Shipping Options */}
+              {watchedValues.shippingAddressId && (
+                <div className="space-y-2">
+                  <Label>Shipping Options</Label>
+                  {calculateShipping.isPending ? (
+                    <div className="flex items-center gap-2 p-3 border rounded-lg">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">
+                        Calculating shipping options...
+                      </span>
+                    </div>
+                  ) : calculateShipping.error ? (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        Failed to calculate shipping options. Please try again.
+                      </AlertDescription>
+                    </Alert>
+                  ) : shippingOptions.length > 0 ? (
+                    <div className="space-y-2">
+                      {shippingOptions.map((option) => (
+                        <div
+                          key={option.id}
+                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                            selectedShippingOption?.id === option.id
+                              ? "border-primary bg-primary/5"
+                              : "border-muted hover:border-primary/50"
+                          }`}
+                          onClick={() => setSelectedShippingOption(option)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-4 h-4 rounded-full border-2 ${
+                                  selectedShippingOption?.id === option.id
+                                    ? "border-primary bg-primary"
+                                    : "border-muted"
+                                }`}
+                              />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <Truck className="h-4 w-4" />
+                                  <span className="font-medium">
+                                    {option.name}
+                                  </span>
+                                  {option.isFree && (
+                                    <Badge variant="secondary">Free</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {option.description} • {option.estimatedDays}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium">
+                                {option.isFree
+                                  ? "Free"
+                                  : `$${option.cost.toFixed(2)}`}
+                              </div>
+                              {option.originalCost !== option.cost && (
+                                <div className="text-sm text-muted-foreground line-through">
+                                  ${option.originalCost.toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        No shipping options available for this address.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="billingAddressId">
@@ -872,16 +848,16 @@ export default function CreateOrderForm({
                           Loading addresses...
                         </div>
                       </SelectItem>
-                    ) : addressesData?.success &&
-                      addressesData.data?.items?.length > 0 ? (
-                      addressesData.data.items.map((address: any) => (
+                    ) : addresses.length > 0 ? (
+                      addresses.map((address) => (
                         <SelectItem key={address.id} value={address.id}>
                           <div className="flex flex-col">
                             <span className="font-medium">
                               {address.name || address.recipientName}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                              {formatAddress(address)}
+                              {address.formattedAddress ||
+                                formatAddress(address)}
                             </span>
                           </div>
                         </SelectItem>
@@ -912,7 +888,7 @@ export default function CreateOrderForm({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Payment Method</Label>
+                <Label htmlFor="paymentMethod">Payment Method *</Label>
                 <Select
                   value={watchedValues.paymentMethod}
                   onValueChange={(value) => setValue("paymentMethod", value)}
@@ -947,6 +923,51 @@ export default function CreateOrderForm({
                   rows={3}
                 />
               </div>
+
+              {/* Final Order Summary */}
+              <Card className="bg-muted/50">
+                <CardHeader>
+                  <CardTitle className="text-sm">Final Order Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Items ({watchedValues.items?.length || 0}):</span>
+                    <span>${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Tax (16%):</span>
+                    <span>${tax.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Shipping:</span>
+                    <span>
+                      {selectedShippingOption
+                        ? selectedShippingOption.isFree
+                          ? "Free"
+                          : `$${selectedShippingOption.cost.toFixed(2)}`
+                        : "Not selected"}
+                    </span>
+                  </div>
+                  {selectedShippingOption && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Delivery:</span>
+                      <span>{selectedShippingOption.estimatedDays}</span>
+                    </div>
+                  )}
+                  {watchedValues.urgencyLevel &&
+                    watchedValues.urgencyLevel !== "NORMAL" && (
+                      <div className="flex justify-between text-sm text-orange-600">
+                        <span>Urgency Fee ({watchedValues.urgencyLevel}):</span>
+                        <span>Included in shipping</span>
+                      </div>
+                    )}
+                  <Separator />
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>Total:</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         )}
@@ -987,7 +1008,7 @@ export default function CreateOrderForm({
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />
-                    Create Order
+                    Create Order (${total.toFixed(2)})
                   </>
                 )}
               </Button>
@@ -1001,10 +1022,250 @@ export default function CreateOrderForm({
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               Please fix the errors above before proceeding.
+              <details className="mt-2">
+                <summary className="cursor-pointer">View errors</summary>
+                <pre className="text-xs mt-2">
+                  {JSON.stringify(errors, null, 2)}
+                </pre>
+              </details>
             </AlertDescription>
           </Alert>
         )}
       </form>
+    </div>
+  );
+}
+
+// Separate component for order item form to use size variants hook
+interface OrderItemFormProps {
+  index: number;
+  currentItem: any;
+  selectedTemplate: any;
+  templates: any[];
+  templatesLoading: boolean;
+  onTemplateSelect: (index: number, templateId: string) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+  register: any;
+  setValue: any;
+  errors: any;
+}
+
+function OrderItemForm({
+  index,
+  currentItem,
+  selectedTemplate,
+  templates,
+  templatesLoading,
+  onTemplateSelect,
+  onRemove,
+  canRemove,
+  register,
+  setValue,
+  errors,
+}: OrderItemFormProps) {
+  // Use the size variants hook for the selected template
+  const {
+    data: sizeVariantsData,
+    isLoading: sizeVariantsLoading,
+    error: sizeVariantsError,
+  } = useSizeVariants(currentItem.templateId, !!currentItem.templateId);
+
+  const sizeVariants = sizeVariantsData || [];
+
+  return (
+    <div className="p-4 border rounded-lg space-y-4">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">
+          Item {index + 1}
+          {selectedTemplate && (
+            <Badge variant="secondary" className="ml-2">
+              {selectedTemplate.name}
+            </Badge>
+          )}
+        </Label>
+        {canRemove && (
+          <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
+            <Minus className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor={`items.${index}.templateId`}>Template *</Label>
+          <Select
+            value={currentItem.templateId || ""}
+            onValueChange={(value) => onTemplateSelect(index, value)}
+            disabled={templatesLoading}
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={
+                  templatesLoading ? "Loading templates..." : "Select template"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {templatesLoading ? (
+                <SelectItem value="loading" disabled>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading templates...
+                  </div>
+                </SelectItem>
+              ) : templates.length > 0 ? (
+                templates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">{template.name}</span>
+                      <span className="text-sm text-muted-foreground truncate max-w-[300px]">
+                        {template.description}
+                      </span>
+                      <span className="text-sm text-green-600 font-medium">
+                        Base Price: ${template.basePrice}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-templates" disabled>
+                  No templates available
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          {errors.items?.[index]?.templateId && (
+            <p className="text-sm text-red-500">Template is required</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`items.${index}.sizeVariantId`}>Size Variant *</Label>
+          <Select
+            value={currentItem.sizeVariantId || ""}
+            onValueChange={(value) => {
+              setValue(`items.${index}.sizeVariantId`, value);
+            }}
+            disabled={!currentItem.templateId || sizeVariantsLoading}
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={
+                  !currentItem.templateId
+                    ? "Select template first"
+                    : sizeVariantsLoading
+                      ? "Loading sizes..."
+                      : "Select size"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {!currentItem.templateId ? (
+                <SelectItem value="no-template" disabled>
+                  Select a template first
+                </SelectItem>
+              ) : sizeVariantsLoading ? (
+                <SelectItem value="loading" disabled>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading sizes...
+                  </div>
+                </SelectItem>
+              ) : sizeVariantsError ? (
+                <SelectItem value="error" disabled>
+                  Error loading size variants
+                </SelectItem>
+              ) : sizeVariants.length > 0 ? (
+                sizeVariants.map((variant) => (
+                  <SelectItem key={variant.id} value={variant.id}>
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">{variant.displayName}</span>
+                      {variant.dimensions && (
+                        <span className="text-sm text-muted-foreground">
+                          {variant.dimensions.width} x{" "}
+                          {variant.dimensions.height} {variant.dimensions.unit}
+                        </span>
+                      )}
+                      <span className="text-sm text-green-600 font-medium">
+                        Price: ${variant.price}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-variants" disabled>
+                  No size variants available
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          {errors.items?.[index]?.sizeVariantId && (
+            <p className="text-sm text-red-500">Size variant is required</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`items.${index}.quantity`}>Quantity *</Label>
+          <Input
+            type="number"
+            min="1"
+            {...register(`items.${index}.quantity`, {
+              valueAsNumber: true,
+            })}
+            placeholder="1"
+          />
+          {errors.items?.[index]?.quantity && (
+            <p className="text-sm text-red-500">
+              {errors.items[index]?.quantity?.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Customization Options</Label>
+        <Textarea
+          placeholder="Special requests, text, colors, customization details..."
+          rows={2}
+          onChange={(e) => {
+            if (e.target.value.trim()) {
+              setValue(`items.${index}.customizations`, [
+                {
+                  optionId: "custom_text",
+                  valueId: "text_value",
+                  customValue: e.target.value,
+                },
+              ]);
+            } else {
+              setValue(`items.${index}.customizations`, []);
+            }
+          }}
+        />
+      </div>
+
+      {/* Template Details */}
+      {selectedTemplate && (
+        <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <span className="font-medium">SKU:</span> {selectedTemplate.sku}
+            </div>
+            <div>
+              <span className="font-medium">Stock:</span>{" "}
+              {selectedTemplate.stock}
+            </div>
+            <div>
+              <span className="font-medium">Min Qty:</span>{" "}
+              {selectedTemplate.minOrderQuantity}
+            </div>
+            <div>
+              <span className="font-medium">Lead Time:</span>{" "}
+              {selectedTemplate.leadTime}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

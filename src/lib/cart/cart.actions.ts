@@ -1,9 +1,9 @@
 "use server";
 
 import { getErrorMessage } from "../get-error-message";
-import { ActionResponse } from "../shared/types";
+import { ActionResponse, PaginatedData1 } from "../shared/types";
 import { CreateCartItemDto, UpdateCartItemDto } from "./dto/cart.dto";
-import { CartResponse, CartItemResponse } from "./types/cart.types";
+import { CartItemResponse } from "./types/cart.types";
 import { CartService } from "./cart.services";
 
 const cartService = new CartService();
@@ -11,7 +11,9 @@ const cartService = new CartService();
 /**
  * Get the current user's cart with all items and totals
  */
-export async function getCartAction(): Promise<ActionResponse<CartResponse>> {
+export async function getCartAction(): Promise<
+  ActionResponse<PaginatedData1<CartItemResponse>>
+> {
   try {
     const res = await cartService.getCart();
     return { success: true, data: res };

@@ -1,15 +1,26 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CheckoutSession } from "@/lib/checkout/types/checkout.types";
+import {
+  useSessionTimeRemaining,
+  useSessionExpired,
+} from "@/hooks/use-checkout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   ShoppingCart,
   Package,
@@ -24,8 +35,24 @@ import {
   Percent,
   DollarSign,
   Timer,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Zap,
+  Star,
+  CheckCircle,
+  XCircle,
+  Globe,
+  Building,
+  User,
+  Phone,
+  Mail,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface OrderSummaryProps {
   session: CheckoutSession;
@@ -43,6 +70,12 @@ interface OrderSummaryProps {
   onCouponApply?: (code: string) => void;
   isApplyingCoupon?: boolean;
   showSessionTimer?: boolean;
+  couponCode?: string;
+  appliedDiscount?: number;
+  showCustomerInfo?: boolean;
+  showPaymentMethods?: boolean;
+  currency?: string;
+  showAdvancedDetails?: boolean;
 }
 
 interface ProcessedItem {
@@ -54,6 +87,9 @@ interface ProcessedItem {
   customizations: string[];
   hasDesign: boolean;
   thumbnail?: string;
+  productId?: string;
+  templateId?: string;
+  sizeVariant?: string;
 }
 
 export function OrderSummary({
@@ -66,7 +102,21 @@ export function OrderSummary({
   onCouponApply,
   isApplyingCoupon = false,
   showSessionTimer = false,
+  couponCode = "",
+  appliedDiscount = 0,
+  showCustomerInfo = false,
+  showPaymentMethods = false,
+  currency = "KES",
+  showAdvancedDetails = false,
 }: OrderSummaryProps) {
+  const [itemsExpanded, setItemsExpanded] = useState(showItemDetails);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [couponInput, setCouponInput] = useState(couponCode);
+
+  // Session timing hooks
+  const sessionTimeRemaining = useSessionTimeRemaining(session.sessionId);
+  const isSessionExpired = useSessionExpired(session.sessionId);
+
   // Process items to ensure consistent display
   const processedItems: ProcessedItem[] = useMemo(() => {
     return session.items.map((item, index) => ({
@@ -80,6 +130,9 @@ export function OrderSummary({
         : [],
       hasDesign: !!item.designId,
       thumbnail: item.thumbnail,
+      productId: item.productId,
+      templateId: item.templateId,
+      sizeVariant: item.sizeVariantName,
     }));
   }, [session.items]);
 
@@ -88,7 +141,7 @@ export function OrderSummary({
     const subtotal = session.subtotal;
     const shipping = shippingCost;
     const tax = session.estimatedTax;
-    const discount = 0; // Would come from session if available
+    const discount = appliedDiscount;
     const total = subtotal + shipping + tax - discount;
 
     return (
@@ -100,20 +153,29 @@ export function OrderSummary({
         total,
       }
     );
-  }, [session, shippingCost, finalTotals]);
+  }, [session, shippingCost, finalTotals, appliedDiscount]);
 
-  // Session expiry calculation
-  const sessionTimeRemaining = useMemo(() => {
+  // Session expiry calculation with enhanced details
+  const sessionStatus = useMemo(() => {
     if (!showSessionTimer || !session.expiresAt) return null;
 
     const expiryTime = new Date(session.expiresAt).getTime();
     const now = Date.now();
     const timeLeft = Math.max(0, expiryTime - now);
+    const minutes = Math.floor(timeLeft / (1000 * 60));
+    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
 
     return {
-      minutes: Math.floor(timeLeft / (1000 * 60)),
+      minutes,
+      seconds,
+      totalSeconds: Math.floor(timeLeft / 1000),
       isExpiringSoon: timeLeft < 10 * 60 * 1000, // Less than 10 minutes
       isCritical: timeLeft < 5 * 60 * 1000, // Less than 5 minutes
+      isExpired: timeLeft <= 0,
+      progressPercentage: Math.max(
+        0,
+        Math.min(100, (timeLeft / (30 * 60 * 1000)) * 100)
+      ), // Assuming 30 min session
     };
   }, [session.expiresAt, showSessionTimer]);
 
@@ -136,6 +198,17 @@ export function OrderSummary({
     return "Custom option";
   };
 
+  const handleCouponSubmit = () => {
+    if (couponInput.trim() && onCouponApply) {
+      onCouponApply(couponInput.trim());
+    }
+  };
+
+  const handleCopySessionId = () => {
+    navigator.clipboard.writeText(session.sessionId);
+    toast.success("Session ID copied to clipboard");
+  };
+
   const totalItems = processedItems.reduce(
     (sum, item) => sum + item.quantity,
     0
@@ -144,6 +217,24 @@ export function OrderSummary({
     (item) => item.customizations.length > 0
   );
   const hasDesigns = processedItems.some((item) => item.hasDesign);
+  const hasVariants = processedItems.some((item) => item.sizeVariant);
+
+  // Determine status colors and messages
+  const getSessionStatusColor = () => {
+    if (!sessionStatus) return "";
+    if (sessionStatus.isExpired) return "text-destructive";
+    if (sessionStatus.isCritical) return "text-destructive";
+    if (sessionStatus.isExpiringSoon) return "text-orange-600";
+    return "text-primary";
+  };
+
+  const getSessionStatusMessage = () => {
+    if (!sessionStatus) return "";
+    if (sessionStatus.isExpired) return "Session expired";
+    if (sessionStatus.isCritical) return "Session expiring soon!";
+    if (sessionStatus.isExpiringSoon) return "Session expires soon";
+    return "Session active";
+  };
 
   return (
     <div className={cn(isSticky && "sticky top-4", className)}>
@@ -154,123 +245,198 @@ export function OrderSummary({
               <ShoppingCart className="h-5 w-5" />
               Order Summary
             </div>
-            <Badge variant="secondary" className="text-xs">
-              {totalItems} {totalItems === 1 ? "item" : "items"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {totalItems} {totalItems === 1 ? "item" : "items"}
+              </Badge>
+              {showAdvancedDetails && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDetailsExpanded(!detailsExpanded)}
+                  className="p-1 h-6"
+                >
+                  {detailsExpanded ? (
+                    <EyeOff className="h-3 w-3" />
+                  ) : (
+                    <Eye className="h-3 w-3" />
+                  )}
+                </Button>
+              )}
+            </div>
           </CardTitle>
 
           {/* Session Timer */}
-          {sessionTimeRemaining && (
+          {sessionStatus && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
-                  Session expires in:
+                  {getSessionStatusMessage()}:
                 </span>
-                <span
-                  className={cn(
-                    "font-medium",
-                    sessionTimeRemaining.isCritical && "text-destructive",
-                    sessionTimeRemaining.isExpiringSoon &&
-                      !sessionTimeRemaining.isCritical &&
-                      "text-orange-600"
-                  )}
-                >
-                  {sessionTimeRemaining.minutes}m
+                <span className={cn("font-medium", getSessionStatusColor())}>
+                  {sessionStatus.isExpired
+                    ? "Expired"
+                    : `${sessionStatus.minutes}m ${sessionStatus.seconds}s`}
                 </span>
               </div>
               <Progress
-                value={(sessionTimeRemaining.minutes / 30) * 100}
+                value={sessionStatus.progressPercentage}
                 className={cn(
                   "h-1",
-                  sessionTimeRemaining.isCritical && "bg-destructive/20",
-                  sessionTimeRemaining.isExpiringSoon &&
-                    !sessionTimeRemaining.isCritical &&
+                  sessionStatus.isCritical && "bg-destructive/20",
+                  sessionStatus.isExpiringSoon &&
+                    !sessionStatus.isCritical &&
                     "bg-orange-200"
                 )}
               />
+              {sessionStatus.isCritical && (
+                <div className="text-xs text-destructive">
+                  ⚠️ Complete your order quickly to avoid losing your session
+                </div>
+              )}
             </div>
           )}
         </CardHeader>
 
         <CardContent className="space-y-4">
+          {/* Customer Information */}
+          {showCustomerInfo && session.customerInfo && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <User className="h-4 w-4" />
+                Customer Info
+              </div>
+              <div className="bg-muted/30 rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  {session.customerInfo.isGuest ? (
+                    <>
+                      <Badge variant="outline" className="text-xs">
+                        Guest
+                      </Badge>
+                      {session.customerInfo.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {session.customerInfo.email}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      Registered User
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Items List */}
           {showItemDetails && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Package className="h-4 w-4" />
-                Items ({processedItems.length})
-              </div>
-
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {processedItems.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="flex gap-3 p-2 rounded-lg bg-muted/30"
+            <Collapsible open={itemsExpanded} onOpenChange={setItemsExpanded}>
+              <div className="space-y-3">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center justify-between w-full p-0 h-auto font-medium text-sm"
                   >
-                    <div className="w-12 h-12 rounded border overflow-hidden bg-background flex-shrink-0">
-                      {item.thumbnail ? (
-                        <img
-                          src={item.thumbnail}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Items ({processedItems.length})
                     </div>
+                    {itemsExpanded ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {item.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Qty: {item.quantity} × KES{" "}
-                        {item.unitPrice.toLocaleString()}
-                      </div>
+                <CollapsibleContent>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {processedItems.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className="flex gap-3 p-2 rounded-lg bg-muted/30"
+                      >
+                        <div className="w-12 h-12 rounded border overflow-hidden bg-background flex-shrink-0">
+                          {item.thumbnail ? (
+                            <img
+                              src={item.thumbnail}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
 
-                      {/* Customizations */}
-                      {item.customizations.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {item.customizations
-                            .slice(0, 2)
-                            .map((custom, idx) => (
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Qty: {item.quantity} × {currency}{" "}
+                            {item.unitPrice.toLocaleString()}
+                          </div>
+
+                          {/* Size Variant */}
+                          {item.sizeVariant && (
+                            <div className="mt-1">
                               <Badge
-                                key={idx}
                                 variant="outline"
                                 className="text-xs px-1 py-0"
                               >
-                                {custom}
+                                {item.sizeVariant}
                               </Badge>
-                            ))}
-                          {item.customizations.length > 2 && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs px-1 py-0"
-                            >
-                              +{item.customizations.length - 2}
+                            </div>
+                          )}
+
+                          {/* Customizations */}
+                          {item.customizations.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.customizations
+                                .slice(0, 2)
+                                .map((custom, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="outline"
+                                    className="text-xs px-1 py-0"
+                                  >
+                                    {custom}
+                                  </Badge>
+                                ))}
+                              {item.customizations.length > 2 && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs px-1 py-0"
+                                >
+                                  +{item.customizations.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Design indicator */}
+                          {item.hasDesign && (
+                            <Badge variant="secondary" className="text-xs mt-1">
+                              <Tag className="h-2 w-2 mr-1" />
+                              Custom Design
                             </Badge>
                           )}
                         </div>
-                      )}
 
-                      {/* Design indicator */}
-                      {item.hasDesign && (
-                        <Badge variant="secondary" className="text-xs mt-1">
-                          <Tag className="h-2 w-2 mr-1" />
-                          Custom Design
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="text-sm font-medium">
-                      KES {item.totalPrice.toLocaleString()}
-                    </div>
+                        <div className="text-sm font-medium">
+                          {currency} {item.totalPrice.toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </CollapsibleContent>
               </div>
-            </div>
+            </Collapsible>
           )}
 
           {/* Coupon Section */}
@@ -281,21 +447,35 @@ export function OrderSummary({
                 Promo Code
               </div>
               <div className="flex gap-2">
-                <input
+                <Input
                   type="text"
                   placeholder="Enter coupon code"
-                  className="flex-1 px-3 py-2 border rounded-md text-sm"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value)}
+                  className="flex-1"
                   disabled={isApplyingCoupon}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCouponSubmit();
+                    }
+                  }}
                 />
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={isApplyingCoupon}
-                  onClick={() => onCouponApply("SAMPLE")}
+                  disabled={isApplyingCoupon || !couponInput.trim()}
+                  onClick={handleCouponSubmit}
                 >
                   {isApplyingCoupon ? "Applying..." : "Apply"}
                 </Button>
               </div>
+              {appliedDiscount > 0 && (
+                <div className="text-sm text-green-600 flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  Coupon applied! You saved {currency}{" "}
+                  {appliedDiscount.toLocaleString()}
+                </div>
+              )}
             </div>
           )}
 
@@ -314,7 +494,9 @@ export function OrderSummary({
                   <Package className="h-3 w-3" />
                   Subtotal ({totalItems} items)
                 </span>
-                <span>KES {calculatedTotals.subtotal.toLocaleString()}</span>
+                <span>
+                  {currency} {calculatedTotals.subtotal.toLocaleString()}
+                </span>
               </div>
 
               {calculatedTotals.shipping > 0 && (
@@ -323,7 +505,9 @@ export function OrderSummary({
                     <Truck className="h-3 w-3" />
                     Shipping
                   </span>
-                  <span>KES {calculatedTotals.shipping.toLocaleString()}</span>
+                  <span>
+                    {currency} {calculatedTotals.shipping.toLocaleString()}
+                  </span>
                 </div>
               )}
 
@@ -343,7 +527,9 @@ export function OrderSummary({
                     <Percent className="h-3 w-3" />
                     Tax (Estimated)
                   </span>
-                  <span>KES {calculatedTotals.tax.toLocaleString()}</span>
+                  <span>
+                    {currency} {calculatedTotals.tax.toLocaleString()}
+                  </span>
                 </div>
               )}
 
@@ -353,7 +539,9 @@ export function OrderSummary({
                     <Gift className="h-3 w-3" />
                     Discount
                   </span>
-                  <span>-KES {calculatedTotals.discount.toLocaleString()}</span>
+                  <span>
+                    -{currency} {calculatedTotals.discount.toLocaleString()}
+                  </span>
                 </div>
               )}
             </div>
@@ -368,7 +556,9 @@ export function OrderSummary({
                 <DollarSign className="h-5 w-5" />
                 Total
               </span>
-              <span>KES {calculatedTotals.total.toLocaleString()}</span>
+              <span>
+                {currency} {calculatedTotals.total.toLocaleString()}
+              </span>
             </div>
 
             {!finalTotals && (
@@ -400,8 +590,15 @@ export function OrderSummary({
 
             {hasDesigns && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Package className="h-3 w-3" />
+                <Star className="h-3 w-3" />
                 Includes custom designs
+              </div>
+            )}
+
+            {hasVariants && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Package className="h-3 w-3" />
+                Size variants selected
               </div>
             )}
 
@@ -414,7 +611,7 @@ export function OrderSummary({
           </div>
 
           {/* Payment Methods Preview */}
-          {session.availablePaymentMethods.length > 0 && (
+          {showPaymentMethods && session.availablePaymentMethods.length > 0 && (
             <div className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground">
                 Available Payment Methods:
@@ -435,6 +632,56 @@ export function OrderSummary({
             </div>
           )}
 
+          {/* Advanced Details */}
+          {showAdvancedDetails && (
+            <Collapsible
+              open={detailsExpanded}
+              onOpenChange={setDetailsExpanded}
+            >
+              <CollapsibleContent>
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Session Details:
+                  </div>
+                  <div className="space-y-2 text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg">
+                    <div className="flex justify-between">
+                      <span>Session ID:</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCopySessionId}
+                        className="h-4 p-0 font-mono text-xs hover:bg-transparent"
+                      >
+                        {session.sessionId.slice(0, 8)}...
+                        <Copy className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Expires At:</span>
+                      <span>
+                        {new Date(session.expiresAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Customer Type:</span>
+                      <span>
+                        {session.customerInfo.isGuest ? "Guest" : "Registered"}
+                      </span>
+                    </div>
+                    {session.customerInfo.email && (
+                      <div className="flex justify-between">
+                        <span>Email:</span>
+                        <span className="truncate ml-2">
+                          {session.customerInfo.email}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
           {/* Security & Trust Indicators */}
           <div className="pt-2 border-t">
             <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
@@ -442,12 +689,16 @@ export function OrderSummary({
                 <Shield className="h-3 w-3" />
                 Secure Checkout
               </div>
-              {sessionTimeRemaining && (
+              {sessionStatus && !sessionStatus.isExpired && (
                 <div className="flex items-center gap-1">
                   <Timer className="h-3 w-3" />
                   Session Protected
                 </div>
               )}
+              <div className="flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" />
+                SSL Encrypted
+              </div>
             </div>
           </div>
 
@@ -468,18 +719,26 @@ export function OrderSummary({
           )}
 
           {/* Session Expiry Warning */}
-          {sessionTimeRemaining?.isExpiringSoon && (
+          {sessionStatus?.isExpiringSoon && (
             <Alert
-              variant={
-                sessionTimeRemaining.isCritical ? "destructive" : "default"
-              }
+              variant={sessionStatus.isCritical ? "destructive" : "default"}
               className="py-2"
             >
               <AlertTriangle className="h-3 w-3" />
               <AlertDescription className="text-xs">
-                {sessionTimeRemaining.isCritical
+                {sessionStatus.isCritical
                   ? "Your session expires soon! Complete your order quickly."
                   : "Your session will expire in a few minutes. Please complete your order soon."}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Session Expired */}
+          {sessionStatus?.isExpired && (
+            <Alert variant="destructive" className="py-2">
+              <XCircle className="h-3 w-3" />
+              <AlertDescription className="text-xs">
+                Your session has expired. Please refresh the page to start over.
               </AlertDescription>
             </Alert>
           )}

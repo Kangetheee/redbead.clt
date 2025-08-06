@@ -106,19 +106,6 @@ export interface CartItemResponse {
   updatedAt: string;
 }
 
-export interface CartSummary {
-  itemCount: number;
-  totalQuantity: number;
-  subtotal: number;
-  customizationAdjustments: number;
-  total: number;
-}
-
-export interface CartResponse {
-  items: CartItemResponse[];
-  summary: CartSummary;
-}
-
 export interface CustomizationChoice {
   optionId: string;
   valueId: string;

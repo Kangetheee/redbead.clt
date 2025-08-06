@@ -8,8 +8,8 @@ import {
   UpdateDesignDto,
   GetDesignsDto,
   DuplicateDesignDto,
-  PaginatedDesignsResponseDto,
   DesignResponseDto,
+  PaginatedDesignsResponseDto,
 } from "./dto/designs.dto";
 
 const designsService = new DesignsService();

@@ -6,24 +6,27 @@ import { useCallback } from "react";
 import {
   getShippingZonesAction,
   createShippingZoneAction,
-  getZoneRatesAction,
+  getShippingRatesByZoneAction,
   createShippingRateAction,
   calculateShippingAction,
 } from "@/lib/shipping/shipping.actions";
 import {
   CreateShippingZoneDto,
   CreateShippingRateDto,
-  ShippingCalculationDto,
+  CalculateShippingDto,
+  GetShippingZonesDto,
+  GetShippingRatesDto,
 } from "@/lib/shipping/dto/shipping.dto";
 
 // Query Keys
 export const shippingKeys = {
   all: ["shipping"] as const,
-  zones: () => [...shippingKeys.all, "zones"] as const,
+  zones: (params?: GetShippingZonesDto) =>
+    [...shippingKeys.all, "zones", params] as const,
   zone: (id: string) => [...shippingKeys.zones(), id] as const,
-  zoneRates: (zoneId: string) =>
-    [...shippingKeys.zone(zoneId), "rates"] as const,
-  calculation: (params: ShippingCalculationDto) =>
+  zoneRates: (zoneId: string, params?: GetShippingRatesDto) =>
+    [...shippingKeys.zone(zoneId), "rates", params] as const,
+  calculation: (params: CalculateShippingDto) =>
     [...shippingKeys.all, "calculation", params] as const,
 };
 
@@ -33,10 +36,10 @@ export const shippingKeys = {
  * Get all active shipping zones with their countries
  * Uses GET /v1/shipping/zones
  */
-export function useShippingZones() {
+export function useShippingZones(params?: GetShippingZonesDto) {
   return useQuery({
-    queryKey: shippingKeys.zones(),
-    queryFn: () => getShippingZonesAction(),
+    queryKey: shippingKeys.zones(params),
+    queryFn: () => getShippingZonesAction(params),
     select: (response) => {
       if (!response.success) {
         return {
@@ -54,10 +57,14 @@ export function useShippingZones() {
  * Get all shipping rates for a specific zone
  * Uses GET /v1/shipping/zones/{id}/rates
  */
-export function useZoneRates(zoneId: string, enabled = true) {
+export function useZoneRates(
+  zoneId: string,
+  params?: GetShippingRatesDto,
+  enabled = true
+) {
   return useQuery({
-    queryKey: shippingKeys.zoneRates(zoneId),
-    queryFn: () => getZoneRatesAction(zoneId),
+    queryKey: shippingKeys.zoneRates(zoneId, params),
+    queryFn: () => getShippingRatesByZoneAction(zoneId, params),
     select: (response) => {
       if (!response.success) {
         return {
@@ -68,7 +75,7 @@ export function useZoneRates(zoneId: string, enabled = true) {
       return response;
     },
     enabled: enabled && !!zoneId,
-    staleTime: 10 * 60 * 1000, // 10 minutes - rates change less frequently
+    staleTime: 10 * 60 * 1000,
   });
 }
 
@@ -77,7 +84,7 @@ export function useZoneRates(zoneId: string, enabled = true) {
  * Uses POST /v1/shipping/calculate
  */
 export function useShippingCalculation(
-  params: ShippingCalculationDto,
+  params: CalculateShippingDto,
   enabled = true
 ) {
   return useQuery({
@@ -215,7 +222,7 @@ export function useCreateShippingRate() {
  */
 export function useCalculateShipping() {
   return useMutation({
-    mutationFn: (values: ShippingCalculationDto) =>
+    mutationFn: (values: CalculateShippingDto) =>
       calculateShippingAction(values),
     onSuccess: (data) => {
       if (data.success && data.data.length === 0) {
@@ -253,9 +260,12 @@ export function useCalculateShipping() {
 export function useRefetchShippingZones() {
   const queryClient = useQueryClient();
 
-  return useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: shippingKeys.zones() });
-  }, [queryClient]);
+  return useCallback(
+    (params?: GetShippingZonesDto) => {
+      queryClient.invalidateQueries({ queryKey: shippingKeys.zones(params) });
+    },
+    [queryClient]
+  );
 }
 
 /**
@@ -265,9 +275,9 @@ export function useRefetchZoneRates() {
   const queryClient = useQueryClient();
 
   return useCallback(
-    (zoneId: string) => {
+    (zoneId: string, params?: GetShippingRatesDto) => {
       queryClient.invalidateQueries({
-        queryKey: shippingKeys.zoneRates(zoneId),
+        queryKey: shippingKeys.zoneRates(zoneId, params),
       });
     },
     [queryClient]
@@ -277,10 +287,10 @@ export function useRefetchZoneRates() {
 /**
  * Get shipping zones from cache without triggering network request
  */
-export function useShippingZonesFromCache() {
+export function useShippingZonesFromCache(params?: GetShippingZonesDto) {
   const queryClient = useQueryClient();
 
-  return queryClient.getQueryData(shippingKeys.zones());
+  return queryClient.getQueryData(shippingKeys.zones(params));
 }
 
 /**
@@ -290,32 +300,13 @@ export function usePrefetchZoneRates() {
   const queryClient = useQueryClient();
 
   return useCallback(
-    (zoneId: string) => {
+    (zoneId: string, params?: GetShippingRatesDto) => {
       queryClient.prefetchQuery({
-        queryKey: shippingKeys.zoneRates(zoneId),
-        queryFn: () => getZoneRatesAction(zoneId),
+        queryKey: shippingKeys.zoneRates(zoneId, params),
+        queryFn: () => getShippingRatesByZoneAction(zoneId, params),
         staleTime: 10 * 60 * 1000,
       });
     },
     [queryClient]
   );
-}
-
-/**
- * Hook for managing shipping-related loading states
- */
-export function useShippingLoadingState() {
-  const createZone = useCreateShippingZone();
-  const createRate = useCreateShippingRate();
-  const calculateShipping = useCalculateShipping();
-
-  return {
-    isLoading:
-      createZone.isPending ||
-      createRate.isPending ||
-      calculateShipping.isPending,
-    isCreatingZone: createZone.isPending,
-    isCreatingRate: createRate.isPending,
-    isCalculating: calculateShipping.isPending,
-  };
 }

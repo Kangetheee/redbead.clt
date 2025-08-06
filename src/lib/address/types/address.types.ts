@@ -1,6 +1,7 @@
 export interface AddressResponse {
   id: string;
   name: string;
+  email?: string;
   recipientName: string;
   companyName: string | null;
   street: string;
@@ -15,16 +16,6 @@ export interface AddressResponse {
   createdAt: string;
   updatedAt: string;
   formattedAddress: string;
-}
-
-export interface PaginatedAddressesResponse {
-  items: AddressResponse[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    lastPage: number;
-  };
 }
 
 export type AddressType = "SHIPPING" | "BILLING" | "BOTH";

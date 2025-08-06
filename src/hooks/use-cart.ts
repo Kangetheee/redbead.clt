@@ -170,7 +170,19 @@ export function useCartSummary() {
 
   return {
     ...rest,
-    data: cart?.summary,
+    data: cart?.meta,
+  };
+}
+
+/**
+ * Hook to get cart items
+ */
+export function useCartItems() {
+  const { data: cart, ...rest } = useCart();
+
+  return {
+    ...rest,
+    data: cart?.summary ?? [],
   };
 }
 
@@ -179,7 +191,31 @@ export function useCartSummary() {
  */
 export function useCartItemCount() {
   const { data: cart } = useCart();
-  return cart?.summary.itemCount ?? 0;
+  return cart?.meta.itemCount ?? 0;
+}
+
+/**
+ * Hook to get cart total quantity
+ */
+export function useCartTotalQuantity() {
+  const { data: cart } = useCart();
+  return cart?.meta.totalQuantity ?? 0;
+}
+
+/**
+ * Hook to get cart subtotal
+ */
+export function useCartSubtotal() {
+  const { data: cart } = useCart();
+  return cart?.meta.subtotal ?? 0;
+}
+
+/**
+ * Hook to get cart customization adjustments
+ */
+export function useCartCustomizationAdjustments() {
+  const { data: cart } = useCart();
+  return cart?.meta.customizationAdjustments ?? 0;
 }
 
 /**
@@ -187,5 +223,5 @@ export function useCartItemCount() {
  */
 export function useCartTotal() {
   const { data: cart } = useCart();
-  return cart?.summary.total ?? 0;
+  return cart?.meta.total ?? 0;
 }

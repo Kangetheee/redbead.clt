@@ -36,6 +36,7 @@ import {
   useTemplatePresets,
   useFonts,
   useUploadAsset,
+  useDesign,
 } from "@/hooks/use-design-studio";
 import {
   createDesignSchema,
@@ -140,6 +141,12 @@ export default function DesignStudioComponent({
   const shareDesign = useShareDesign();
   const uploadAsset = useUploadAsset();
 
+  // Get existing design if editing
+  const { data: existingDesign, isLoading: designLoading } = useDesign(
+    designId || "",
+    !!designId
+  );
+
   // Template data hooks
   const {
     data: templateFromSlug,
@@ -160,6 +167,10 @@ export default function DesignStudioComponent({
     !!templateId
   );
   const { data: fonts } = useFonts();
+  const { data: customizationOptions } = useCustomizationOptions(
+    templateId || "",
+    !!templateId
+  );
 
   // Forms
   const designForm = useForm({
@@ -209,6 +220,28 @@ export default function DesignStudioComponent({
     },
   });
 
+  // Load existing design data
+  useEffect(() => {
+    if (existingDesign && designId) {
+      setCurrentDesign(existingDesign);
+      setCanvasElements(existingDesign.customizations.elements || []);
+
+      // Update form with existing design data
+      designForm.setValue("name", existingDesign.name);
+      designForm.setValue("description", existingDesign.description || "");
+      designForm.setValue("customizations", existingDesign.customizations);
+      designForm.setValue("status", existingDesign.status);
+      designForm.setValue("isTemplate", existingDesign.isTemplate);
+      designForm.setValue("isPublic", existingDesign.isPublic);
+
+      // Set template and variant if available
+      if (existingDesign.template && existingDesign.sizeVariant) {
+        // Note: You might need to fetch template details separately
+        // if they're not fully populated in the design response
+      }
+    }
+  }, [existingDesign, designId, designForm]);
+
   // Set template from slug fetch
   useEffect(() => {
     if (templateFromSlug && !providedTemplate) {
@@ -232,7 +265,11 @@ export default function DesignStudioComponent({
       // Update form with template data
       designForm.setValue("templateId", selectedTemplate.id);
       designForm.setValue("sizeVariantId", defaultVariant.id);
-      designForm.setValue("name", `Design - ${selectedTemplate.name}`);
+
+      // Only set name if not editing existing design
+      if (!designId) {
+        designForm.setValue("name", `Design - ${selectedTemplate.name}`);
+      }
 
       // Configure canvas
       configureCanvas.mutate(
@@ -258,6 +295,7 @@ export default function DesignStudioComponent({
     designForm,
     configureCanvas,
     artworkForm,
+    designId,
   ]);
 
   const handleUploadArtwork = (file: File) => {
@@ -501,12 +539,14 @@ export default function DesignStudioComponent({
   };
 
   // Loading state
-  if (templateSlug && templateLoading) {
+  if ((templateSlug && templateLoading) || (designId && designLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading template...</p>
+          <p className="text-gray-600">
+            {templateSlug ? "Loading template..." : "Loading design..."}
+          </p>
         </div>
       </div>
     );
@@ -562,11 +602,16 @@ export default function DesignStudioComponent({
               className={`${showBackToTemplates ? "border-l border-gray-300 pl-4" : ""}`}
             >
               <h1 className="text-lg font-semibold text-gray-900">
-                {selectedTemplate.name}
+                {currentDesign?.name || selectedTemplate.name}
               </h1>
               <p className="text-sm text-gray-500">
                 {selectedTemplate.category.name} •{" "}
                 {selectedTemplate.product.name}
+                {currentDesign && (
+                  <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                    {currentDesign.status}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -581,18 +626,44 @@ export default function DesignStudioComponent({
               {isPreviewMode ? "Edit" : "Preview"}
             </Button>
 
-            <Button variant="outline" size="sm" onClick={handleValidateDesign}>
-              <CheckCircle className="w-4 h-4 mr-2" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleValidateDesign}
+              disabled={validateDesign.isPending}
+            >
+              {validateDesign.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4 mr-2" />
+              )}
               Validate
             </Button>
 
-            <Button variant="outline" size="sm" onClick={handleShareDesign}>
-              <Share2 className="w-4 h-4 mr-2" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareDesign}
+              disabled={shareDesign.isPending}
+            >
+              {shareDesign.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Share2 className="w-4 h-4 mr-2" />
+              )}
               Share
             </Button>
 
-            <Button variant="outline" onClick={handleSaveDesign}>
-              <Save className="w-4 h-4 mr-2" />
+            <Button
+              variant="outline"
+              onClick={handleSaveDesign}
+              disabled={createDesign.isPending || updateDesign.isPending}
+            >
+              {createDesign.isPending || updateDesign.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
               Save
             </Button>
 
@@ -666,8 +737,91 @@ export default function DesignStudioComponent({
                       )}
                     />
 
-                    <Button type="submit" className="w-full">
-                      Export Design
+                    <FormField
+                      control={exportForm.control}
+                      name="width"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Width (optional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? Number(e.target.value)
+                                    : undefined
+                                )
+                              }
+                              placeholder="Auto"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={exportForm.control}
+                      name="height"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Height (optional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? Number(e.target.value)
+                                    : undefined
+                                )
+                              }
+                              placeholder="Auto"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={exportForm.control}
+                      name="dpi"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>DPI (optional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? Number(e.target.value)
+                                    : undefined
+                                )
+                              }
+                              placeholder="72"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={exportDesign.isPending}
+                    >
+                      {exportDesign.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Exporting...
+                        </>
+                      ) : (
+                        "Export Design"
+                      )}
                     </Button>
                   </form>
                 </Form>
@@ -806,7 +960,11 @@ export default function DesignStudioComponent({
                                 toast.error("Please select a file first");
                               }
                             }}
-                            disabled={!canvasId || uploadedFiles.length === 0}
+                            disabled={
+                              !canvasId ||
+                              uploadedFiles.length === 0 ||
+                              uploadArtwork.isPending
+                            }
                           >
                             {uploadArtwork.isPending ? (
                               <>
@@ -865,6 +1023,64 @@ export default function DesignStudioComponent({
                   ))}
                 </div>
               </div>
+
+              {/* Template Presets */}
+              {templatePresets && (
+                <div className="space-y-2">
+                  <h3 className="font-medium text-gray-900">
+                    Template Presets
+                  </h3>
+
+                  {templatePresets.colors &&
+                    templatePresets.colors.length > 0 && (
+                      <div>
+                        <h4 className="text-sm text-gray-600 mb-2">Colors</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {templatePresets.colors.map((color, index) => (
+                            <button
+                              key={index}
+                              className="w-8 h-8 rounded border border-gray-300 hover:border-gray-400"
+                              style={{ backgroundColor: color }}
+                              onClick={() => {
+                                designForm.setValue(
+                                  "customizations.backgroundColor",
+                                  color
+                                );
+                                setCanvasElements([...canvasElements]);
+                              }}
+                              title={color}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  {templatePresets.fonts &&
+                    templatePresets.fonts.length > 0 && (
+                      <div>
+                        <h4 className="text-sm text-gray-600 mb-2">Fonts</h4>
+                        <div className="space-y-1">
+                          {templatePresets.fonts
+                            .slice(0, 5)
+                            .map((font, index) => (
+                              <button
+                                key={index}
+                                className="block w-full text-left p-2 text-sm border border-gray-200 rounded hover:border-gray-300"
+                                style={{ fontFamily: font }}
+                                onClick={() => {
+                                  if (selectedElement?.type === "text") {
+                                    updateElement(selectedElement.id, { font });
+                                  }
+                                }}
+                              >
+                                {font}
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="assets" className="p-4">
@@ -962,7 +1178,8 @@ export default function DesignStudioComponent({
                       }}
                       disabled={
                         uploadedFiles.length === 0 ||
-                        !assetForm.getValues("name")
+                        !assetForm.getValues("name") ||
+                        uploadAsset.isPending
                       }
                     >
                       {uploadAsset.isPending ? (
@@ -1009,6 +1226,53 @@ export default function DesignStudioComponent({
                         </FormItem>
                       )}
                     />
+
+                    <FormField
+                      control={designForm.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="DRAFT">Draft</SelectItem>
+                              <SelectItem value="COMPLETED">
+                                Completed
+                              </SelectItem>
+                              <SelectItem value="ARCHIVED">Archived</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={designForm.control}
+                      name="isPublic"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2">
+                          <FormControl>
+                            <input
+                              type="checkbox"
+                              checked={field.value}
+                              onChange={field.onChange}
+                              className="rounded"
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">
+                            Make design public
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </Form>
 
@@ -1022,7 +1286,10 @@ export default function DesignStudioComponent({
                         .map((variant) => (
                           <button
                             key={variant.id}
-                            onClick={() => setSelectedVariant(variant)}
+                            onClick={() => {
+                              setSelectedVariant(variant);
+                              designForm.setValue("sizeVariantId", variant.id);
+                            }}
                             className={`w-full text-left p-3 rounded-lg border transition-colors ${
                               selectedVariant?.id === variant.id
                                 ? "border-blue-500 bg-blue-50"
@@ -1641,6 +1908,57 @@ export default function DesignStudioComponent({
                       {selectedTemplate.leadTime}
                     </span>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Design Status and Information */}
+            {currentDesign && (
+              <div className="mt-6 pt-4 border-t">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  Design Information
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Status:</span>
+                    <span
+                      className={`px-2 py-1 text-xs rounded ${
+                        currentDesign.status === "COMPLETED"
+                          ? "bg-green-100 text-green-800"
+                          : currentDesign.status === "ARCHIVED"
+                            ? "bg-gray-100 text-gray-800"
+                            : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {currentDesign.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Version:</span>
+                    <span className="font-medium">
+                      v{currentDesign.version}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Created:</span>
+                    <span className="font-medium">
+                      {new Date(currentDesign.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Updated:</span>
+                    <span className="font-medium">
+                      {new Date(currentDesign.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {currentDesign.estimatedCost && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Estimated Cost:</span>
+                      <span className="font-medium">
+                        ${currentDesign.estimatedCost.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

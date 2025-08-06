@@ -1,27 +1,30 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import {
   CanvasData,
-  CanvasLayer,
+  CanvasElement,
 } from "@/lib/design-studio/types/design-studio.types";
 import { cn } from "@/lib/utils";
 
 interface DesignCanvasProps {
   canvas: CanvasData;
   onCanvasChange: (canvas: CanvasData) => void;
-  selectedLayerId?: string | null; // Fixed: allow null
-  onLayerSelect: (layerId: string | null) => void;
+  selectedElementId?: string | null;
+  onElementSelect: (elementId: string | null) => void;
   zoom: number;
   readonly?: boolean;
-  // Added missing props that are being passed from parent
-  onLayerUpdate?: (layerId: string, updates: Partial<CanvasLayer>) => void;
-  onLayerDelete?: (layerId: string) => void;
-  onLayerDuplicate?: (layerId: string) => void;
-  onLayerReorder?: (
-    layerId: string,
+  onElementUpdate?: (
+    elementId: string,
+    updates: Partial<CanvasElement>
+  ) => void;
+  onElementDelete?: (elementId: string) => void;
+  onElementDuplicate?: (elementId: string) => void;
+  onElementReorder?: (
+    elementId: string,
     direction: "up" | "down" | "top" | "bottom"
   ) => void;
 }
@@ -29,44 +32,43 @@ interface DesignCanvasProps {
 export function DesignCanvas({
   canvas,
   onCanvasChange,
-  selectedLayerId,
-  onLayerSelect,
+  selectedElementId,
+  onElementSelect,
   zoom,
   readonly = false,
-  onLayerUpdate,
-  onLayerDelete,
-  onLayerDuplicate,
-  onLayerReorder,
+  onElementUpdate,
+  onElementDelete,
+  onElementDuplicate,
+  onElementReorder,
 }: DesignCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [dragLayerId, setDragLayerId] = useState<string | null>(null);
+  const [dragElementId, setDragElementId] = useState<string | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
 
-  const handleLayerClick = useCallback(
-    (layerId: string, event: React.MouseEvent) => {
+  const handleElementClick = useCallback(
+    (elementId: string, event: React.MouseEvent) => {
       event.stopPropagation();
       if (!readonly) {
-        onLayerSelect(layerId);
+        onElementSelect(elementId);
       }
     },
-    [onLayerSelect, readonly]
+    [onElementSelect, readonly]
   );
 
   const handleCanvasClick = useCallback(
     (event: React.MouseEvent) => {
-      // If clicking on canvas background, deselect layers
       if (event.target === event.currentTarget) {
-        onLayerSelect(null);
+        onElementSelect(null);
       }
     },
-    [onLayerSelect]
+    [onElementSelect]
   );
 
   const handleMouseDown = useCallback(
-    (layerId: string, event: React.MouseEvent) => {
+    (elementId: string, event: React.MouseEvent) => {
       if (readonly) return;
 
       event.preventDefault();
@@ -82,86 +84,84 @@ export function DesignCanvas({
         setIsDragging(true);
       }
 
-      setDragLayerId(layerId);
+      setDragElementId(elementId);
       setDragStart({
         x: event.clientX,
         y: event.clientY,
       });
 
-      onLayerSelect(layerId);
+      onElementSelect(elementId);
     },
-    [onLayerSelect, readonly]
+    [onElementSelect, readonly]
   );
 
   const handleMouseMove = useCallback(
     (event: MouseEvent) => {
-      if ((!isDragging && !isResizing) || !dragLayerId || readonly) return;
+      if ((!isDragging && !isResizing) || !dragElementId || readonly) return;
 
       const deltaX = (event.clientX - dragStart.x) / zoom;
       const deltaY = (event.clientY - dragStart.y) / zoom;
 
-      const layer = canvas.layers.find((l) => l.id === dragLayerId);
-      if (!layer) return;
+      const element = canvas.elements.find((e) => e.id === dragElementId);
+      if (!element) return;
 
       if (isDragging) {
-        // Handle dragging
         const newX = Math.max(
           0,
-          Math.min(canvas.width - layer.width, layer.x + deltaX)
+          Math.min(canvas.width - element.width, element.x + deltaX)
         );
         const newY = Math.max(
           0,
-          Math.min(canvas.height - layer.height, layer.y + deltaY)
+          Math.min(canvas.height - element.height, element.y + deltaY)
         );
 
-        if (onLayerUpdate) {
-          onLayerUpdate(dragLayerId, { x: newX, y: newY });
+        if (onElementUpdate) {
+          onElementUpdate(dragElementId, { x: newX, y: newY });
         } else {
-          // Fallback to old method
-          const updatedLayers = canvas.layers.map((l) => {
-            if (l.id === dragLayerId) {
-              return { ...l, x: newX, y: newY };
+          const updatedElements = canvas.elements.map((e) => {
+            if (e.id === dragElementId) {
+              return { ...e, x: newX, y: newY };
             }
-            return l;
+            return e;
           });
 
           onCanvasChange({
             ...canvas,
-            layers: updatedLayers,
+            elements: updatedElements,
           });
         }
       } else if (isResizing && resizeHandle) {
         // Handle resizing
-        let newWidth = layer.width;
-        let newHeight = layer.height;
-        let newX = layer.x;
-        let newY = layer.y;
+        let newWidth = element.width;
+        let newHeight = element.height;
+        let newX = element.x;
+        let newY = element.y;
 
         switch (resizeHandle) {
           case "nw":
-            newWidth = Math.max(10, layer.width - deltaX);
-            newHeight = Math.max(10, layer.height - deltaY);
-            newX = layer.x + deltaX;
-            newY = layer.y + deltaY;
+            newWidth = Math.max(10, element.width - deltaX);
+            newHeight = Math.max(10, element.height - deltaY);
+            newX = element.x + deltaX;
+            newY = element.y + deltaY;
             break;
           case "ne":
-            newWidth = Math.max(10, layer.width + deltaX);
-            newHeight = Math.max(10, layer.height - deltaY);
-            newY = layer.y + deltaY;
+            newWidth = Math.max(10, element.width + deltaX);
+            newHeight = Math.max(10, element.height - deltaY);
+            newY = element.y + deltaY;
             break;
           case "sw":
-            newWidth = Math.max(10, layer.width - deltaX);
-            newHeight = Math.max(10, layer.height + deltaY);
-            newX = layer.x + deltaX;
+            newWidth = Math.max(10, element.width - deltaX);
+            newHeight = Math.max(10, element.height + deltaY);
+            newX = element.x + deltaX;
             break;
           case "se":
-            newWidth = Math.max(10, layer.width + deltaX);
-            newHeight = Math.max(10, layer.height + deltaY);
+            newWidth = Math.max(10, element.width + deltaX);
+            newHeight = Math.max(10, element.height + deltaY);
             break;
         }
 
-        if (onLayerUpdate) {
-          onLayerUpdate(dragLayerId, {
+        if (onElementUpdate) {
+          onElementUpdate(dragElementId, {
             width: newWidth,
             height: newHeight,
             x: newX,
@@ -178,13 +178,13 @@ export function DesignCanvas({
     [
       isDragging,
       isResizing,
-      dragLayerId,
+      dragElementId,
       resizeHandle,
       dragStart,
       zoom,
       canvas,
       onCanvasChange,
-      onLayerUpdate,
+      onElementUpdate,
       readonly,
     ]
   );
@@ -192,7 +192,7 @@ export function DesignCanvas({
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
     setIsResizing(false);
-    setDragLayerId(null);
+    setDragElementId(null);
     setResizeHandle(null);
   }, []);
 
@@ -208,8 +208,9 @@ export function DesignCanvas({
     }
   }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
 
-  const sortedLayers = [...canvas.layers].sort(
-    (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
+  // Sort elements by zIndex for proper rendering order
+  const sortedElements = [...canvas.elements].sort(
+    (a, b) => (a.rotation || 0) - (b.rotation || 0) // Using rotation as zIndex substitute since it's not in the type
   );
 
   return (
@@ -240,15 +241,15 @@ export function DesignCanvas({
             }}
           />
 
-          {/* Render layers */}
-          {sortedLayers.map((layer) => (
-            <LayerRenderer
-              key={layer.id}
-              layer={layer}
+          {/* Render elements */}
+          {sortedElements.map((element) => (
+            <ElementRenderer
+              key={element.id}
+              element={element}
               zoom={zoom}
-              isSelected={selectedLayerId === layer.id}
-              onClick={(e) => handleLayerClick(layer.id, e)}
-              onMouseDown={(e) => handleMouseDown(layer.id, e)}
+              isSelected={selectedElementId === element.id}
+              onClick={(e) => handleElementClick(element.id, e)}
+              onMouseDown={(e) => handleMouseDown(element.id, e)}
               readonly={readonly}
             />
           ))}
@@ -263,8 +264,8 @@ export function DesignCanvas({
   );
 }
 
-interface LayerRendererProps {
-  layer: CanvasLayer;
+interface ElementRendererProps {
+  element: CanvasElement;
   zoom: number;
   isSelected: boolean;
   onClick: (e: React.MouseEvent) => void;
@@ -272,86 +273,62 @@ interface LayerRendererProps {
   readonly?: boolean;
 }
 
-function LayerRenderer({
-  layer,
+function ElementRenderer({
+  element,
   zoom,
   isSelected,
   onClick,
   onMouseDown,
   readonly = false,
-}: LayerRendererProps) {
-  const layerStyle: React.CSSProperties = {
+}: ElementRendererProps) {
+  const elementStyle: React.CSSProperties = {
     position: "absolute",
-    left: layer.x * zoom,
-    top: layer.y * zoom,
-    width: layer.width * zoom,
-    height: layer.height * zoom,
-    transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
-    opacity: layer.opacity ?? 1,
-    visibility: layer.visible !== false ? "visible" : "hidden",
+    left: element.x * zoom,
+    top: element.y * zoom,
+    width: element.width * zoom,
+    height: element.height * zoom,
+    transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
     cursor: !readonly ? "move" : "default",
-    zIndex: layer.zIndex || 0,
   };
 
-  const renderLayerContent = () => {
-    const props = layer.properties ?? {};
-
-    if (layer.type === "text") {
-      const textProps = props as {
-        fontSize?: number;
-        fontFamily?: string;
-        fontWeight?: string;
-        color?: string;
-        textAlign?: "left" | "center" | "right";
-        text?: string;
-      };
-
+  const renderElementContent = () => {
+    if (element.type === "text") {
       return (
         <div
           className="w-full h-full flex items-center justify-center p-2"
           style={{
-            fontSize: (textProps.fontSize || 16) * zoom,
-            fontFamily: textProps.fontFamily || "sans-serif",
-            fontWeight: textProps.fontWeight || "normal",
-            color: textProps.color || "#000000",
-            textAlign: textProps.textAlign || "center",
+            fontSize: (element.fontSize || 16) * zoom,
+            fontFamily: element.font || "sans-serif",
+            fontWeight: element.fontWeight || "normal",
+            color: element.color || "#000000",
             lineHeight: 1.2,
             overflow: "hidden",
+            textAlign: (element.properties as any)?.textAlign || "center",
           }}
         >
-          {textProps.text || "Text"}
+          {element.content || "Text"}
         </div>
       );
     }
 
-    if (layer.type === "image") {
-      const imageProps = props as {
-        src?: string;
-        alt?: string;
-      };
-
+    if (element.type === "image") {
       return (
         <img
-          src={imageProps.src}
-          alt={imageProps.alt || "Layer image"}
+          src={element.mediaId}
+          alt="Element image"
           className="w-full h-full object-cover"
           draggable={false}
         />
       );
     }
 
-    if (layer.type === "shape") {
-      const shapeProps = props as {
-        shapeType?: string;
-        fillColor?: string;
-        strokeColor?: string;
-        strokeWidth?: number;
-      };
-
-      const shapeType = shapeProps.shapeType || "rectangle";
-      const fillColor = shapeProps.fillColor || "#000000";
-      const strokeColor = shapeProps.strokeColor || "transparent";
-      const strokeWidth = (shapeProps.strokeWidth || 0) * zoom;
+    if (element.type === "shape") {
+      const shapeType = element.shapeType || "rectangle";
+      const fillColor = element.color || "#000000";
+      const strokeColor =
+        (element.properties as any)?.strokeColor || "transparent";
+      const strokeWidth =
+        ((element.properties as any)?.strokeWidth || 0) * zoom;
 
       const commonStyle = {
         backgroundColor: fillColor,
@@ -370,14 +347,14 @@ function LayerRenderer({
 
     return (
       <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs">
-        {layer.type}
+        {element.type}
       </div>
     );
   };
 
   return (
     <div
-      style={layerStyle}
+      style={elementStyle}
       onClick={onClick}
       onMouseDown={onMouseDown}
       className={cn(
@@ -386,9 +363,9 @@ function LayerRenderer({
         !readonly && "hover:border-blue-300"
       )}
     >
-      {renderLayerContent()}
+      {renderElementContent()}
 
-      {/* Resize handles for selected layer */}
+      {/* Resize handles for selected element */}
       {isSelected && !readonly && (
         <>
           <div

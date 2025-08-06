@@ -1,24 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+"use client";
+
 import React from "react";
-import { getSession } from "@/lib/session/session";
-import { notFound } from "next/navigation";
 import { useRouter } from "next/navigation";
 import EditOrderForm from "@/components/orders/edit-order-form";
 
-interface EditOrderPageProps {
-  params: {
-    orderId: string;
-  };
+interface EditOrderClientProps {
+  orderId: string;
+  session: unknown;
 }
 
-export default function EditOrdersPage({ params }: EditOrderPageProps) {
-  const session = getSession();
+export default function EditOrderClient({
+  orderId,
+  session,
+}: EditOrderClientProps) {
   const router = useRouter();
-  const { orderId } = params;
-
-  if (!orderId || orderId.length < 10) {
-    notFound();
-  }
 
   const handleSuccess = () => {
     router.push(`/orders/${orderId}`);

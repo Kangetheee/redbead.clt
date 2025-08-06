@@ -22,11 +22,11 @@ import {
   Video,
 } from "lucide-react";
 import { useUserAssets } from "@/hooks/use-design-studio";
-import { UploadAssetResponse } from "@/lib/design-studio/types/design-studio.types";
+import { AssetResponse } from "@/lib/design-studio/types/design-studio.types";
 import { cn } from "@/lib/utils";
 
 interface AssetBrowserProps {
-  onAssetSelect: (asset: UploadAssetResponse) => void;
+  onAssetSelect: (asset: AssetResponse) => void;
   selectedAssetId?: string;
   allowMultiple?: boolean;
   assetTypes?: string[];
@@ -53,7 +53,7 @@ export function AssetBrowser({
       (selectedType === "all" || asset.type === selectedType)
   );
 
-  const handleAssetClick = (asset: UploadAssetResponse) => {
+  const handleAssetClick = (asset: AssetResponse) => {
     if (allowMultiple) {
       setSelectedAssets((prev) =>
         prev.includes(asset.id)

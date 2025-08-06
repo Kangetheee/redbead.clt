@@ -128,7 +128,7 @@ export function UploadAsset({
 
     for (const file of selectedFiles) {
       try {
-        await uploadAsset.mutateAsync({
+        const result = await uploadAsset.mutateAsync({
           file,
           assetData: {
             name: uploadData.name || file.name,
@@ -137,7 +137,9 @@ export function UploadAsset({
           },
         });
 
-        onUploadComplete?.(file.name);
+        if (result.success) {
+          onUploadComplete?.(result.data.id);
+        }
       } catch (error) {
         console.error(`Failed to upload ${file.name}:`, error);
       }

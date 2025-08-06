@@ -250,8 +250,8 @@ export function SizePreview({ design, availableSizes = [] }: SizePreviewProps) {
                     <DesignCanvas
                       canvas={design.customizations}
                       onCanvasChange={() => {}}
-                      selectedLayerId={undefined}
-                      onLayerSelect={() => {}}
+                      selectedElementId={undefined}
+                      onElementSelect={() => {}}
                       zoom={calculateScale(selectedSizeData) * 0.5}
                       readonly
                     />
@@ -270,8 +270,8 @@ export function SizePreview({ design, availableSizes = [] }: SizePreviewProps) {
                     <DesignCanvas
                       canvas={design.customizations}
                       onCanvasChange={() => {}}
-                      selectedLayerId={undefined}
-                      onLayerSelect={() => {}}
+                      selectedElementId={undefined}
+                      onElementSelect={() => {}}
                       zoom={calculateScale(comparisonSizeData) * 0.5}
                       readonly
                     />
@@ -290,8 +290,8 @@ export function SizePreview({ design, availableSizes = [] }: SizePreviewProps) {
                     <DesignCanvas
                       canvas={design.customizations}
                       onCanvasChange={() => {}}
-                      selectedLayerId={undefined}
-                      onLayerSelect={() => {}}
+                      selectedElementId={undefined}
+                      onElementSelect={() => {}}
                       zoom={calculateScale(selectedSizeData)}
                       readonly
                     />
