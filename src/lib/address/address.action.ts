@@ -7,18 +7,15 @@ import {
   UpdateAddressDto,
   GetAddressesDto,
 } from "./dto/address.dto";
-import {
-  AddressResponse,
-  AddressType,
-  PaginatedAddressesResponse,
-} from "./types/address.types";
+import { AddressResponse, AddressType } from "./types/address.types";
+import { PaginatedData4 } from "../shared/types";
 import { AddressService } from "./addresses.service";
 
 const addressService = new AddressService();
 
 export async function getAddressesAction(
   params?: GetAddressesDto
-): Promise<ActionResponse<PaginatedAddressesResponse>> {
+): Promise<ActionResponse<PaginatedData4<AddressResponse>>> {
   try {
     const res = await addressService.findAll(params);
     return { success: true, data: res };

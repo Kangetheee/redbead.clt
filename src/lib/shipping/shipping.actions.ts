@@ -1,30 +1,31 @@
 "use server";
 
 import { getErrorMessage } from "../get-error-message";
-import { ActionResponse } from "../shared/types";
+import { ActionResponse, PaginatedData4 } from "../shared/types";
 import {
   CreateShippingZoneDto,
+  GetShippingZonesDto,
   CreateShippingRateDto,
-  ShippingCalculationDto,
+  GetShippingRatesDto,
+  CalculateShippingDto,
 } from "./dto/shipping.dto";
 import {
-  ShippingZone,
-  ShippingRate,
-  ShippingOption,
+  ShippingZoneResponse,
+  ShippingRateResponse,
+  ShippingOptionResponse,
 } from "./types/shipping.types";
 import { ShippingService } from "./shipping.service";
 
 const shippingService = new ShippingService();
 
 /**
- * Get all active shipping zones with their countries
- * GET /v1/shipping/zones
+ * Get paginated list of shipping zones
  */
-export async function getShippingZonesAction(): Promise<
-  ActionResponse<ShippingZone[]>
-> {
+export async function getShippingZonesAction(
+  params?: GetShippingZonesDto
+): Promise<ActionResponse<PaginatedData4<ShippingZoneResponse>>> {
   try {
-    const res = await shippingService.getZones();
+    const res = await shippingService.findAllZones(params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -32,12 +33,11 @@ export async function getShippingZonesAction(): Promise<
 }
 
 /**
- * Create a new shipping zone with countries
- * POST /v1/shipping/zones
+ * Create a new shipping zone
  */
 export async function createShippingZoneAction(
   values: CreateShippingZoneDto
-): Promise<ActionResponse<ShippingZone>> {
+): Promise<ActionResponse<ShippingZoneResponse>> {
   try {
     const res = await shippingService.createZone(values);
     return { success: true, data: res };
@@ -47,14 +47,14 @@ export async function createShippingZoneAction(
 }
 
 /**
- * Get all shipping rates for a specific zone
- * GET /v1/shipping/zones/{id}/rates
+ * Get shipping rates for a specific zone
  */
-export async function getZoneRatesAction(
-  zoneId: string
-): Promise<ActionResponse<ShippingRate[]>> {
+export async function getShippingRatesByZoneAction(
+  zoneId: string,
+  params?: GetShippingRatesDto
+): Promise<ActionResponse<PaginatedData4<ShippingRateResponse>>> {
   try {
-    const res = await shippingService.getZoneRates(zoneId);
+    const res = await shippingService.findRatesByZone(zoneId, params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -63,12 +63,11 @@ export async function getZoneRatesAction(
 
 /**
  * Create a new shipping rate for a specific zone
- * POST /v1/shipping/zones/{id}/rates
  */
 export async function createShippingRateAction(
   zoneId: string,
   values: CreateShippingRateDto
-): Promise<ActionResponse<ShippingRate>> {
+): Promise<ActionResponse<ShippingRateResponse>> {
   try {
     const res = await shippingService.createRate(zoneId, values);
     return { success: true, data: res };
@@ -78,12 +77,11 @@ export async function createShippingRateAction(
 }
 
 /**
- * Calculate available shipping options and costs for a destination
- * POST /v1/shipping/calculate
+ * Calculate shipping options and costs for a destination
  */
 export async function calculateShippingAction(
-  values: ShippingCalculationDto
-): Promise<ActionResponse<ShippingOption[]>> {
+  values: CalculateShippingDto
+): Promise<ActionResponse<ShippingOptionResponse[]>> {
   try {
     const res = await shippingService.calculateShipping(values);
     return { success: true, data: res };

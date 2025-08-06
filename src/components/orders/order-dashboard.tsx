@@ -147,7 +147,7 @@ export default function OrdersDashboard() {
   // Fetch orders data using the hook
   const { data: ordersData, isLoading, refetch } = useOrders(filters);
   const orders: OrderListItem[] = ordersData?.success
-    ? ordersData.data?.items || []
+    ? ordersData.data?.data || []
     : [];
   const pagination = ordersData?.success ? ordersData.data?.meta : null;
 

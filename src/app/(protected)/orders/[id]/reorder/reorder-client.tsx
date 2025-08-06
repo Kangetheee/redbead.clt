@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+"use client";
+
 import React from "react";
-import { getSession } from "@/lib/session/session";
-import { notFound } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -10,21 +10,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import CustomerReorderForm from "@/components/orders/reorder-form";
 import { useOrder } from "@/hooks/use-orders";
 
-interface OrderReorderPageProps {
-  params: {
-    orderId: string;
-  };
+interface OrderReorderClientProps {
+  orderId: string;
+  session: unknown;
 }
 
-export default function OrderReorderPage({ params }: OrderReorderPageProps) {
-  const session = getSession();
+export default function OrderReorderClient({
+  orderId,
+  session,
+}: OrderReorderClientProps) {
   const router = useRouter();
-  const { orderId } = params;
-
-  if (!orderId || orderId.length < 10) {
-    notFound();
-  }
-
   const { data: order, isLoading, error } = useOrder(orderId);
 
   const handleSuccess = (newOrderId: string) => {

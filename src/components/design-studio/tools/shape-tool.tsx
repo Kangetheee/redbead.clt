@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Square, Circle, Triangle, Plus } from "lucide-react";
 import {
-  CanvasLayer,
+  CanvasElement,
   CanvasData,
 } from "@/lib/design-studio/types/design-studio.types";
 import { ColorPicker } from "./color-picker";
@@ -24,15 +24,15 @@ import { ColorPicker } from "./color-picker";
 interface ShapeToolProps {
   canvas: CanvasData;
   onCanvasChange: (canvas: CanvasData) => void;
-  selectedLayerId?: string | null;
-  onLayerSelect: (layerId: string) => void;
+  selectedElementId?: string | null;
+  onElementSelect: (elementId: string) => void;
 }
 
 export function ShapeTool({
   canvas,
   onCanvasChange,
-  selectedLayerId,
-  onLayerSelect,
+  selectedElementId,
+  onElementSelect,
 }: ShapeToolProps) {
   const [shapeType, setShapeType] = useState("rectangle");
   const [fillColor, setFillColor] = useState("#3b82f6");
@@ -40,8 +40,10 @@ export function ShapeTool({
   const [strokeWidth, setStrokeWidth] = useState([2]);
   const [opacity, setOpacity] = useState([100]);
 
-  const selectedLayer = selectedLayerId
-    ? canvas.layers.find((l) => l.id === selectedLayerId && l.type === "shape")
+  const selectedElement = selectedElementId
+    ? canvas.elements.find(
+        (e) => e.id === selectedElementId && e.type === "shape"
+      )
     : null;
 
   const shapes = [
@@ -50,75 +52,87 @@ export function ShapeTool({
     { id: "triangle", name: "Triangle", icon: Triangle },
   ];
 
-  const addShapeLayer = (type: string) => {
-    const newLayer: CanvasLayer = {
+  const addShapeElement = (type: string) => {
+    const newElement: CanvasElement = {
       id: `shape_${Date.now()}`,
       type: "shape",
       x: 50,
       y: 50,
       width: 100,
       height: 100,
-      opacity: opacity[0] / 100,
+      shapeType: type,
+      color: fillColor,
       properties: {
-        shapeType: type,
         fillColor,
         strokeColor,
         strokeWidth: strokeWidth[0],
+        opacity: opacity[0] / 100,
       },
     };
 
-    const updatedLayers = [...canvas.layers, newLayer];
-    onCanvasChange({ ...canvas, layers: updatedLayers });
-    onLayerSelect(newLayer.id);
+    const updatedElements = [...canvas.elements, newElement];
+    onCanvasChange({ ...canvas, elements: updatedElements });
+    onElementSelect(newElement.id);
   };
 
-  const updateSelectedLayer = (properties: Record<string, any>) => {
-    if (!selectedLayer) return;
+  const updateSelectedElement = (updates: Partial<CanvasElement>) => {
+    if (!selectedElement) return;
 
-    const updatedLayers = canvas.layers.map((layer) =>
-      layer.id === selectedLayer.id
-        ? {
-            ...layer,
-            ...properties,
-            properties: { ...layer.properties, ...properties.properties },
-          }
-        : layer
+    const updatedElements = canvas.elements.map((element) =>
+      element.id === selectedElement.id ? { ...element, ...updates } : element
     );
 
-    onCanvasChange({ ...canvas, layers: updatedLayers });
+    onCanvasChange({ ...canvas, elements: updatedElements });
+  };
+
+  const updateSelectedElementProperties = (properties: Record<string, any>) => {
+    if (!selectedElement) return;
+
+    const updatedElements = canvas.elements.map((element) =>
+      element.id === selectedElement.id
+        ? {
+            ...element,
+            properties: { ...element.properties, ...properties },
+          }
+        : element
+    );
+
+    onCanvasChange({ ...canvas, elements: updatedElements });
   };
 
   const handleFillColorChange = (color: string) => {
     setFillColor(color);
-    if (selectedLayer) {
-      updateSelectedLayer({
-        properties: { fillColor: color },
-      });
+    if (selectedElement) {
+      updateSelectedElement({ color });
+      updateSelectedElementProperties({ fillColor: color });
     }
   };
 
   const handleStrokeColorChange = (color: string) => {
     setStrokeColor(color);
-    if (selectedLayer) {
-      updateSelectedLayer({
-        properties: { strokeColor: color },
-      });
+    if (selectedElement) {
+      updateSelectedElementProperties({ strokeColor: color });
     }
   };
 
   const handleStrokeWidthChange = (width: number[]) => {
     setStrokeWidth(width);
-    if (selectedLayer) {
-      updateSelectedLayer({
-        properties: { strokeWidth: width[0] },
-      });
+    if (selectedElement) {
+      updateSelectedElementProperties({ strokeWidth: width[0] });
     }
   };
 
   const handleOpacityChange = (newOpacity: number[]) => {
     setOpacity(newOpacity);
-    if (selectedLayer) {
-      updateSelectedLayer({ opacity: newOpacity[0] / 100 });
+    if (selectedElement) {
+      updateSelectedElementProperties({ opacity: newOpacity[0] / 100 });
+    }
+  };
+
+  const handleShapeTypeChange = (type: string) => {
+    setShapeType(type);
+    if (selectedElement) {
+      updateSelectedElement({ shapeType: type });
     }
   };
 
@@ -141,7 +155,7 @@ export function ShapeTool({
                 <Button
                   key={shape.id}
                   variant={shapeType === shape.id ? "default" : "outline"}
-                  onClick={() => setShapeType(shape.id)}
+                  onClick={() => handleShapeTypeChange(shape.id)}
                   className="aspect-square"
                 >
                   <Icon className="h-4 w-4" />
@@ -152,7 +166,7 @@ export function ShapeTool({
         </div>
 
         {/* Add Shape Button */}
-        <Button onClick={() => addShapeLayer(shapeType)} className="w-full">
+        <Button onClick={() => addShapeElement(shapeType)} className="w-full">
           <Plus className="h-4 w-4 mr-2" />
           Add {shapes.find((s) => s.id === shapeType)?.name}
         </Button>
@@ -195,12 +209,10 @@ export function ShapeTool({
           />
         </div>
 
-        {/* Selected Layer Info */}
-        {selectedLayer && (
+        {/* Selected Element Info */}
+        {selectedElement && (
           <div className="text-xs text-muted-foreground p-2 bg-accent rounded">
-            Editing:{" "}
-            {(selectedLayer.properties as { shapeType?: string })?.shapeType ||
-              "Image Layer"}
+            Editing: {selectedElement.shapeType || "Shape"} Element
           </div>
         )}
       </CardContent>

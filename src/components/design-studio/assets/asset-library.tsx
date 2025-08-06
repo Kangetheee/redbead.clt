@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search, FolderPlus, Upload as UploadIcon } from "lucide-react";
 import { AssetBrowser } from "./asset-browser";
 import { UploadAsset } from "./upload-asset";
-import { UploadAssetResponse } from "@/lib/design-studio/types/design-studio.types";
+import { AssetResponse } from "@/lib/design-studio/types/design-studio.types";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface AssetLibraryProps {
-  onAssetSelect: (asset: UploadAssetResponse) => void;
+  onAssetSelect: (asset: AssetResponse) => void;
   selectedAssetId?: string;
   allowMultiple?: boolean;
 }

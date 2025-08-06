@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -36,8 +37,9 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
-import { OrderResponse, OrderAddress } from "@/lib/orders/types/orders.types";
+import { OrderResponse } from "@/lib/orders/types/orders.types";
 import { useOrder, usePaymentStatus } from "@/hooks/use-orders";
 import { ORDER_STATUS, URGENCY_LEVELS } from "@/lib/orders/dto/orders.dto";
 
@@ -168,13 +170,17 @@ export default function CustomerOrderTracking({
 
   // Fetch order data with auto-refresh capability
   const {
-    data: order,
+    data: orderResponse,
     refetch: refetchOrder,
     isLoading: isOrderLoading,
+    error: orderError,
   } = useOrder(orderId, true);
 
+  // FIX: orderResponse is directly OrderResponse | undefined due to select function
+  const order: OrderResponse | undefined = orderResponse || initialOrder;
+
   // Fetch payment status if needed
-  const { data: paymentStatus, refetch: refetchPaymentStatus } =
+  const { data: paymentStatusResponse, refetch: refetchPaymentStatus } =
     usePaymentStatus(
       orderId,
       !!(
@@ -183,59 +189,58 @@ export default function CustomerOrderTracking({
       )
     );
 
-  const currentOrder = order || initialOrder;
+  // FIX: paymentStatusResponse is directly PaymentStatus | undefined due to select function
+  const paymentStatus = paymentStatusResponse || null;
 
   // Generate tracking events based on order status and timeline
   useEffect(() => {
-    if (!currentOrder) return;
+    if (!order) return;
 
     const events: TrackingEvent[] = [];
-    const baseTimestamp = new Date(currentOrder.createdAt);
+    const baseTimestamp = new Date(order.createdAt);
 
     // Always add order creation event
     events.push({
       id: "order_created",
       status: "Order Placed",
-      description: `Order #${currentOrder.orderNumber} has been placed`,
+      description: `Order #${order.orderNumber} has been placed`,
       location: "Order Management System",
-      timestamp: currentOrder.createdAt,
+      timestamp: order.createdAt,
       type: "success",
       icon: ShoppingCart,
     });
 
     // Add events based on order progression
-    if (currentOrder.designApprovalRequired) {
-      if (currentOrder.designApprovalRequestedAt) {
+    if (order.designApprovalRequired) {
+      if (order.designApprovalRequestedAt) {
         events.push({
           id: "design_requested",
           status: "Design Created",
           description: "Design has been created and sent for approval",
           location: "Design Department",
-          timestamp: currentOrder.designApprovalRequestedAt,
+          timestamp: order.designApprovalRequestedAt,
           type: "info",
           icon: Palette,
         });
       }
 
-      if (currentOrder.designApprovalCompletedAt) {
+      if (order.designApprovalCompletedAt) {
         events.push({
           id: "design_approved",
           status:
-            currentOrder.designApprovalStatus === "APPROVED"
+            order.designApprovalStatus === "APPROVED"
               ? "Design Approved"
               : "Design Feedback",
           description:
-            currentOrder.designApprovalStatus === "APPROVED"
+            order.designApprovalStatus === "APPROVED"
               ? "Design has been approved by customer"
               : "Customer provided feedback on design",
           location: "Customer Review",
-          timestamp: currentOrder.designApprovalCompletedAt,
+          timestamp: order.designApprovalCompletedAt,
           type:
-            currentOrder.designApprovalStatus === "APPROVED"
-              ? "success"
-              : "warning",
+            order.designApprovalStatus === "APPROVED" ? "success" : "warning",
           icon:
-            currentOrder.designApprovalStatus === "APPROVED"
+            order.designApprovalStatus === "APPROVED"
               ? CheckCircle
               : AlertTriangle,
         });
@@ -243,71 +248,68 @@ export default function CustomerOrderTracking({
     }
 
     // Add production timeline events
-    if (currentOrder.designStartDate) {
+    if (order.designStartDate) {
       events.push({
         id: "design_started",
         status: "Design Started",
         description: "Design work has begun",
         location: "Design Department",
-        timestamp: currentOrder.designStartDate,
+        timestamp: order.designStartDate,
         type: "info",
         icon: Palette,
       });
     }
 
-    if (currentOrder.designCompletionDate) {
+    if (order.designCompletionDate) {
       events.push({
         id: "design_completed",
         status: "Design Completed",
         description: "Design work has been completed",
         location: "Design Department",
-        timestamp: currentOrder.designCompletionDate,
+        timestamp: order.designCompletionDate,
         type: "success",
         icon: CheckCircle,
       });
     }
 
-    if (currentOrder.productionStartDate) {
+    if (order.productionStartDate) {
       events.push({
         id: "production_started",
         status: "Production Started",
         description: "Manufacturing has begun",
         location: "Production Facility",
-        timestamp: currentOrder.productionStartDate,
+        timestamp: order.productionStartDate,
         type: "info",
         icon: Factory,
       });
     }
 
-    if (currentOrder.productionEndDate) {
+    if (order.productionEndDate) {
       events.push({
         id: "production_completed",
         status: "Production Completed",
         description: "Manufacturing has been completed",
         location: "Production Facility",
-        timestamp: currentOrder.productionEndDate,
+        timestamp: order.productionEndDate,
         type: "success",
         icon: PackageCheck,
       });
     }
 
-    if (currentOrder.shippingDate && currentOrder.trackingNumber) {
+    if (order.shippingDate && order.trackingNumber) {
       events.push({
         id: "shipped",
         status: "Package Shipped",
-        description: `Package shipped with tracking number ${currentOrder.trackingNumber}`,
+        description: `Package shipped with tracking number ${order.trackingNumber}`,
         location: "Shipping Center",
-        timestamp: currentOrder.shippingDate,
+        timestamp: order.shippingDate,
         type: "success",
         icon: Truck,
       });
 
       // Add mock in-transit events for shipped orders
-      if (
-        currentOrder.status === "SHIPPED" ||
-        currentOrder.status === "DELIVERED"
-      ) {
-        const transitDate = new Date(currentOrder.shippingDate);
+      if (order.status === "SHIPPED" || order.status === "DELIVERED") {
+        const transitDate = new Date(order.shippingDate);
         transitDate.setDate(transitDate.getDate() + 1);
 
         events.push({
@@ -322,13 +324,13 @@ export default function CustomerOrderTracking({
       }
     }
 
-    if (currentOrder.actualDeliveryDate) {
+    if (order.actualDeliveryDate) {
       events.push({
         id: "delivered",
         status: "Delivered",
         description: "Package has been delivered successfully",
         location: "Delivery Address",
-        timestamp: currentOrder.actualDeliveryDate,
+        timestamp: order.actualDeliveryDate,
         type: "success",
         icon: PackageCheck,
       });
@@ -341,14 +343,14 @@ export default function CustomerOrderTracking({
     );
 
     setTrackingEvents(events);
-  }, [currentOrder]);
+  }, [order]);
 
   // Auto-refresh functionality
   useEffect(() => {
     if (
       autoRefresh &&
-      currentOrder &&
-      ["SHIPPED", "PROCESSING", "PRODUCTION"].includes(currentOrder.status)
+      order &&
+      ["SHIPPED", "PROCESSING", "PRODUCTION"].includes(order.status)
     ) {
       const interval = setInterval(
         () => {
@@ -359,7 +361,7 @@ export default function CustomerOrderTracking({
 
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, currentOrder?.status]);
+  }, [autoRefresh, order?.status]);
 
   const handleRefreshTracking = async () => {
     setIsRefreshing(true);
@@ -369,15 +371,17 @@ export default function CustomerOrderTracking({
         paymentStatus && refetchPaymentStatus(),
       ]);
       setLastUpdated(new Date());
+      toast.success("Tracking information updated");
     } catch (error) {
       console.error("Failed to refresh tracking data:", error);
+      toast.error("Failed to refresh tracking information");
     } finally {
       setIsRefreshing(false);
     }
   };
 
   const getTrackingProgress = () => {
-    if (!currentOrder) return 0;
+    if (!order) return 0;
 
     const statusProgressMap = {
       PENDING: 5,
@@ -394,17 +398,22 @@ export default function CustomerOrderTracking({
       REFUNDED: 0,
     };
 
-    return statusProgressMap[currentOrder.status] || 0;
+    return (
+      statusProgressMap[order.status as keyof typeof statusProgressMap] || 0
+    );
   };
 
   const getDeliveryEstimate = () => {
-    if (currentOrder?.expectedDelivery) {
-      return format(new Date(currentOrder.expectedDelivery), "EEEE, MMMM dd");
+    if (order?.expectedDelivery) {
+      return format(new Date(order.expectedDelivery), "EEEE, MMMM dd");
     }
 
-    if (currentOrder?.urgencyLevel && currentOrder?.createdAt) {
-      const deliveryDays = URGENCY_DELIVERY_DAYS[currentOrder.urgencyLevel];
-      const estimatedDate = new Date(currentOrder.createdAt);
+    if (order?.urgencyLevel && order?.createdAt) {
+      const deliveryDays =
+        URGENCY_DELIVERY_DAYS[
+          order.urgencyLevel as keyof typeof URGENCY_DELIVERY_DAYS
+        ];
+      const estimatedDate = new Date(order.createdAt);
       estimatedDate.setDate(estimatedDate.getDate() + deliveryDays);
       return format(estimatedDate, "EEEE, MMMM dd");
     }
@@ -412,7 +421,9 @@ export default function CustomerOrderTracking({
     return "TBD";
   };
 
-  const formatAddress = (address: OrderAddress) => {
+  const formatAddress = (address: any) => {
+    if (!address) return "";
+
     const parts = [
       address.street,
       address.city,
@@ -421,12 +432,15 @@ export default function CustomerOrderTracking({
       address.postalCode,
     ].filter(Boolean);
 
-    return parts.join(", ") || "Address not available";
+    return parts.join(", ");
   };
 
   const getCurrentStatusConfig = () => {
-    if (!currentOrder) return STATUS_CONFIG.PENDING;
-    return STATUS_CONFIG[currentOrder.status] || STATUS_CONFIG.PENDING;
+    if (!order) return STATUS_CONFIG.PENDING;
+    return (
+      STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG] ||
+      STATUS_CONFIG.PENDING
+    );
   };
 
   const getStatusIcon = (type: string) => {
@@ -455,7 +469,7 @@ export default function CustomerOrderTracking({
     }
   };
 
-  if (isOrderLoading && !currentOrder) {
+  if (isOrderLoading && !order) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -470,7 +484,7 @@ export default function CustomerOrderTracking({
     );
   }
 
-  if (!currentOrder) {
+  if (orderError || !order) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -481,6 +495,9 @@ export default function CustomerOrderTracking({
               Unable to load order details. Please check the order ID and try
               again.
             </p>
+            <Button onClick={() => refetchOrder()} className="mt-4">
+              Try Again
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -492,8 +509,8 @@ export default function CustomerOrderTracking({
 
   // If no tracking number and not shipped, show pre-shipment status
   if (
-    !currentOrder.trackingNumber &&
-    !["SHIPPED", "DELIVERED"].includes(currentOrder.status)
+    !order.trackingNumber &&
+    !["SHIPPED", "DELIVERED"].includes(order.status)
   ) {
     return (
       <div className="space-y-6">
@@ -516,9 +533,7 @@ export default function CustomerOrderTracking({
               </div>
 
               <div>
-                <h3 className="font-semibold">
-                  Order #{currentOrder.orderNumber}
-                </h3>
+                <h3 className="font-semibold">Order #{order.orderNumber}</h3>
                 <Badge variant="outline" className="mt-2">
                   {statusConfig.label}
                 </Badge>
@@ -533,9 +548,9 @@ export default function CustomerOrderTracking({
                   <p className="text-lg font-bold text-blue-600">
                     {getDeliveryEstimate()}
                   </p>
-                  {currentOrder.urgencyLevel !== "NORMAL" && (
+                  {order.urgencyLevel !== "NORMAL" && (
                     <Badge variant="secondary" className="mt-1">
-                      {currentOrder.urgencyLevel} Priority
+                      {order.urgencyLevel} Priority
                     </Badge>
                   )}
                 </div>
@@ -552,7 +567,7 @@ export default function CustomerOrderTracking({
             </div>
 
             {/* Action Required Alerts */}
-            {currentOrder.status === "DESIGN_PENDING" && (
+            {order.status === "DESIGN_PENDING" && (
               <Alert>
                 <Eye className="h-4 w-4" />
                 <AlertDescription>
@@ -570,7 +585,7 @@ export default function CustomerOrderTracking({
               </Alert>
             )}
 
-            {currentOrder.status === "PAYMENT_PENDING" && (
+            {order.status === "PAYMENT_PENDING" && (
               <Alert>
                 <CreditCard className="h-4 w-4" />
                 <AlertDescription>
@@ -717,10 +732,10 @@ export default function CustomerOrderTracking({
                 Refresh
               </Button>
 
-              {currentOrder.trackingUrl && (
+              {order.trackingUrl && (
                 <Button variant="outline" size="sm" asChild>
                   <a
-                    href={currentOrder.trackingUrl}
+                    href={order.trackingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -738,21 +753,20 @@ export default function CustomerOrderTracking({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm font-medium">Order Number</p>
-              <p className="font-mono text-lg">{currentOrder.orderNumber}</p>
+              <p className="font-mono text-lg">{order.orderNumber}</p>
             </div>
 
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm font-medium">Tracking Number</p>
               <div className="flex items-center justify-between">
-                <p className="font-mono text-lg">
-                  {currentOrder.trackingNumber}
-                </p>
+                <p className="font-mono text-lg">{order.trackingNumber}</p>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() =>
-                    navigator.clipboard.writeText(currentOrder.trackingNumber!)
-                  }
+                  onClick={() => {
+                    navigator.clipboard.writeText(order.trackingNumber!);
+                    toast.success("Tracking number copied");
+                  }}
                 >
                   Copy
                 </Button>
@@ -784,9 +798,9 @@ export default function CustomerOrderTracking({
                 <div>
                   <p className="font-medium">Expected Delivery</p>
                   <p className="text-sm text-muted-foreground">
-                    {currentOrder.expectedDelivery
+                    {order.expectedDelivery
                       ? format(
-                          new Date(currentOrder.expectedDelivery),
+                          new Date(order.expectedDelivery),
                           "EEEE, MMMM dd 'by' h:mm a"
                         )
                       : getDeliveryEstimate()}
@@ -794,7 +808,7 @@ export default function CustomerOrderTracking({
                 </div>
               </div>
 
-              {currentOrder.status === "SHIPPED" && (
+              {order.status === "SHIPPED" && (
                 <Badge className="bg-green-100 text-green-800">On Time</Badge>
               )}
             </div>
@@ -896,17 +910,17 @@ export default function CustomerOrderTracking({
           <div>
             <h4 className="font-medium mb-2">Delivery Address</h4>
             <p className="text-sm text-muted-foreground">
-              {formatAddress(currentOrder.shippingAddress)}
+              {formatAddress(order.shippingAddress)}
             </p>
           </div>
 
-          {currentOrder.specialInstructions && (
+          {order.specialInstructions && (
             <>
               <Separator />
               <div>
                 <h4 className="font-medium mb-2">Special Instructions</h4>
                 <p className="text-sm text-muted-foreground">
-                  {currentOrder.specialInstructions}
+                  {order.specialInstructions}
                 </p>
               </div>
             </>
@@ -966,20 +980,19 @@ export default function CustomerOrderTracking({
               </p>
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
-                  <span className="font-medium">Order ID:</span>{" "}
-                  {currentOrder.id}
+                  <span className="font-medium">Order ID:</span> {order.id}
                 </div>
                 <div>
                   <span className="font-medium">Customer ID:</span>{" "}
-                  {currentOrder.customerId}
+                  {order.customerId}
                 </div>
                 <div>
                   <span className="font-medium">Order Date:</span>{" "}
-                  {format(new Date(currentOrder.createdAt), "MMM dd, yyyy")}
+                  {format(new Date(order.createdAt), "MMM dd, yyyy")}
                 </div>
                 <div>
                   <span className="font-medium">Total Amount:</span> $
-                  {currentOrder.totalAmount.toFixed(2)}
+                  {order.totalAmount.toFixed(2)}
                 </div>
               </div>
             </div>

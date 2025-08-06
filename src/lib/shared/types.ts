@@ -20,3 +20,28 @@ export type PaginationLinks = {
   prev: string | null;
   next: string | null;
 };
+
+export type Meta1 = {
+  itemCount: number;
+  totalQuantity: number;
+  subtotal: number;
+  customizationAdjustments: number;
+  total: number;
+};
+
+export type PaginatedData1<T> = {
+  meta: Meta1;
+  summary: T[];
+};
+
+export type Meta4 = {
+  page: number;
+  limit: number;
+  total: number;
+  lastPage: number;
+};
+
+export type PaginatedData4<T> = {
+  meta: Meta;
+  data: T[];
+};

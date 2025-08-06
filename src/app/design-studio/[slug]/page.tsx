@@ -6,15 +6,15 @@ import { useParams } from "next/navigation";
 import DesignStudioComponent from "@/components/designs/design-studio-component";
 
 interface DesignStudioSlugPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
-export default function DesignStudioSlugPage({
+export default async function DesignStudioSlugPage({
   params,
 }: DesignStudioSlugPageProps) {
-  const { slug } = params;
+  const { slug } = await params;
 
   return (
     <div className="min-h-screen">

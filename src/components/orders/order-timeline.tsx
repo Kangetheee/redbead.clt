@@ -24,6 +24,9 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  Palette,
+  Factory,
+  ShoppingCart,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -63,7 +66,8 @@ interface TimelineEvent {
     | "SHIPPING"
     | "DESIGN"
     | "SYSTEM"
-    | "CUSTOMER_ACTION";
+    | "CUSTOMER_ACTION"
+    | "PRODUCTION";
   title: string;
   description?: string;
   timestamp: string;
@@ -103,9 +107,9 @@ export default function OrderTimeline({
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [showSystemEvents, setShowSystemEvents] = useState(false);
 
-  // Fetch notes using the hook
-  const { data: notesData } = useOrderNotes(order.id);
-  const notes: OrderNote[] = notesData?.success ? notesData.data || [] : [];
+  // Fetch notes using the hook - the select function extracts the data directly
+  const { data: notesResponse } = useOrderNotes(order.id);
+  const notes: OrderNote[] = notesResponse || [];
 
   // Helper functions - moved before useMemo
   const getStatusIcon = (status: string) => {
@@ -118,6 +122,18 @@ export default function OrderTimeline({
         return XCircle;
       case "PROCESSING":
         return Package;
+      case "PRODUCTION":
+        return Factory;
+      case "DESIGN_PENDING":
+        return Palette;
+      case "DESIGN_APPROVED":
+        return CheckCircle;
+      case "DESIGN_REJECTED":
+        return XCircle;
+      case "PAYMENT_PENDING":
+        return CreditCard;
+      case "PAYMENT_CONFIRMED":
+        return CheckCircle;
       default:
         return Clock;
     }
@@ -133,6 +149,18 @@ export default function OrderTimeline({
         return "text-red-500";
       case "PROCESSING":
         return "text-purple-500";
+      case "PRODUCTION":
+        return "text-purple-500";
+      case "DESIGN_APPROVED":
+        return "text-green-500";
+      case "DESIGN_REJECTED":
+        return "text-red-500";
+      case "DESIGN_PENDING":
+        return "text-yellow-500";
+      case "PAYMENT_CONFIRMED":
+        return "text-green-500";
+      case "PAYMENT_PENDING":
+        return "text-orange-500";
       default:
         return "text-yellow-500";
     }
@@ -149,40 +177,35 @@ export default function OrderTimeline({
       title: "Order Created",
       description: `Order #${order.orderNumber} was placed`,
       timestamp: order.createdAt,
-      icon: Package,
+      icon: ShoppingCart,
       iconColor: "text-blue-500",
       isImportant: true,
       actor: {
-        id: order.customerId,
-        name: "Customer", // In real app, get from customer data
+        id: order.customerId || "guest",
+        name: order.customerId
+          ? `Customer ${order.customerId}`
+          : "Guest Customer",
         role: "CUSTOMER",
       },
     });
 
-    // Status changes (generate from current status and timestamps)
-    const statusHistory = [
-      {
-        status: "PENDING",
-        timestamp: order.createdAt,
-        description: "Order received and confirmed",
-      },
-      // Add more status changes based on order data
-      ...(order.status !== "PENDING"
-        ? [
-            {
-              status: order.status,
-              timestamp: order.updatedAt,
-              description: `Order status updated to ${order.status.replace(/_/g, " ")}`,
-            },
-          ]
-        : []),
-    ];
+    // Status progression events based on order timeline
+    const statusEvents = [];
 
-    statusHistory.forEach((statusChange, index) => {
+    // Always add the current status if different from PENDING
+    if (order.status !== "PENDING") {
+      statusEvents.push({
+        status: order.status,
+        timestamp: order.updatedAt,
+        description: `Order status updated to ${order.status.replace(/_/g, " ")}`,
+      });
+    }
+
+    statusEvents.forEach((statusChange, index) => {
       events.push({
         id: `status_${statusChange.status}_${index}`,
         type: "STATUS_CHANGE",
-        title: `Status Updated to ${statusChange.status.replace(/_/g, " ")}`,
+        title: `Status: ${statusChange.status.replace(/_/g, " ")}`,
         description: statusChange.description,
         timestamp: statusChange.timestamp,
         icon: getStatusIcon(statusChange.status),
@@ -202,7 +225,7 @@ export default function OrderTimeline({
         id: "payment_processed",
         type: "PAYMENT",
         title: "Payment Processed",
-        description: `Payment of $${order.totalAmount.toFixed(2)} confirmed`,
+        description: `Payment of $${order.totalAmount.toFixed(2)} confirmed via ${order.payment.method || "payment system"}`,
         timestamp: order.updatedAt, // Use order updated time as fallback
         icon: CreditCard,
         iconColor: "text-green-500",
@@ -212,13 +235,15 @@ export default function OrderTimeline({
           name: "Payment System",
           role: "SYSTEM",
         },
-        relatedItems: [
-          {
-            type: "PAYMENT",
-            id: order.payment.transactionId || "txn_123",
-            label: `Transaction ${order.payment.transactionId || "txn_123"}`,
-          },
-        ],
+        relatedItems: order.payment.transactionId
+          ? [
+              {
+                type: "PAYMENT",
+                id: order.payment.transactionId,
+                label: `Transaction ${order.payment.transactionId}`,
+              },
+            ]
+          : undefined,
       });
     }
 
@@ -229,7 +254,7 @@ export default function OrderTimeline({
         type: "SHIPPING",
         title: "Order Shipped",
         description: `Package shipped with tracking number ${order.trackingNumber}`,
-        timestamp: order.updatedAt,
+        timestamp: order.shippingDate || order.updatedAt,
         icon: Truck,
         iconColor: "text-blue-500",
         isImportant: true,
@@ -257,12 +282,19 @@ export default function OrderTimeline({
         title: "Design Approval Requested",
         description: "Customer review required for design mockups",
         timestamp: order.designApproval.requestedAt,
-        icon: FileText,
+        icon: Palette,
         iconColor: "text-orange-500",
+        isImportant: true,
         actor: {
           id: "design_team",
           name: "Design Team",
           role: "ADMIN",
+        },
+        metadata: {
+          designId: order.designApproval.designId,
+          approvalToken: order.designApproval.approvalToken,
+          expiresAt: order.designApproval.expiresAt,
+          customerEmail: order.designApproval.customerEmail,
         },
       });
 
@@ -284,12 +316,108 @@ export default function OrderTimeline({
               : "text-red-500",
           isImportant: true,
           actor: {
-            id: order.customerId,
-            name: "Customer",
+            id: order.customerId || "customer",
+            name: order.designApproval.approvedBy || "Customer",
             role: "CUSTOMER",
+          },
+          metadata: {
+            status: order.designApproval.status,
+            rejectionReason: order.designApproval.rejectionReason,
           },
         });
       }
+    }
+
+    // Production timeline events
+    if (order.designStartDate) {
+      events.push({
+        id: "design_started",
+        type: "DESIGN",
+        title: "Design Work Started",
+        description: "Design team has begun working on the design",
+        timestamp: order.designStartDate,
+        icon: Palette,
+        iconColor: "text-blue-500",
+        actor: {
+          id: "design_team",
+          name: "Design Team",
+          role: "ADMIN",
+        },
+      });
+    }
+
+    if (order.designCompletionDate) {
+      events.push({
+        id: "design_completed",
+        type: "DESIGN",
+        title: "Design Completed",
+        description: "Design work has been finished and is ready for approval",
+        timestamp: order.designCompletionDate,
+        icon: CheckCircle,
+        iconColor: "text-green-500",
+        isImportant: true,
+        actor: {
+          id: "design_team",
+          name: "Design Team",
+          role: "ADMIN",
+        },
+      });
+    }
+
+    if (order.productionStartDate) {
+      events.push({
+        id: "production_started",
+        type: "PRODUCTION",
+        title: "Production Started",
+        description: "Manufacturing has begun",
+        timestamp: order.productionStartDate,
+        icon: Factory,
+        iconColor: "text-purple-500",
+        isImportant: true,
+        actor: {
+          id: "production_team",
+          name: "Production Team",
+          role: "ADMIN",
+        },
+      });
+    }
+
+    if (order.productionEndDate) {
+      events.push({
+        id: "production_completed",
+        type: "PRODUCTION",
+        title: "Production Completed",
+        description:
+          "Manufacturing has been completed and items are ready for shipping",
+        timestamp: order.productionEndDate,
+        icon: CheckCircle,
+        iconColor: "text-green-500",
+        isImportant: true,
+        actor: {
+          id: "production_team",
+          name: "Production Team",
+          role: "ADMIN",
+        },
+      });
+    }
+
+    // Delivery event
+    if (order.actualDeliveryDate) {
+      events.push({
+        id: "delivered",
+        type: "SHIPPING",
+        title: "Order Delivered",
+        description: "Package has been successfully delivered to the customer",
+        timestamp: order.actualDeliveryDate,
+        icon: CheckCircle,
+        iconColor: "text-green-500",
+        isImportant: true,
+        actor: {
+          id: "delivery_team",
+          name: "Delivery Team",
+          role: "ADMIN",
+        },
+      });
     }
 
     // Notes as events
@@ -297,15 +425,20 @@ export default function OrderTimeline({
       events.push({
         id: `note_${note.id}`,
         type: "NOTE_ADDED",
-        title: note.title || `${note.noteType} Note Added`,
+        title: note.title || `${note.noteType.replace("_", " ")} Note Added`,
         description: note.content,
         timestamp: note.createdAt,
         icon: MessageSquare,
-        iconColor: "text-purple-500",
+        iconColor:
+          note.priority === "URGENT"
+            ? "text-red-500"
+            : note.priority === "HIGH"
+              ? "text-orange-500"
+              : "text-purple-500",
         actor: note.user
           ? {
-              id: note.user.id,
-              name: note.user.name,
+              id: note.user.id || note.createdBy || "unknown",
+              name: note.user.name || "Team Member",
               avatar: note.user.avatar,
               role: "ADMIN",
             }
@@ -336,6 +469,26 @@ export default function OrderTimeline({
           role: "SYSTEM",
         },
       });
+
+      // Add payment reminder if payment is pending
+      if (order.status === "PAYMENT_PENDING") {
+        events.push({
+          id: "payment_reminder",
+          type: "SYSTEM",
+          title: "Payment Reminder Sent",
+          description: "Payment reminder email sent to customer",
+          timestamp: new Date(
+            new Date(order.createdAt).getTime() + 24 * 60 * 60 * 1000
+          ).toISOString(),
+          icon: Mail,
+          iconColor: "text-gray-500",
+          actor: {
+            id: "email_system",
+            name: "Email System",
+            role: "SYSTEM",
+          },
+        });
+      }
     }
 
     // Sort by timestamp (newest first)
@@ -372,6 +525,7 @@ export default function OrderTimeline({
     { value: "PAYMENT", label: "Payments" },
     { value: "SHIPPING", label: "Shipping" },
     { value: "DESIGN", label: "Design" },
+    { value: "PRODUCTION", label: "Production" },
     { value: "NOTE_ADDED", label: "Notes" },
     { value: "SYSTEM", label: "System Events" },
   ];
@@ -427,171 +581,178 @@ export default function OrderTimeline({
             </AlertDescription>
           </Alert>
         ) : (
-          <div className={compact ? "compact-class" : "regular-class"}>
+          <div className={compact ? "space-y-3" : "space-y-4"}>
             {/* Timeline line */}
-            <div className="absolute left-6 top-0 bottom-0 w-px bg-border" />
+            <div className="relative">
+              <div className="absolute left-6 top-0 bottom-0 w-px bg-border" />
 
-            {filteredEvents.map((event, index) => {
-              const Icon = event.icon;
-              const isExpanded = expandedEvents.has(event.id);
-              const hasDetails =
-                event.description ||
-                event.relatedItems?.length ||
-                event.metadata;
+              {filteredEvents.map((event, index) => {
+                const Icon = event.icon;
+                const isExpanded = expandedEvents.has(event.id);
+                const hasDetails =
+                  event.description ||
+                  event.relatedItems?.length ||
+                  event.metadata;
 
-              return (
-                <div key={event.id} className="relative flex gap-4">
-                  {/* Icon */}
-                  <div
-                    className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 border-background bg-card ${event.isImportant ? "ring-2 ring-primary/20" : ""}`}
-                  >
-                    <Icon className={`h-5 w-5 ${event.iconColor}`} />
-                  </div>
+                return (
+                  <div key={event.id} className="relative flex gap-4 pb-4">
+                    {/* Icon */}
+                    <div
+                      className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 border-background bg-card ${event.isImportant ? "ring-2 ring-primary/20" : ""}`}
+                    >
+                      <Icon className={`h-5 w-5 ${event.iconColor}`} />
+                    </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0 pb-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4
-                            className={`text-sm font-medium ${event.isImportant ? "text-foreground" : "text-muted-foreground"}`}
-                          >
-                            {event.title}
-                          </h4>
-                          {event.isImportant && (
-                            <Badge variant="secondary" className="text-xs">
-                              Important
-                            </Badge>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4
+                              className={`text-sm font-medium ${event.isImportant ? "text-foreground" : "text-muted-foreground"}`}
+                            >
+                              {event.title}
+                            </h4>
+                            {event.isImportant && (
+                              <Badge variant="secondary" className="text-xs">
+                                Important
+                              </Badge>
+                            )}
+                            {event.type && (
+                              <Badge variant="outline" className="text-xs">
+                                {event.type.replace("_", " ")}
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                            <time dateTime={event.timestamp}>
+                              {format(
+                                new Date(event.timestamp),
+                                "MMM dd, yyyy 'at' hh:mm a"
+                              )}
+                            </time>
+                            <span>•</span>
+                            <span>
+                              {formatDistanceToNow(new Date(event.timestamp), {
+                                addSuffix: true,
+                              })}
+                            </span>
+                          </div>
+
+                          {event.actor && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={event.actor.avatar} />
+                                <AvatarFallback className="text-xs">
+                                  {event.actor.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs text-muted-foreground">
+                                {event.actor.name}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {event.actor.role}
+                              </Badge>
+                            </div>
+                          )}
+
+                          {event.description && !isExpanded && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {event.description}
+                            </p>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                          <time dateTime={event.timestamp}>
-                            {format(
-                              new Date(event.timestamp),
-                              "MMM dd, yyyy 'at' hh:mm a"
+                        {hasDetails && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleEventExpansion(event.id)}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
                             )}
-                          </time>
-                          <span>•</span>
-                          <span>
-                            {formatDistanceToNow(new Date(event.timestamp), {
-                              addSuffix: true,
-                            })}
-                          </span>
-                        </div>
-
-                        {event.actor && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <Avatar className="h-6 w-6">
-                              <AvatarImage src={event.actor.avatar} />
-                              <AvatarFallback className="text-xs">
-                                {event.actor.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs text-muted-foreground">
-                              {event.actor.name}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {event.actor.role}
-                            </Badge>
-                          </div>
-                        )}
-
-                        {event.description && !isExpanded && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {event.description}
-                          </p>
+                          </Button>
                         )}
                       </div>
 
-                      {hasDetails && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleEventExpansion(event.id)}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Expanded Details */}
-                    {isExpanded && hasDetails && (
-                      <Collapsible open={isExpanded}>
-                        <CollapsibleContent className="mt-3 space-y-3">
-                          {event.description && (
-                            <div className="p-3 bg-muted rounded-lg">
-                              <p className="text-sm">{event.description}</p>
-                            </div>
-                          )}
-
-                          {event.relatedItems &&
-                            event.relatedItems.length > 0 && (
-                              <div className="space-y-2">
-                                <h5 className="text-xs font-medium text-muted-foreground">
-                                  RELATED ITEMS
-                                </h5>
-                                <div className="space-y-1">
-                                  {event.relatedItems.map((item, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center justify-between p-2 bg-muted rounded text-sm"
-                                    >
-                                      <span>{item.label}</span>
-                                      {item.url && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          asChild
-                                        >
-                                          <a
-                                            href={item.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                          >
-                                            <ExternalLink className="h-3 w-3" />
-                                          </a>
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
+                      {/* Expanded Details */}
+                      {isExpanded && hasDetails && (
+                        <Collapsible open={isExpanded}>
+                          <CollapsibleContent className="mt-3 space-y-3">
+                            {event.description && (
+                              <div className="p-3 bg-muted rounded-lg">
+                                <p className="text-sm">{event.description}</p>
                               </div>
                             )}
 
-                          {event.metadata && (
-                            <div className="space-y-2">
-                              <h5 className="text-xs font-medium text-muted-foreground">
-                                DETAILS
-                              </h5>
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                {Object.entries(event.metadata).map(
-                                  ([key, value]) => (
-                                    <div
-                                      key={key}
-                                      className="flex justify-between"
-                                    >
-                                      <span className="text-muted-foreground">
-                                        {key}:
-                                      </span>
-                                      <span>{String(value)}</span>
-                                    </div>
-                                  )
-                                )}
+                            {event.relatedItems &&
+                              event.relatedItems.length > 0 && (
+                                <div className="space-y-2">
+                                  <h5 className="text-xs font-medium text-muted-foreground">
+                                    RELATED ITEMS
+                                  </h5>
+                                  <div className="space-y-1">
+                                    {event.relatedItems.map((item, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center justify-between p-2 bg-muted rounded text-sm"
+                                      >
+                                        <span>{item.label}</span>
+                                        {item.url && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            asChild
+                                          >
+                                            <a
+                                              href={item.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                            >
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          </Button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                            {event.metadata && (
+                              <div className="space-y-2">
+                                <h5 className="text-xs font-medium text-muted-foreground">
+                                  DETAILS
+                                </h5>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  {Object.entries(event.metadata).map(
+                                    ([key, value]) => (
+                                      <div
+                                        key={key}
+                                        className="flex justify-between"
+                                      >
+                                        <span className="text-muted-foreground">
+                                          {key}:
+                                        </span>
+                                        <span>{String(value)}</span>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
@@ -22,6 +23,7 @@ import {
   Minus,
   Image as ImageIcon,
   X,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,11 +48,12 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
 import { useCreateOrder } from "@/hooks/use-orders";
 import {
+  CreateOrderDto,
   createOrderSchema,
-  orderItemSchema,
   URGENCY_LEVELS,
 } from "@/lib/orders/dto/orders.dto";
 
@@ -312,7 +315,6 @@ export default function QuickOrderForm({
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createOrder = useCreateOrder();
 
@@ -349,8 +351,6 @@ export default function QuickOrderForm({
   const estimatedPrice = basePrice * quantityMultiplier * urgencyMultiplier;
 
   const onSubmit = async (data: QuickOrderFormData) => {
-    setIsSubmitting(true);
-
     try {
       if (!selectedSizeVariant || !selectedTemplate) {
         throw new Error("Please select a valid product and size");
@@ -413,7 +413,7 @@ export default function QuickOrderForm({
         .join(" | ");
 
       // Create order using the proper DTO structure
-      const orderData = {
+      const orderData: CreateOrderDto = {
         items: [
           {
             templateId: data.templateId,
@@ -438,14 +438,13 @@ export default function QuickOrderForm({
       const result = await createOrder.mutateAsync(orderData);
 
       if (result.success && result.data) {
+        toast.success("Quick order submitted successfully!");
         onSuccess?.(result.data.id);
         router.push(`/orders/${result.data.id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create quick order:", error);
-      // Error is handled by the mutation's onError in the hook
-    } finally {
-      setIsSubmitting(false);
+      toast.error(error?.message || "Failed to create quick order");
     }
   };
 
@@ -454,7 +453,7 @@ export default function QuickOrderForm({
     const validFiles = files.filter((file) => {
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        console.warn(`File ${file.name} is too large (max 10MB)`);
+        toast.error(`File ${file.name} is too large (max 10MB)`);
         return false;
       }
       return true;
@@ -1150,7 +1149,7 @@ export default function QuickOrderForm({
                 type="button"
                 variant="outline"
                 onClick={() => setCurrentStep(currentStep - 1)}
-                disabled={isSubmitting}
+                disabled={createOrder.isPending}
               >
                 Previous
               </Button>
@@ -1161,7 +1160,7 @@ export default function QuickOrderForm({
                 type="button"
                 variant="outline"
                 onClick={onCancel}
-                disabled={isSubmitting}
+                disabled={createOrder.isPending}
               >
                 Cancel
               </Button>
@@ -1173,7 +1172,9 @@ export default function QuickOrderForm({
               <Button
                 type="button"
                 onClick={() => setCurrentStep(currentStep + 1)}
-                disabled={!canProceedToStep(currentStep + 1) || isSubmitting}
+                disabled={
+                  !canProceedToStep(currentStep + 1) || createOrder.isPending
+                }
               >
                 Continue
               </Button>
@@ -1181,13 +1182,15 @@ export default function QuickOrderForm({
               <Button
                 type="submit"
                 disabled={
-                  isSubmitting || !selectedTemplate || !selectedSizeVariant
+                  createOrder.isPending ||
+                  !selectedTemplate ||
+                  !selectedSizeVariant
                 }
                 className="min-w-[120px]"
               >
-                {isSubmitting ? (
+                {createOrder.isPending ? (
                   <>
-                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Submitting...
                   </>
                 ) : (

@@ -129,7 +129,7 @@ export class DesignStudioService {
 
   /**
    * Update design
-   * PUT /v1/design-studio/designs/{id}
+   * PATCH /v1/design-studio/designs/{id}
    */
   public async updateDesign(
     designId: string,
@@ -138,7 +138,7 @@ export class DesignStudioService {
     return this.fetcher.request<DesignResponse>(
       `/v1/design-studio/designs/${designId}`,
       {
-        method: "PUT",
+        method: "PATCH",
         data: values,
       },
       { auth: false }

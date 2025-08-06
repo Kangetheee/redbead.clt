@@ -23,15 +23,15 @@ import {
   CreditCard,
   Filter,
   Search,
-  ChevronLeft,
-  ChevronRight,
   ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   Palette,
   Factory,
   PackageCheck,
   ShoppingCart,
+  Copy,
+  FileText,
+  Phone,
+  Mail,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -61,12 +61,9 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DataTable } from "@/components/ui/data-table";
+import { toast } from "sonner";
 
-import {
-  OrderResponse,
-  OrderListItem,
-  OrdersListResponse,
-} from "@/lib/orders/types/orders.types";
+import { OrderResponse, OrderListItem } from "@/lib/orders/types/orders.types";
 import {
   GetOrdersDto,
   ORDER_STATUS,
@@ -76,7 +73,21 @@ import { useOrders } from "@/hooks/use-orders";
 
 interface OrdersHookResponse {
   success: boolean;
-  data?: OrdersListResponse;
+  data?: {
+    data: OrderListItem[];
+    meta: {
+      page: number;
+      limit: number;
+      total: number;
+      lastPage: number;
+    };
+    links: {
+      first: string;
+      last: string;
+      next?: string;
+      prev?: string;
+    };
+  };
   error?: string;
 }
 
@@ -178,7 +189,7 @@ export default function OrderTable({
   );
   const [favoriteOrders, setFavoriteOrders] = useState<Set<string>>(new Set());
 
-  // Fetch orders using the proper hook with all filters
+  // Build current filters
   const currentFilters: GetOrdersDto = {
     ...filters,
     page: filters.page || 1,
@@ -194,6 +205,7 @@ export default function OrderTable({
         : (urgencyFilter as (typeof URGENCY_LEVELS)[number]),
   };
 
+  // Fetch orders using the proper hook
   const {
     data: ordersResponse,
     isLoading,
@@ -251,8 +263,10 @@ export default function OrderTable({
       const newFavorites = new Set(prev);
       if (newFavorites.has(orderId)) {
         newFavorites.delete(orderId);
+        toast.success("Removed from favorites");
       } else {
         newFavorites.add(orderId);
+        toast.success("Added to favorites");
       }
       return newFavorites;
     });
@@ -336,6 +350,11 @@ export default function OrderTable({
     return `${firstTemplate?.name || "Template"} (+${order.orderItems.length - 1} more)`;
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  };
+
   // Define table columns
   const columns: ColumnDef<OrderListItem>[] = useMemo(
     () => [
@@ -384,13 +403,28 @@ export default function OrderTable({
         cell: ({ row }) => {
           const order = row.original;
           return (
-            <Link
-              href={`/orders/${order.id}`}
-              className="font-medium hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {order.orderNumber}
-            </Link>
+            <div className="space-y-1">
+              <Link
+                href={`/orders/${order.id}`}
+                className="font-medium hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {order.orderNumber}
+              </Link>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyToClipboard(order.orderNumber);
+                  }}
+                  className="h-4 w-4 p-0"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
           );
         },
       },
@@ -421,7 +455,7 @@ export default function OrderTable({
         },
       },
 
-      // UPDATED: Items column with template information
+      // Items column with template information
       {
         id: "items",
         header: "Items & Templates",
@@ -500,6 +534,56 @@ export default function OrderTable({
         },
       },
 
+      // Design Approval Status column
+      {
+        id: "designApproval",
+        header: "Design Status",
+        cell: ({ row }) => {
+          const order = row.original;
+
+          if (!order.designApprovalRequired) {
+            return (
+              <span className="text-xs text-muted-foreground">
+                Not required
+              </span>
+            );
+          }
+
+          if (order.designApprovalStatus) {
+            const statusConfig = {
+              PENDING: {
+                color: "bg-yellow-100 text-yellow-800",
+                label: "Pending",
+              },
+              APPROVED: {
+                color: "bg-green-100 text-green-800",
+                label: "Approved",
+              },
+              REJECTED: { color: "bg-red-100 text-red-800", label: "Rejected" },
+              EXPIRED: { color: "bg-gray-100 text-gray-800", label: "Expired" },
+              CANCELLED: {
+                color: "bg-gray-100 text-gray-800",
+                label: "Cancelled",
+              },
+            }[order.designApprovalStatus] || {
+              color: "bg-gray-100 text-gray-800",
+              label: order.designApprovalStatus,
+            };
+
+            return (
+              <Badge className={statusConfig.color} variant="outline">
+                {statusConfig.label}
+              </Badge>
+            );
+          }
+
+          return (
+            <span className="text-xs text-muted-foreground">Required</span>
+          );
+        },
+        enableSorting: false,
+      },
+
       // Action column
       {
         id: "action",
@@ -565,7 +649,13 @@ export default function OrderTable({
                   </Link>
                 </DropdownMenuItem>
 
-                {/* UPDATED: Check if order has templates from order items instead of templateId */}
+                <DropdownMenuItem asChild>
+                  <Link href={`/orders/${order.id}/edit`}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Edit Order
+                  </Link>
+                </DropdownMenuItem>
+
                 {hasTemplates(order) && (
                   <DropdownMenuItem asChild>
                     <Link href={`/orders/${order.id}/tracking`}>
@@ -575,7 +665,13 @@ export default function OrderTable({
                   </DropdownMenuItem>
                 )}
 
-                <DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Implement download invoice functionality
+                    toast.info("Invoice download will be available soon");
+                  }}
+                >
                   <Download className="mr-2 h-4 w-4" />
                   Download Invoice
                 </DropdownMenuItem>
@@ -591,21 +687,24 @@ export default function OrderTable({
                   </DropdownMenuItem>
                 )}
 
-                {/* Always show tracking option if order has shipped status or templates */}
-                {(hasTemplates(order) ||
-                  order.status === "SHIPPED" ||
-                  order.status === "DELIVERED") && (
-                  <DropdownMenuItem asChild>
-                    <Link href={`/orders/${order.id}/tracking`}>
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      View Tracking
-                    </Link>
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyToClipboard(order.id);
+                  }}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Order ID
+                </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem onClick={() => toggleFavorite(order.id)}>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(order.id);
+                  }}
+                >
                   {isFavorited ? (
                     <>
                       <StarOff className="mr-2 h-4 w-4" />
@@ -739,7 +838,7 @@ export default function OrderTable({
               <Package className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">No orders yet</h3>
               <p className="text-muted-foreground mb-4">
-                You haven&quot;t placed any orders yet. Start by creating your
+                You haven&apos;t placed any orders yet. Start by creating your
                 first order.
               </p>
               <Button asChild>

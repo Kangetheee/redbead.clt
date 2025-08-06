@@ -35,7 +35,7 @@ import {
   Unlock,
 } from "lucide-react";
 import { useState } from "react";
-import type { CanvasLayer } from "@/lib/design-studio/types/design-studio.types";
+import type { CanvasElement } from "@/lib/design-studio/types/design-studio.types";
 
 interface CanvasControlsProps {
   zoom: number;
@@ -48,13 +48,15 @@ interface CanvasControlsProps {
   onExport?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
-  // Added missing props
-  selectedLayer?: CanvasLayer | null;
-  onLayerUpdate?: (layerId: string, updates: Partial<CanvasLayer>) => void;
-  onLayerDelete?: (layerId: string) => void;
-  onLayerDuplicate?: (layerId: string) => void;
-  onLayerReorder?: (
-    layerId: string,
+  selectedElement?: CanvasElement | null;
+  onElementUpdate?: (
+    elementId: string,
+    updates: Partial<CanvasElement>
+  ) => void;
+  onElementDelete?: (elementId: string) => void;
+  onElementDuplicate?: (elementId: string) => void;
+  onElementReorder?: (
+    elementId: string,
     direction: "up" | "down" | "top" | "bottom"
   ) => void;
 }
@@ -70,11 +72,11 @@ export function CanvasControls({
   onExport,
   canUndo = false,
   canRedo = false,
-  selectedLayer,
-  onLayerUpdate,
-  onLayerDelete,
-  onLayerDuplicate,
-  onLayerReorder,
+  selectedElement,
+  onElementUpdate,
+  onElementDelete,
+  onElementDuplicate,
+  onElementReorder,
 }: CanvasControlsProps) {
   const [showZoomSlider, setShowZoomSlider] = useState(false);
 
@@ -99,16 +101,16 @@ export function CanvasControls({
     onZoomChange(1);
   };
 
-  const handleLayerPropertyChange = (property: string, value: any) => {
-    if (selectedLayer && onLayerUpdate) {
-      onLayerUpdate(selectedLayer.id, { [property]: value });
+  const handleElementPropertyChange = (property: string, value: any) => {
+    if (selectedElement && onElementUpdate) {
+      onElementUpdate(selectedElement.id, { [property]: value });
     }
   };
 
-  const handleLayerPropertiesChange = (properties: Record<string, any>) => {
-    if (selectedLayer && onLayerUpdate) {
-      onLayerUpdate(selectedLayer.id, {
-        properties: { ...selectedLayer.properties, ...properties },
+  const handleElementPropertiesChange = (properties: Record<string, any>) => {
+    if (selectedElement && onElementUpdate) {
+      onElementUpdate(selectedElement.id, {
+        properties: { ...selectedElement.properties, ...properties },
       });
     }
   };
@@ -173,19 +175,19 @@ export function CanvasControls({
         </CardContent>
       </Card>
 
-      {/* Layer Properties */}
-      {selectedLayer && (
+      {/* Element Properties */}
+      {selectedElement && (
         <Card>
           <CardContent className="p-3">
             <div className="space-y-3">
-              <div className="text-sm font-medium">Layer Properties</div>
+              <div className="text-sm font-medium">Element Properties</div>
 
-              {/* Layer Actions */}
+              {/* Element Actions */}
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onLayerDuplicate?.(selectedLayer.id)}
+                  onClick={() => onElementDuplicate?.(selectedElement.id)}
                 >
                   <Copy className="h-4 w-4 mr-1" />
                   Copy
@@ -193,42 +195,48 @@ export function CanvasControls({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onLayerDelete?.(selectedLayer.id)}
+                  onClick={() => onElementDelete?.(selectedElement.id)}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Delete
                 </Button>
               </div>
 
-              {/* Layer Order */}
+              {/* Element Order */}
               <div className="space-y-2">
-                <Label className="text-xs">Layer Order</Label>
+                <Label className="text-xs">Element Order</Label>
                 <div className="grid grid-cols-4 gap-1">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onLayerReorder?.(selectedLayer.id, "top")}
+                    onClick={() =>
+                      onElementReorder?.(selectedElement.id, "top")
+                    }
                   >
                     <ChevronsUp className="h-3 w-3" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onLayerReorder?.(selectedLayer.id, "up")}
+                    onClick={() => onElementReorder?.(selectedElement.id, "up")}
                   >
                     <ArrowUp className="h-3 w-3" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onLayerReorder?.(selectedLayer.id, "down")}
+                    onClick={() =>
+                      onElementReorder?.(selectedElement.id, "down")
+                    }
                   >
                     <ArrowDown className="h-3 w-3" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onLayerReorder?.(selectedLayer.id, "bottom")}
+                    onClick={() =>
+                      onElementReorder?.(selectedElement.id, "bottom")
+                    }
                   >
                     <ChevronsDown className="h-3 w-3" />
                   </Button>
@@ -245,9 +253,9 @@ export function CanvasControls({
                     <Label className="text-xs text-muted-foreground">X</Label>
                     <Input
                       type="number"
-                      value={Math.round(selectedLayer.x)}
+                      value={Math.round(selectedElement.x)}
                       onChange={(e) =>
-                        handleLayerPropertyChange(
+                        handleElementPropertyChange(
                           "x",
                           parseInt(e.target.value) || 0
                         )
@@ -259,9 +267,9 @@ export function CanvasControls({
                     <Label className="text-xs text-muted-foreground">Y</Label>
                     <Input
                       type="number"
-                      value={Math.round(selectedLayer.y)}
+                      value={Math.round(selectedElement.y)}
                       onChange={(e) =>
-                        handleLayerPropertyChange(
+                        handleElementPropertyChange(
                           "y",
                           parseInt(e.target.value) || 0
                         )
@@ -275,9 +283,9 @@ export function CanvasControls({
                     </Label>
                     <Input
                       type="number"
-                      value={Math.round(selectedLayer.width)}
+                      value={Math.round(selectedElement.width)}
                       onChange={(e) =>
-                        handleLayerPropertyChange(
+                        handleElementPropertyChange(
                           "width",
                           parseInt(e.target.value) || 1
                         )
@@ -291,9 +299,9 @@ export function CanvasControls({
                     </Label>
                     <Input
                       type="number"
-                      value={Math.round(selectedLayer.height)}
+                      value={Math.round(selectedElement.height)}
                       onChange={(e) =>
-                        handleLayerPropertyChange(
+                        handleElementPropertyChange(
                           "height",
                           parseInt(e.target.value) || 1
                         )
@@ -304,33 +312,17 @@ export function CanvasControls({
                 </div>
               </div>
 
-              {/* Opacity */}
-              <div className="space-y-2">
-                <Label className="text-xs">
-                  Opacity: {Math.round((selectedLayer.opacity ?? 1) * 100)}%
-                </Label>
-                <Slider
-                  value={[(selectedLayer.opacity ?? 1) * 100]}
-                  onValueChange={([value]) =>
-                    handleLayerPropertyChange("opacity", value / 100)
-                  }
-                  max={100}
-                  step={1}
-                  className="w-full"
-                />
-              </div>
-
               {/* Rotation */}
               <div className="space-y-2">
                 <Label className="text-xs">
-                  Rotation: {selectedLayer.rotation || 0}°
+                  Rotation: {selectedElement.rotation || 0}°
                 </Label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
-                    value={selectedLayer.rotation || 0}
+                    value={selectedElement.rotation || 0}
                     onChange={(e) =>
-                      handleLayerPropertyChange(
+                      handleElementPropertyChange(
                         "rotation",
                         parseInt(e.target.value) || 0
                       )
@@ -343,9 +335,9 @@ export function CanvasControls({
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      handleLayerPropertyChange(
+                      handleElementPropertyChange(
                         "rotation",
-                        (selectedLayer.rotation || 0) - 90
+                        (selectedElement.rotation || 0) - 90
                       )
                     }
                   >
@@ -355,9 +347,9 @@ export function CanvasControls({
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      handleLayerPropertyChange(
+                      handleElementPropertyChange(
                         "rotation",
-                        (selectedLayer.rotation || 0) + 90
+                        (selectedElement.rotation || 0) + 90
                       )
                     }
                   >
@@ -371,15 +363,14 @@ export function CanvasControls({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    handleLayerPropertyChange(
-                      "visible",
-                      !(selectedLayer.visible ?? true)
-                    )
-                  }
+                  onClick={() => {
+                    const isVisible =
+                      (selectedElement.properties as any)?.visible !== false;
+                    handleElementPropertiesChange({ visible: !isVisible });
+                  }}
                   className="flex-1"
                 >
-                  {selectedLayer.visible !== false ? (
+                  {(selectedElement.properties as any)?.visible !== false ? (
                     <>
                       <Eye className="h-4 w-4 mr-1" /> Visible
                     </>
@@ -393,14 +384,13 @@ export function CanvasControls({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    // Handle locked property in properties object since it's not in the base type
                     const isLocked =
-                      (selectedLayer.properties as any)?.locked ?? false;
-                    handleLayerPropertiesChange({ locked: !isLocked });
+                      (selectedElement.properties as any)?.locked ?? false;
+                    handleElementPropertiesChange({ locked: !isLocked });
                   }}
                   className="flex-1"
                 >
-                  {(selectedLayer.properties as any)?.locked ? (
+                  {(selectedElement.properties as any)?.locked ? (
                     <>
                       <Lock className="h-4 w-4 mr-1" /> Locked
                     </>
@@ -413,7 +403,7 @@ export function CanvasControls({
               </div>
 
               {/* Type-specific properties */}
-              {selectedLayer.type === "text" && (
+              {selectedElement.type === "text" && (
                 <div className="space-y-2">
                   <Separator />
                   <Label className="text-xs">Text Properties</Label>
@@ -422,9 +412,9 @@ export function CanvasControls({
                       Text
                     </Label>
                     <Input
-                      value={(selectedLayer.properties as any)?.text || ""}
+                      value={selectedElement.content || ""}
                       onChange={(e) =>
-                        handleLayerPropertiesChange({ text: e.target.value })
+                        handleElementPropertyChange("content", e.target.value)
                       }
                       className="h-8 text-xs"
                     />
@@ -435,11 +425,12 @@ export function CanvasControls({
                     </Label>
                     <Input
                       type="number"
-                      value={(selectedLayer.properties as any)?.fontSize || 16}
+                      value={selectedElement.fontSize || 16}
                       onChange={(e) =>
-                        handleLayerPropertiesChange({
-                          fontSize: parseInt(e.target.value) || 16,
-                        })
+                        handleElementPropertyChange(
+                          "fontSize",
+                          parseInt(e.target.value) || 16
+                        )
                       }
                       className="h-8 text-xs"
                     />
@@ -450,11 +441,9 @@ export function CanvasControls({
                     </Label>
                     <Input
                       type="color"
-                      value={
-                        (selectedLayer.properties as any)?.color || "#000000"
-                      }
+                      value={selectedElement.color || "#000000"}
                       onChange={(e) =>
-                        handleLayerPropertiesChange({ color: e.target.value })
+                        handleElementPropertyChange("color", e.target.value)
                       }
                       className="h-8 text-xs"
                     />
@@ -462,7 +451,7 @@ export function CanvasControls({
                 </div>
               )}
 
-              {selectedLayer.type === "shape" && (
+              {selectedElement.type === "shape" && (
                 <div className="space-y-2">
                   <Separator />
                   <Label className="text-xs">Shape Properties</Label>
@@ -472,14 +461,9 @@ export function CanvasControls({
                     </Label>
                     <Input
                       type="color"
-                      value={
-                        (selectedLayer.properties as any)?.fillColor ||
-                        "#000000"
-                      }
+                      value={selectedElement.color || "#000000"}
                       onChange={(e) =>
-                        handleLayerPropertiesChange({
-                          fillColor: e.target.value,
-                        })
+                        handleElementPropertyChange("color", e.target.value)
                       }
                       className="h-8 text-xs"
                     />
@@ -491,11 +475,11 @@ export function CanvasControls({
                     <Input
                       type="color"
                       value={
-                        (selectedLayer.properties as any)?.strokeColor ||
+                        (selectedElement.properties as any)?.strokeColor ||
                         "#000000"
                       }
                       onChange={(e) =>
-                        handleLayerPropertiesChange({
+                        handleElementPropertiesChange({
                           strokeColor: e.target.value,
                         })
                       }
@@ -509,10 +493,10 @@ export function CanvasControls({
                     <Input
                       type="number"
                       value={
-                        (selectedLayer.properties as any)?.strokeWidth || 0
+                        (selectedElement.properties as any)?.strokeWidth || 0
                       }
                       onChange={(e) =>
-                        handleLayerPropertiesChange({
+                        handleElementPropertiesChange({
                           strokeWidth: parseInt(e.target.value) || 0,
                         })
                       }

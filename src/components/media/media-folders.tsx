@@ -54,7 +54,7 @@ export default function MediaFolders({
       </div>
 
       <div className="flex flex-wrap gap-6">
-        {folders.results.map(
+        {folders.summary.map(
           ({ id, name, fileCount, createdAt, updatedAt }) => (
             <Fragment key={id}>
               <MediaGalleryDialog

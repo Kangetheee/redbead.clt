@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,7 +7,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { isValidPhoneNumber } from "react-phone-number-input";
-import { PaymentMethod } from "@/lib/payments/types/payments.types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,6 @@ import {
   Smartphone,
   CreditCard,
   Building2,
-  Banknote,
   Shield,
   Info,
   CheckCircle,
@@ -38,11 +37,33 @@ import {
   Phone,
   DollarSign,
   AlertTriangle,
+  Star,
+  Globe,
+  Lock,
+  Wifi,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type PaymentMethodType = "MPESA" | "BANK_TRANSFER" | "CARD";
+
+interface PaymentMethod {
+  id: string;
+  type: PaymentMethodType;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  isRecommended?: boolean;
+  fees?: {
+    percentage?: number;
+    fixed?: number;
+  };
+  processingTime?: string;
+  availableCountries?: string[];
+  minAmount?: number;
+  maxAmount?: number;
+}
 
 interface PaymentMethodsProps {
   methods: PaymentMethod[];
@@ -53,9 +74,13 @@ interface PaymentMethodsProps {
   orderTotal?: number;
   disabled?: boolean;
   showInstructions?: boolean;
+  showFees?: boolean;
+  currency?: string;
+  countryCode?: string;
   className?: string;
 }
 
+// Phone validation schema
 const phoneSchema = z.object({
   phone: z
     .string()
@@ -69,6 +94,7 @@ const PAYMENT_METHOD_CONFIG = {
   MPESA: {
     icon: Smartphone,
     title: "M-Pesa",
+    shortTitle: "M-Pesa",
     description: "Pay securely with your M-Pesa mobile money account",
     color: "text-green-600",
     bgColor: "bg-green-50",
@@ -82,15 +108,19 @@ const PAYMENT_METHOD_CONFIG = {
     ],
     requirements: [
       "Valid M-Pesa registered phone number",
-      "Sufficient M-Pesa balance",
+      "Sufficient M-Pesa balance or linked bank account",
+      "Phone must be switched on and have network coverage",
     ],
     processingTime: "Instant",
     fees: "No additional fees",
     security: "256-bit SSL encryption + M-Pesa security",
+    badges: ["instant", "popular"],
+    supportedCountries: ["KE"],
   },
   BANK_TRANSFER: {
     icon: Building2,
     title: "Bank Transfer",
+    shortTitle: "Bank Transfer",
     description: "Direct bank transfer or mobile banking",
     color: "text-blue-600",
     bgColor: "bg-blue-50",
@@ -99,32 +129,45 @@ const PAYMENT_METHOD_CONFIG = {
     instructions: [
       "Bank details will be provided after order confirmation",
       "Transfer funds using the provided account details",
-      "Use your order number as the reference",
+      "Use your order number as the payment reference",
       "Upload payment confirmation for faster processing",
     ],
-    requirements: ["Active bank account", "Online/mobile banking access"],
+    requirements: [
+      "Active bank account with online/mobile banking",
+      "Ability to make domestic transfers",
+      "Valid government-issued ID for verification",
+    ],
     processingTime: "1-2 business days",
-    fees: "Bank charges may apply",
-    security: "Secure bank-to-bank transfer",
+    fees: "Bank charges may apply (typically KES 25-50)",
+    security: "Secure bank-to-bank transfer with SSL encryption",
+    badges: ["bank-verified"],
+    supportedCountries: ["KE", "UG", "TZ", "RW"],
   },
   CARD: {
     icon: CreditCard,
     title: "Credit/Debit Card",
+    shortTitle: "Card",
     description: "Pay with Visa, Mastercard, or local cards",
     color: "text-purple-600",
     bgColor: "bg-purple-50",
     borderColor: "border-purple-200",
     iconBg: "bg-purple-100",
     instructions: [
-      "Enter your card details securely",
+      "Enter your card details securely on the next page",
       "Supports international and local cards",
       "3D Secure authentication for added security",
-      "Instant payment confirmation",
+      "Instant payment confirmation and receipt",
     ],
-    requirements: ["Valid credit/debit card", "Sufficient funds/credit limit"],
+    requirements: [
+      "Valid credit or debit card",
+      "Sufficient funds or available credit limit",
+      "Card enabled for online/international transactions",
+    ],
     processingTime: "Instant",
-    fees: "Standard processing fees may apply",
-    security: "PCI DSS compliant with 3D Secure",
+    fees: "2.5% processing fee",
+    security: "PCI DSS compliant with 3D Secure authentication",
+    badges: ["secure", "international"],
+    supportedCountries: ["KE", "UG", "TZ", "RW", "ET", "Global"],
   },
 };
 
@@ -137,12 +180,17 @@ export function PaymentMethods({
   orderTotal,
   disabled = false,
   showInstructions = true,
+  showFees = true,
+  currency = "KES",
+  countryCode = "KE",
   className,
 }: PaymentMethodsProps) {
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
   >({});
   const [isValidating, setIsValidating] = useState(false);
+  const [expandedMethod, setExpandedMethod] =
+    useState<PaymentMethodType | null>(null);
 
   const form = useForm<z.infer<typeof phoneSchema>>({
     resolver: zodResolver(phoneSchema),
@@ -170,7 +218,10 @@ export function PaymentMethods({
         setTimeout(() => {
           if (isValid) {
             setValidationErrors((prev) => ({ ...prev, phone: "" }));
-            toast.success("Valid M-Pesa number");
+            // Only show success toast once
+            if (validationErrors.phone) {
+              toast.success("Valid M-Pesa number");
+            }
           } else {
             setValidationErrors((prev) => ({
               ...prev,
@@ -182,12 +233,11 @@ export function PaymentMethods({
         }, 500);
       }
     }
-  }, [selectedMethod, form.watch("phone")]);
+  }, [selectedMethod, form.watch("phone"), validationErrors.phone]);
 
-  const getPaymentIcon = (type: string) => {
-    const IconComponent =
-      PAYMENT_METHOD_CONFIG[type as PaymentMethodType]?.icon || CreditCard;
-    const config = PAYMENT_METHOD_CONFIG[type as PaymentMethodType];
+  const getPaymentIcon = (type: PaymentMethodType) => {
+    const IconComponent = PAYMENT_METHOD_CONFIG[type]?.icon || CreditCard;
+    const config = PAYMENT_METHOD_CONFIG[type];
 
     return (
       <div className={cn("p-2 rounded-lg", config?.iconBg)}>
@@ -196,17 +246,7 @@ export function PaymentMethods({
     );
   };
 
-  const formatFees = (fees: PaymentMethod["fees"]) => {
-    if (!fees) return null;
-
-    const parts = [];
-    if (fees.percentage) parts.push(`${fees.percentage}%`);
-    if (fees.fixed) parts.push(`KES ${fees.fixed}`);
-
-    return parts.length > 0 ? `${parts.join(" + ")} fee` : null;
-  };
-
-  const calculateFees = (method: PaymentMethod) => {
+  const calculateFees = (method: PaymentMethod): number => {
     if (!method.fees || !orderTotal) return 0;
 
     let fee = 0;
@@ -220,6 +260,38 @@ export function PaymentMethods({
     return fee;
   };
 
+  const getBadges = (method: PaymentMethod, config: any) => {
+    const badges = [];
+
+    if (method.isRecommended) badges.push("recommended");
+    if (config.badges) badges.push(...config.badges);
+
+    return badges
+      .map((badge) => {
+        switch (badge) {
+          case "instant":
+            return { label: "Instant", variant: "secondary", icon: Zap };
+          case "popular":
+            return { label: "Popular", variant: "default", icon: Star };
+          case "secure":
+            return { label: "Secure", variant: "outline", icon: Shield };
+          case "international":
+            return { label: "International", variant: "outline", icon: Globe };
+          case "bank-verified":
+            return {
+              label: "Bank Verified",
+              variant: "outline",
+              icon: Building2,
+            };
+          case "recommended":
+            return { label: "Recommended", variant: "default", icon: Star };
+          default:
+            return null;
+        }
+      })
+      .filter(Boolean);
+  };
+
   const handleMethodChange = (methodType: PaymentMethodType) => {
     onMethodSelect(methodType);
 
@@ -230,6 +302,9 @@ export function PaymentMethods({
     if (methodType !== "MPESA") {
       form.clearErrors("phone");
     }
+
+    // Expand method details
+    setExpandedMethod(methodType);
 
     toast.success(`${PAYMENT_METHOD_CONFIG[methodType].title} selected`);
   };
@@ -244,7 +319,26 @@ export function PaymentMethods({
     }
   };
 
-  const activePaymentMethods = methods.filter((method) => method.isActive);
+  const activePaymentMethods = methods.filter((method) => {
+    // Filter by country support if specified
+    const config = PAYMENT_METHOD_CONFIG[method.type];
+    if (
+      config.supportedCountries &&
+      !config.supportedCountries.includes(countryCode) &&
+      !config.supportedCountries.includes("Global")
+    ) {
+      return false;
+    }
+
+    // Filter by amount limits
+    if (orderTotal) {
+      if (method.minAmount && orderTotal < method.minAmount) return false;
+      if (method.maxAmount && orderTotal > method.maxAmount) return false;
+    }
+
+    return method.isActive;
+  });
+
   const selectedConfig = PAYMENT_METHOD_CONFIG[selectedMethod];
   const selectedMethodData = activePaymentMethods.find(
     (m) => m.type === selectedMethod
@@ -255,8 +349,8 @@ export function PaymentMethods({
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
-          No payment methods are currently available. Please contact support for
-          assistance.
+          No payment methods are currently available for your location or order
+          amount. Please contact support for assistance.
         </AlertDescription>
       </Alert>
     );
@@ -273,7 +367,7 @@ export function PaymentMethods({
           </CardTitle>
           {orderTotal && (
             <div className="text-sm text-muted-foreground">
-              Order total: KES {orderTotal.toLocaleString()}
+              Order total: {currency} {orderTotal.toLocaleString()}
             </div>
           )}
         </CardHeader>
@@ -285,10 +379,10 @@ export function PaymentMethods({
             className="space-y-3"
           >
             {activePaymentMethods.map((method) => {
-              const config =
-                PAYMENT_METHOD_CONFIG[method.type as PaymentMethodType];
+              const config = PAYMENT_METHOD_CONFIG[method.type];
               const fees = calculateFees(method);
               const totalWithFees = orderTotal ? orderTotal + fees : 0;
+              const badges = getBadges(method, config);
 
               if (!config) return null;
 
@@ -327,41 +421,43 @@ export function PaymentMethods({
                                 <div>
                                   <div className="font-medium flex items-center gap-2">
                                     {config.title}
-                                    {method.isActive && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs"
-                                      >
-                                        Recommended
-                                      </Badge>
-                                    )}
+                                    {badges.map((badge, idx) => {
+                                      if (!badge) return null;
+                                      const BadgeIcon = badge.icon;
+                                      return (
+                                        <Badge
+                                          key={idx}
+                                          variant={badge.variant as any}
+                                          className="text-xs h-5"
+                                        >
+                                          <BadgeIcon className="mr-1 h-3 w-3" />
+                                          {badge.label}
+                                        </Badge>
+                                      );
+                                    })}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
-                                    {config.description}
+                                    {method.description || config.description}
                                   </div>
                                 </div>
                               </div>
 
                               <div className="text-right">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 mb-1">
                                   <Badge variant="outline" className="text-xs">
                                     <Shield className="mr-1 h-3 w-3" />
                                     Secure
                                   </Badge>
-                                  {method.type === "MPESA" && (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs"
-                                    >
-                                      <Zap className="mr-1 h-3 w-3" />
-                                      Instant
-                                    </Badge>
-                                  )}
+                                  <Badge variant="outline" className="text-xs">
+                                    <Clock className="mr-1 h-3 w-3" />
+                                    {method.processingTime ||
+                                      config.processingTime}
+                                  </Badge>
                                 </div>
 
-                                {fees > 0 && (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    +KES {fees.toLocaleString()} fee
+                                {showFees && fees > 0 && (
+                                  <div className="text-xs text-muted-foreground">
+                                    +{currency} {fees.toLocaleString()} fee
                                   </div>
                                 )}
                               </div>
@@ -369,17 +465,24 @@ export function PaymentMethods({
 
                             <div className="flex items-center justify-between text-sm text-muted-foreground">
                               <div className="flex items-center gap-4">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {config.processingTime}
-                                </span>
-                                {fees > 0 && orderTotal && (
+                                {config.supportedCountries && (
                                   <span className="flex items-center gap-1">
-                                    <DollarSign className="h-3 w-3" />
-                                    Total: KES {totalWithFees.toLocaleString()}
+                                    <Globe className="h-3 w-3" />
+                                    {config.supportedCountries.includes(
+                                      "Global"
+                                    )
+                                      ? "Global"
+                                      : config.supportedCountries.join(", ")}
                                   </span>
                                 )}
                               </div>
+                              {showFees && fees > 0 && orderTotal && (
+                                <span className="flex items-center gap-1 font-medium">
+                                  <DollarSign className="h-3 w-3" />
+                                  Total: {currency}{" "}
+                                  {totalWithFees.toLocaleString()}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -423,6 +526,7 @@ export function PaymentMethods({
                           }}
                           disabled={disabled}
                           className={cn(
+                            "pl-10",
                             validationErrors.phone && "border-destructive",
                             !validationErrors.phone &&
                               field.value &&
@@ -430,6 +534,7 @@ export function PaymentMethods({
                               "border-green-500"
                           )}
                         />
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         {isValidating && (
                           <div className="absolute right-3 top-1/2 -translate-y-1/2">
                             <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
@@ -488,7 +593,7 @@ export function PaymentMethods({
               </AlertDescription>
             </Alert>
 
-            <div className="mt-4 space-y-2 text-sm">
+            <div className="mt-4 space-y-2 text-sm bg-muted/30 p-3 rounded-lg">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
                   Payment Reference:
@@ -500,8 +605,8 @@ export function PaymentMethods({
                 <span>1-2 business days</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Additional Fees:</span>
-                <span>Bank charges may apply</span>
+                <span className="text-muted-foreground">Bank Charges:</span>
+                <span>May apply (typically {currency} 25-50)</span>
               </div>
             </div>
           </CardContent>
@@ -547,84 +652,98 @@ export function PaymentMethods({
       )}
 
       {/* Payment Instructions */}
-      {showInstructions && selectedConfig && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" />
-              How {selectedConfig.title} Payment Works
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {selectedConfig.instructions.map((instruction, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium mt-0.5">
-                    {index + 1}
+      {showInstructions &&
+        selectedConfig &&
+        (expandedMethod === selectedMethod || selectedMethod) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                How {selectedConfig.title} Payment Works
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                {selectedConfig.instructions.map((instruction, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium mt-0.5 flex-shrink-0">
+                      {index + 1}
+                    </div>
+                    <span className="text-sm">{instruction}</span>
                   </div>
-                  <span className="text-sm">{instruction}</span>
-                </div>
-              ))}
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <div className="font-medium">Requirements</div>
-                <ul className="text-muted-foreground space-y-1">
-                  {selectedConfig.requirements.map((req, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                      {req}
-                    </li>
-                  ))}
-                </ul>
+                ))}
               </div>
 
-              <div className="space-y-2">
-                <div className="font-medium">Payment Details</div>
-                <div className="space-y-1 text-muted-foreground">
-                  <div>Processing: {selectedConfig.processingTime}</div>
-                  <div>Fees: {selectedConfig.fees}</div>
-                  <div>Security: {selectedConfig.security}</div>
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <div className="font-medium">Requirements</div>
+                  <ul className="text-muted-foreground space-y-1">
+                    {selectedConfig.requirements.map((req, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <CheckCircle className="h-3 w-3 text-green-500 mt-0.5 flex-shrink-0" />
+                        <span>{req}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="font-medium">Payment Details</div>
+                  <div className="space-y-1 text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3 w-3" />
+                      Processing: {selectedConfig.processingTime}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-3 w-3" />
+                      Fees: {selectedConfig.fees}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-3 w-3" />
+                      Security: {selectedConfig.security}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Payment Summary */}
-            {selectedMethodData && orderTotal && (
-              <div className="p-3 bg-muted rounded-lg">
-                <div className="font-medium mb-2">Payment Summary</div>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span>Order Total:</span>
-                    <span>KES {orderTotal.toLocaleString()}</span>
-                  </div>
-                  {calculateFees(selectedMethodData) > 0 && (
+              {/* Payment Summary */}
+              {selectedMethodData && orderTotal && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="font-medium mb-2">Payment Summary</div>
+                  <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span>Payment Fee:</span>
+                      <span>Order Total:</span>
                       <span>
-                        KES {calculateFees(selectedMethodData).toLocaleString()}
+                        {currency} {orderTotal.toLocaleString()}
                       </span>
                     </div>
-                  )}
-                  <Separator className="my-2" />
-                  <div className="flex justify-between font-medium">
-                    <span>Total to Pay:</span>
-                    <span>
-                      KES{" "}
-                      {(
-                        orderTotal + calculateFees(selectedMethodData)
-                      ).toLocaleString()}
-                    </span>
+                    {calculateFees(selectedMethodData) > 0 && (
+                      <div className="flex justify-between">
+                        <span>Payment Fee:</span>
+                        <span>
+                          {currency}{" "}
+                          {calculateFees(selectedMethodData).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-medium">
+                      <span>Total to Pay:</span>
+                      <span>
+                        {currency}{" "}
+                        {(
+                          orderTotal + calculateFees(selectedMethodData)
+                        ).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              )}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Security Assurance */}
       <Card className="border-green-200 bg-green-50">
@@ -638,8 +757,23 @@ export function PaymentMethods({
               <p className="text-green-700 mt-1">
                 All payments are processed through secure, encrypted channels.
                 Your financial information is protected with industry-standard
-                security measures.
+                security measures including SSL encryption and PCI DSS
+                compliance.
               </p>
+              <div className="flex items-center gap-4 mt-2 text-xs text-green-600">
+                <div className="flex items-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  <span>SSL Encrypted</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  <span>PCI Compliant</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Wifi className="h-3 w-3" />
+                  <span>Real-time Processing</span>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>

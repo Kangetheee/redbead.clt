@@ -154,7 +154,7 @@ export function useDesign(designId: string, enabled = true) {
 
 /**
  * Update design
- * PUT /v1/design-studio/designs/{id}
+ * PATCH /v1/design-studio/designs/{id}
  */
 export function useUpdateDesign() {
   const queryClient = useQueryClient();

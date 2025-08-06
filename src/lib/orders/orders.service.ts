@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { Fetcher } from "../api/api.service";
-import { PaginatedData } from "../shared/types";
+import { PaginatedData4 } from "../shared/types";
 import {
   GetOrdersDto,
   CreateOrderDto,
@@ -31,7 +31,7 @@ export class OrderService {
 
   public async findAll(
     params?: GetOrdersDto
-  ): Promise<PaginatedData<OrderListItem>> {
+  ): Promise<PaginatedData4<OrderResponse>> {
     const queryParams = new URLSearchParams();
 
     if (params?.page) {
@@ -71,19 +71,11 @@ export class OrderService {
     const queryString = queryParams.toString();
     const url = `/v1/orders${queryString ? `?${queryString}` : ""}`;
 
-    // Get the raw API response
-    const apiResponse = await this.fetcher.request<OrdersListResponse>(url);
-
-    // Transform to match PaginatedData structure
-    return {
-      items: apiResponse.data,
-      meta: {
-        totalItems: apiResponse.meta.total,
-        itemsPerPage: apiResponse.meta.limit,
-        currentPage: apiResponse.meta.page,
-        totalPages: apiResponse.meta.lastPage,
-      },
-    };
+    return this.fetcher.request<PaginatedData4<OrderResponse>>(
+      url,
+      { method: "GET" },
+      { auth: true }
+    );
   }
 
   public async findById(orderId: string): Promise<OrderResponse> {
@@ -174,6 +166,7 @@ export class OrderService {
       `/v1/orders/${orderId}/complete-design-approval`,
       {
         method: "POST",
+        data: {},
       }
     );
   }
@@ -201,6 +194,7 @@ export class OrderService {
       `/v1/orders/${orderId}/calculate-timeline?${queryParams.toString()}`,
       {
         method: "POST",
+        data: {},
       }
     );
   }

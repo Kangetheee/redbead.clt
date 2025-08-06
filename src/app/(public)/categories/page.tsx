@@ -17,11 +17,13 @@ export const metadata: Metadata = {
     "Explore our wide range of product categories and find the perfect items for your needs.",
 };
 
-export default function CategoriesPage({
+export default async function CategoriesPage({
   searchParams,
 }: {
-  searchParams: { search?: string; view?: "grid" | "tree" };
+  searchParams: Promise<{ search?: string; view?: "grid" | "tree" }>;
 }) {
+  const resolvedSearchParams = await searchParams;
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header Section */}
@@ -38,8 +40,8 @@ export default function CategoriesPage({
 
       <Suspense fallback={<CategoriesPageSkeleton />}>
         <CategoriesContent
-          searchQuery={searchParams.search}
-          viewMode={searchParams.view || "grid"}
+          searchQuery={resolvedSearchParams.search}
+          viewMode={resolvedSearchParams.view || "grid"}
         />
       </Suspense>
     </div>

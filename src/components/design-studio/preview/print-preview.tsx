@@ -21,11 +21,17 @@ import {
   Info,
   Download,
 } from "lucide-react";
-import {
-  DesignResponse,
-  PrintSpecifications,
-} from "@/lib/design-studio/types/design-studio.types";
+import { DesignResponse } from "@/lib/design-studio/types/design-studio.types";
 import { DesignCanvas } from "../canvas/design-canvas";
+
+// Additional types for print specifications
+interface PrintSpecifications {
+  material: string;
+  colorMode: string;
+  dpi: number;
+  finish: string;
+  specialInstructions?: string;
+}
 
 interface PrintPreviewProps {
   design: DesignResponse;
@@ -213,8 +219,8 @@ export function PrintPreview({ design, onExport }: PrintPreviewProps) {
                   <DesignCanvas
                     canvas={design.customizations}
                     onCanvasChange={() => {}}
-                    selectedLayerId={undefined}
-                    onLayerSelect={() => {}}
+                    selectedElementId={undefined}
+                    onElementSelect={() => {}}
                     zoom={0.3}
                     readonly
                   />

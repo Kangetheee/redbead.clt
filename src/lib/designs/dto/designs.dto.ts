@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { CanvasData } from "@/lib/design-studio/types/design-studio.types";
-import { PrintSpecifications } from "@/lib/design-studio/types/design-studio.types";
+// import { PrintSpecifications } from "@/lib/design-studio/types/design-studio.types";
 
 export const createDesignSchema = z.object({
   name: z.string().min(1, "Name is required").max(255, "Name too long"),
@@ -80,7 +80,7 @@ export interface DesignResponseDto {
   status: string;
   version: number;
   parentDesignId?: string;
-  printSpecifications?: PrintSpecifications;
+  // printSpecifications?: PrintSpecifications;
   estimatedCost?: number;
   isTemplate: boolean;
   isPublic: boolean;

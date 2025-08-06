@@ -43,7 +43,7 @@ export default function CartPage() {
     // You can implement navigation to edit the item here
   };
 
-  const isEmpty = !cart || cart.items.length === 0;
+  const isEmpty = !cart || cart.summary.length === 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -88,7 +88,7 @@ export default function CartPage() {
                   ? "Loading..."
                   : isEmpty
                     ? "Your cart is empty"
-                    : `${cart.summary.itemCount} item${cart.summary.itemCount !== 1 ? "s" : ""} in your cart`}
+                    : `${cart.meta.itemCount} item${cart.meta.itemCount !== 1 ? "s" : ""} in your cart`}
               </p>
             </div>
           </div>
@@ -174,11 +174,11 @@ export default function CartPage() {
                   variant="outline"
                   className="bg-green-50 text-green-700 border-green-200"
                 >
-                  {cart.summary.totalQuantity} items
+                  {cart.meta.totalQuantity} items
                 </Badge>
               </div>
 
-              {cart.items.map((item) => (
+              {cart.summary.map((item) => (
                 <CartItem key={item.id} item={item} onEdit={handleEditItem} />
               ))}
             </div>
@@ -194,7 +194,7 @@ export default function CartPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CartSummary summary={cart.summary} showDetails={true} />
+                    <CartSummary summary={cart.meta} showDetails={true} />
                   </CardContent>
                 </Card>
 

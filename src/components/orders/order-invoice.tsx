@@ -39,6 +39,7 @@ import {
   OrderAddress,
   OrderItem,
 } from "@/lib/orders/types/orders.types";
+import { AddressResponse } from "@/lib/address/types/address.types";
 
 interface InvoiceComponentProps {
   order: OrderResponse;
@@ -202,9 +203,19 @@ export default function OrderInvoices({
     []
   );
 
-  const formatAddress = (address: OrderAddress) => {
+  // Updated formatAddress function to handle both OrderAddress and AddressResponse
+  const formatAddress = (address: OrderAddress | AddressResponse) => {
+    if (!address) return "";
+
+    // Handle AddressResponse (from API) - use formattedAddress if available
+    if ("formattedAddress" in address && address.formattedAddress) {
+      return address.formattedAddress;
+    }
+
+    // Handle both OrderAddress and AddressResponse by filtering null/undefined values
     const parts = [
       address.street,
+      "street2" in address ? address.street2 : undefined, // Only AddressResponse has street2
       address.city,
       address.state,
       address.country,
@@ -212,6 +223,31 @@ export default function OrderInvoices({
     ].filter(Boolean);
 
     return parts.join(", ");
+  };
+
+  // Format customer info for billing section
+  const formatCustomerInfo = (address: AddressResponse) => {
+    const parts = [];
+
+    if (address.recipientName) {
+      parts.push(address.recipientName);
+    }
+
+    if (address.companyName) {
+      parts.push(address.companyName);
+    }
+
+    parts.push(formatAddress(address));
+
+    if (address.phone) {
+      parts.push(`Phone: ${address.phone}`);
+    }
+
+    if (address.email) {
+      parts.push(`Email: ${address.email}`);
+    }
+
+    return parts;
   };
 
   const getPaymentStatus = () => {
@@ -382,13 +418,28 @@ export default function OrderInvoices({
                 Bill To
               </h3>
               <div className="space-y-1 text-sm">
-                <div className="font-medium">
-                  Customer ID: {order.customerId}
-                </div>
                 {order.billingAddress ? (
-                  <div>{formatAddress(order.billingAddress)}</div>
+                  formatCustomerInfo(order.billingAddress).map(
+                    (line, index) => (
+                      <div
+                        key={index}
+                        className={index === 0 ? "font-medium" : ""}
+                      >
+                        {line}
+                      </div>
+                    )
+                  )
                 ) : (
-                  <div>{formatAddress(order.shippingAddress)}</div>
+                  <>
+                    <div className="font-medium">
+                      Customer ID: {order.customerId}
+                    </div>
+                    {formatCustomerInfo(order.shippingAddress).map(
+                      (line, index) => (
+                        <div key={index}>{line}</div>
+                      )
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -399,7 +450,16 @@ export default function OrderInvoices({
                 Ship To
               </h3>
               <div className="space-y-1 text-sm">
-                <div>{formatAddress(order.shippingAddress)}</div>
+                {formatCustomerInfo(order.shippingAddress).map(
+                  (line, index) => (
+                    <div
+                      key={index}
+                      className={index === 0 ? "font-medium" : ""}
+                    >
+                      {line}
+                    </div>
+                  )
+                )}
                 {order.specialInstructions && (
                   <div className="text-muted-foreground italic mt-2">
                     Special Instructions: {order.specialInstructions}
@@ -453,7 +513,11 @@ export default function OrderInvoices({
 
               <div className="flex justify-between">
                 <span>Shipping:</span>
-                <span>${order.shippingAmount.toFixed(2)}</span>
+                <span>
+                  {order.shippingAmount > 0
+                    ? `$${order.shippingAmount.toFixed(2)}`
+                    : "Free"}
+                </span>
               </div>
 
               <Separator />
@@ -490,6 +554,12 @@ export default function OrderInvoices({
                     {paymentStatus.label}
                   </Badge>
                 </div>
+                {order.payment?.amount && (
+                  <div>
+                    <span className="font-medium">Amount Paid:</span> $
+                    {order.payment.amount.toFixed(2)}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -515,6 +585,12 @@ export default function OrderInvoices({
                     <Badge variant="outline" className="ml-2">
                       {order.urgencyLevel}
                     </Badge>
+                  </div>
+                )}
+                {order.trackingNumber && (
+                  <div>
+                    <span className="font-medium">Tracking:</span>{" "}
+                    {order.trackingNumber}
                   </div>
                 )}
               </div>

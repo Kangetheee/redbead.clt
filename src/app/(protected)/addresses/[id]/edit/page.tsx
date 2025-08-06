@@ -4,15 +4,16 @@ import { redirect } from "next/navigation";
 import EditAddressForm from "@/components/addresses/edit-address-form";
 
 interface EditAddressPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditAddressPage({
   params,
 }: EditAddressPageProps) {
   const session = await getSession();
+  const { id } = await params;
 
   if (!session) {
     redirect("/auth/signin");

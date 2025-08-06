@@ -227,8 +227,8 @@ export function DesignPreview({
           <DesignCanvas
             canvas={design.customizations}
             onCanvasChange={() => {}} // Read-only in preview
-            selectedLayerId={undefined}
-            onLayerSelect={() => {}} // Read-only in preview
+            selectedElementId={undefined}
+            onElementSelect={() => {}} // Read-only in preview
             zoom={zoom}
             readonly={!interactive}
           />
@@ -250,7 +250,7 @@ export function DesignPreview({
             {design.estimatedCost && (
               <div>Est. Cost: ${design.estimatedCost.toFixed(2)}</div>
             )}
-            <div>Layers: {design.customizations.layers.length}</div>
+            <div>Elements: {design.customizations.elements.length}</div>
             <div>
               Updated: {new Date(design.updatedAt).toLocaleDateString()}
             </div>

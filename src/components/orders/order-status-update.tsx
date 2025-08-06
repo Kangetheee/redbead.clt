@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
@@ -12,6 +13,8 @@ import {
   CreditCard,
   Loader2,
   MessageSquare,
+  Palette,
+  Factory,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,6 +56,9 @@ import {
   UpdateOrderStatusDto,
   CreateOrderNoteDto,
   UpdateOrderDto,
+  ORDER_STATUS,
+  NOTE_TYPES,
+  NOTE_PRIORITIES,
 } from "@/lib/orders/dto/orders.dto";
 import { OrderResponse } from "@/lib/orders/types/orders.types";
 
@@ -62,19 +68,7 @@ interface OrderStatusUpdateProps {
 }
 
 // Define the exact types from the DTO
-type OrderStatus =
-  | "PENDING"
-  | "DESIGN_PENDING"
-  | "DESIGN_APPROVED"
-  | "DESIGN_REJECTED"
-  | "PAYMENT_PENDING"
-  | "PAYMENT_CONFIRMED"
-  | "PROCESSING"
-  | "PRODUCTION"
-  | "SHIPPED"
-  | "DELIVERED"
-  | "CANCELLED"
-  | "REFUNDED";
+type OrderStatus = (typeof ORDER_STATUS)[number];
 
 interface StatusConfig {
   label: string;
@@ -97,7 +91,7 @@ const ORDER_STATUS_FLOW: Record<OrderStatus, StatusConfig> = {
   },
   DESIGN_PENDING: {
     label: "Design Pending",
-    icon: AlertTriangle,
+    icon: Palette,
     color: "bg-blue-100 text-blue-800",
     nextStatuses: ["DESIGN_APPROVED", "DESIGN_REJECTED", "CANCELLED"],
   },
@@ -133,7 +127,7 @@ const ORDER_STATUS_FLOW: Record<OrderStatus, StatusConfig> = {
   },
   PRODUCTION: {
     label: "In Production",
-    icon: Package,
+    icon: Factory,
     color: "bg-purple-100 text-purple-800",
     nextStatuses: ["SHIPPED", "CANCELLED"],
   },
@@ -184,6 +178,11 @@ const STATUS_CHANGE_REASONS: Record<string, string[]> = {
     "Materials sourced and ready",
     "Production started",
   ],
+  PRODUCTION: [
+    "Manufacturing has begun",
+    "Items are being produced",
+    "Quality control in progress",
+  ],
   SHIPPED: [
     "Package handed to courier",
     "Tracking number assigned",
@@ -217,10 +216,14 @@ export default function OrderStatusUpdate({
   const [expectedDelivery, setExpectedDelivery] = useState("");
   const [addNote, setAddNote] = useState(false);
   const [noteContent, setNoteContent] = useState("");
+  const [noteType, setNoteType] =
+    useState<(typeof NOTE_TYPES)[number]>("GENERAL");
+  const [notePriority, setNotePriority] =
+    useState<(typeof NOTE_PRIORITIES)[number]>("NORMAL");
 
-  const updateOrderStatus = useUpdateOrderStatus(order.id);
-  const updateOrder = useUpdateOrder(order.id);
-  const addOrderNote = useAddOrderNote(order.id);
+  const updateOrderStatus = useUpdateOrderStatus();
+  const updateOrder = useUpdateOrder();
+  const addOrderNote = useAddOrderNote();
 
   const currentStatus = order.status as OrderStatus;
   const currentStatusConfig = ORDER_STATUS_FLOW[currentStatus];
@@ -239,8 +242,15 @@ export default function OrderStatusUpdate({
         reason: reason === "custom" ? customReason : reason,
       };
 
-      // Update the order status
-      await updateOrderStatus.mutateAsync(statusData);
+      // Update the order status - FIX: Include orderId and values wrapper
+      const statusResult = await updateOrderStatus.mutateAsync({
+        orderId: order.id,
+        values: statusData,
+      });
+
+      if (!statusResult.success) {
+        throw new Error(statusResult.error || "Failed to update status");
+      }
 
       // If this is a shipping status, update order with shipping details
       if (
@@ -251,29 +261,51 @@ export default function OrderStatusUpdate({
           trackingNumber: trackingNumber || undefined,
           trackingUrl: trackingUrl || undefined,
           expectedDelivery: expectedDelivery || undefined,
+          shippingDate: new Date().toISOString(),
         };
 
-        await updateOrder.mutateAsync(shippingUpdateData);
+        // FIX: Include orderId and values wrapper
+        const orderResult = await updateOrder.mutateAsync({
+          orderId: order.id,
+          values: shippingUpdateData,
+        });
+
+        if (!orderResult.success) {
+          console.warn(
+            "Status updated but shipping details failed:",
+            orderResult.error
+          );
+        }
       }
 
       // Add note if requested
       if (addNote && noteContent.trim()) {
         const noteData: CreateOrderNoteDto = {
-          noteType: "GENERAL",
+          noteType,
+          priority: notePriority,
           title: `Status changed to ${ORDER_STATUS_FLOW[selectedStatus]?.label}`,
           content: noteContent,
           isInternal: false,
         };
-        await addOrderNote.mutateAsync(noteData);
+
+        // FIX: Include orderId and values wrapper
+        const noteResult = await addOrderNote.mutateAsync({
+          orderId: order.id,
+          values: noteData,
+        });
+
+        if (!noteResult.success) {
+          console.warn("Status updated but note failed:", noteResult.error);
+        }
       }
 
       toast.success("Order status updated successfully!");
       setIsOpen(false);
       resetForm();
       onStatusUpdated?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update order status:", error);
-      toast.error("Failed to update order status");
+      toast.error(error?.message || "Failed to update order status");
     }
   };
 
@@ -286,6 +318,8 @@ export default function OrderStatusUpdate({
     setExpectedDelivery("");
     setAddNote(false);
     setNoteContent("");
+    setNoteType("GENERAL");
+    setNotePriority("NORMAL");
   };
 
   const getCurrentStatusBadge = () => {
@@ -305,7 +339,7 @@ export default function OrderStatusUpdate({
     ? ORDER_STATUS_FLOW[selectedStatus]
     : null;
   const reasonOptions = selectedStatus
-    ? STATUS_CHANGE_REASONS[selectedStatus]
+    ? STATUS_CHANGE_REASONS[selectedStatus] || []
     : [];
 
   const isFormValid = () => {
@@ -388,28 +422,24 @@ export default function OrderStatusUpdate({
                 </div>
 
                 {/* Status Change Reason */}
-                {selectedStatus &&
-                  reasonOptions &&
-                  reasonOptions.length > 0 && (
-                    <div className="space-y-2">
-                      <Label htmlFor="reason">Reason for Change</Label>
-                      <Select value={reason} onValueChange={setReason}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a reason" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {reasonOptions.map((reasonOption, index) => (
-                            <SelectItem key={index} value={reasonOption}>
-                              {reasonOption}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="custom">
-                            Custom reason...
+                {selectedStatus && reasonOptions.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="reason">Reason for Change</Label>
+                    <Select value={reason} onValueChange={setReason}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a reason" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {reasonOptions.map((reasonOption, index) => (
+                          <SelectItem key={index} value={reasonOption}>
+                            {reasonOption}
                           </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                        ))}
+                        <SelectItem value="custom">Custom reason...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Custom Reason Input */}
                 {reason === "custom" && (
@@ -495,15 +525,63 @@ export default function OrderStatusUpdate({
                   </div>
 
                   {addNote && (
-                    <div className="space-y-2">
-                      <Label htmlFor="noteContent">Note Content</Label>
-                      <Textarea
-                        id="noteContent"
-                        value={noteContent}
-                        onChange={(e) => setNoteContent(e.target.value)}
-                        placeholder="Add additional details about this status change..."
-                        rows={3}
-                      />
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="noteType">Note Type</Label>
+                          <Select
+                            value={noteType}
+                            onValueChange={(value) =>
+                              setNoteType(value as (typeof NOTE_TYPES)[number])
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {NOTE_TYPES.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type.replace("_", " ")}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="notePriority">Priority</Label>
+                          <Select
+                            value={notePriority}
+                            onValueChange={(value) =>
+                              setNotePriority(
+                                value as (typeof NOTE_PRIORITIES)[number]
+                              )
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {NOTE_PRIORITIES.map((priority) => (
+                                <SelectItem key={priority} value={priority}>
+                                  {priority}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="noteContent">Note Content</Label>
+                        <Textarea
+                          id="noteContent"
+                          value={noteContent}
+                          onChange={(e) => setNoteContent(e.target.value)}
+                          placeholder="Add additional details about this status change..."
+                          rows={3}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

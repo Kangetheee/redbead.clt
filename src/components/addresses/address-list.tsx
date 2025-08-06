@@ -109,7 +109,7 @@ export function AddressList({
     );
   }
 
-  const addresses = addressesData?.success ? addressesData.data.items : [];
+  const addresses = addressesData?.success ? addressesData.data.data : [];
 
   if (addresses.length === 0) {
     return (

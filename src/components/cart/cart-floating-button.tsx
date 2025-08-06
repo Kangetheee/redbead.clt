@@ -22,7 +22,7 @@ export function CartFloatingButton({
   const { data: cart } = useCart();
   const itemCount = useCartItemCount();
 
-  const totalQuantity = cart?.summary.totalQuantity || 0;
+  const totalQuantity = cart?.meta.totalQuantity || 0;
 
   // Don't show if cart is empty and showOnEmpty is false
   if (!showOnEmpty && itemCount === 0) {

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Image, Upload, Plus, Link } from "lucide-react";
 import {
-  CanvasLayer,
+  CanvasElement,
   CanvasData,
 } from "@/lib/design-studio/types/design-studio.types";
 import { useUploadAsset, useUserAssets } from "@/hooks/use-design-studio";
@@ -26,15 +26,15 @@ import { toast } from "sonner";
 interface ImageToolProps {
   canvas: CanvasData;
   onCanvasChange: (canvas: CanvasData) => void;
-  selectedLayerId?: string | null;
-  onLayerSelect: (layerId: string) => void;
+  selectedElementId?: string | null;
+  onElementSelect: (elementId: string) => void;
 }
 
 export function ImageTool({
   canvas,
   onCanvasChange,
-  selectedLayerId,
-  onLayerSelect,
+  selectedElementId,
+  onElementSelect,
 }: ImageToolProps) {
   const [imageUrl, setImageUrl] = useState("");
   const [opacity, setOpacity] = useState([100]);
@@ -44,45 +44,57 @@ export function ImageTool({
   const uploadAsset = useUploadAsset();
   const { data: userAssets } = useUserAssets({ type: "image" });
 
-  const selectedLayer = selectedLayerId
-    ? canvas.layers.find((l) => l.id === selectedLayerId && l.type === "image")
+  const selectedElement = selectedElementId
+    ? canvas.elements.find(
+        (e) => e.id === selectedElementId && e.type === "image"
+      )
     : null;
 
-  const addImageLayer = (src: string, alt: string = "Image") => {
-    const newLayer: CanvasLayer = {
+  const addImageElement = (src: string, alt: string = "Image") => {
+    const newElement: CanvasElement = {
       id: `image_${Date.now()}`,
       type: "image",
       x: 50,
       y: 50,
       width: 200,
       height: 150,
-      opacity: opacity[0] / 100,
+      mediaId: src, // Using mediaId for image source
       properties: {
         src,
         alt,
         objectFit,
+        opacity: opacity[0] / 100,
       },
     };
 
-    const updatedLayers = [...canvas.layers, newLayer];
-    onCanvasChange({ ...canvas, layers: updatedLayers });
-    onLayerSelect(newLayer.id);
+    const updatedElements = [...canvas.elements, newElement];
+    onCanvasChange({ ...canvas, elements: updatedElements });
+    onElementSelect(newElement.id);
   };
 
-  const updateSelectedLayer = (properties: Record<string, any>) => {
-    if (!selectedLayer) return;
+  const updateSelectedElement = (updates: Partial<CanvasElement>) => {
+    if (!selectedElement) return;
 
-    const updatedLayers = canvas.layers.map((layer) =>
-      layer.id === selectedLayer.id
-        ? {
-            ...layer,
-            ...properties,
-            properties: { ...layer.properties, ...properties.properties },
-          }
-        : layer
+    const updatedElements = canvas.elements.map((element) =>
+      element.id === selectedElement.id ? { ...element, ...updates } : element
     );
 
-    onCanvasChange({ ...canvas, layers: updatedLayers });
+    onCanvasChange({ ...canvas, elements: updatedElements });
+  };
+
+  const updateSelectedElementProperties = (properties: Record<string, any>) => {
+    if (!selectedElement) return;
+
+    const updatedElements = canvas.elements.map((element) =>
+      element.id === selectedElement.id
+        ? {
+            ...element,
+            properties: { ...element.properties, ...properties },
+          }
+        : element
+    );
+
+    onCanvasChange({ ...canvas, elements: updatedElements });
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,7 +118,7 @@ export function ImageTool({
       {
         onSuccess: (response) => {
           if (response.success) {
-            addImageLayer(response.data.url, response.data.name);
+            addImageElement(response.data.url, response.data.name);
             toast.success("Image uploaded and added to canvas");
           }
         },
@@ -120,23 +132,21 @@ export function ImageTool({
       return;
     }
 
-    addImageLayer(imageUrl, "Linked Image");
+    addImageElement(imageUrl, "Linked Image");
     setImageUrl("");
   };
 
   const handleOpacityChange = (newOpacity: number[]) => {
     setOpacity(newOpacity);
-    if (selectedLayer) {
-      updateSelectedLayer({ opacity: newOpacity[0] / 100 });
+    if (selectedElement) {
+      updateSelectedElementProperties({ opacity: newOpacity[0] / 100 });
     }
   };
 
   const handleObjectFitChange = (newObjectFit: string) => {
     setObjectFit(newObjectFit);
-    if (selectedLayer) {
-      updateSelectedLayer({
-        properties: { objectFit: newObjectFit },
-      });
+    if (selectedElement) {
+      updateSelectedElementProperties({ objectFit: newObjectFit });
     }
   };
 
@@ -197,7 +207,7 @@ export function ImageTool({
               {userAssets.map((asset) => (
                 <button
                   key={asset.id}
-                  onClick={() => addImageLayer(asset.url, asset.name)}
+                  onClick={() => addImageElement(asset.url, asset.name)}
                   className="relative aspect-square rounded overflow-hidden border hover:border-primary transition-colors"
                 >
                   <img
@@ -211,8 +221,8 @@ export function ImageTool({
           </div>
         )}
 
-        {/* Image Properties (for selected layer) */}
-        {selectedLayer && (
+        {/* Image Properties (for selected element) */}
+        {selectedElement && (
           <>
             <div className="space-y-2">
               <Label>Opacity: {opacity[0]}%</Label>
@@ -241,10 +251,21 @@ export function ImageTool({
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <Label>Image Source</Label>
+              <Input
+                type="text"
+                value={selectedElement.mediaId || ""}
+                onChange={(e) =>
+                  updateSelectedElement({ mediaId: e.target.value })
+                }
+                placeholder="Enter image URL or media ID"
+              />
+            </div>
+
             <div className="text-xs text-muted-foreground p-2 bg-accent rounded">
               Editing:{" "}
-              {(selectedLayer.properties as { alt?: string })?.alt ||
-                "Image Layer"}
+              {(selectedElement.properties as any)?.alt || "Image Element"}
             </div>
           </>
         )}

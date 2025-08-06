@@ -5,14 +5,16 @@ import { notFound } from "next/navigation";
 import OrderDetailView from "@/components/orders/order-detail-view";
 
 interface OrderDetailsPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function OrderDetailsPage({ params }: OrderDetailsPageProps) {
+export default async function OrderDetailsPage({
+  params,
+}: OrderDetailsPageProps) {
   const session = getSession();
-  const { id: orderId } = params;
+  const { id: orderId } = await params;
 
   if (!orderId || orderId.length < 10) {
     notFound();

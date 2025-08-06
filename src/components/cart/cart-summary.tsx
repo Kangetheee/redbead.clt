@@ -1,6 +1,6 @@
 "use client";
 
-import { CartSummary as CartSummaryType } from "@/lib/cart/types/cart.types";
+import { Meta1 } from "@/lib/shared/types";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Info } from "lucide-react";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 
 interface CartSummaryProps {
-  summary: CartSummaryType;
+  summary: Meta1;
   showDetails?: boolean;
 }
 

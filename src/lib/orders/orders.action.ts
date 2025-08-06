@@ -1,7 +1,7 @@
 "use server";
 
 import { getErrorMessage } from "../get-error-message";
-import { ActionResponse, PaginatedData } from "../shared/types";
+import { ActionResponse, PaginatedData4 } from "../shared/types";
 import {
   GetOrdersDto,
   CreateOrderDto,
@@ -16,7 +16,6 @@ import {
 } from "./dto/orders.dto";
 import {
   OrderResponse,
-  OrderListItem,
   OrderNote,
   DesignApproval,
   OrderItem,
@@ -31,7 +30,7 @@ const orderService = new OrderService();
 // Orders CRUD actions
 export async function getOrdersAction(
   params?: GetOrdersDto
-): Promise<ActionResponse<PaginatedData<OrderListItem>>> {
+): Promise<ActionResponse<PaginatedData4<OrderResponse>>> {
   try {
     const res = await orderService.findAll(params);
     return { success: true, data: res };

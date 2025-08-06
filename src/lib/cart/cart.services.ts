@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { Fetcher } from "../api/api.service";
+import { PaginatedData1 } from "../shared/types";
 import { CreateCartItemDto, UpdateCartItemDto } from "./dto/cart.dto";
-import { CartResponse, CartItemResponse } from "./types/cart.types";
+import { CartItemResponse } from "./types/cart.types";
 
 export class CartService {
   constructor(private fetcher = new Fetcher()) {}
@@ -11,8 +12,12 @@ export class CartService {
    * Get the current user's cart with all items and totals
    * Accessible without authentication for guest users
    */
-  public async getCart(): Promise<CartResponse> {
-    return this.fetcher.request<CartResponse>("/v1/cart", {}, { auth: false });
+  public async getCart(): Promise<PaginatedData1<CartItemResponse>> {
+    return this.fetcher.request<PaginatedData1<CartItemResponse>>(
+      "/v1/cart",
+      {},
+      { auth: false }
+    );
   }
 
   /**
@@ -99,8 +104,8 @@ export class CartService {
     try {
       const cart = await this.getCart();
       return {
-        count: cart.summary.itemCount,
-        totalQuantity: cart.summary.totalQuantity,
+        count: cart.meta.itemCount,
+        totalQuantity: cart.meta.totalQuantity,
       };
     } catch (error) {
       // Return zero counts if cart is empty or error occurs
@@ -122,7 +127,7 @@ export class CartService {
   ): Promise<boolean> {
     try {
       const cart = await this.getCart();
-      return cart.items.some(
+      return cart.summary.some(
         (item) =>
           item.template.id === templateId &&
           item.sizeVariant.id === sizeVariantId
@@ -139,7 +144,7 @@ export class CartService {
   public async getCartTotal(): Promise<number> {
     try {
       const cart = await this.getCart();
-      return cart.summary.total;
+      return cart.meta.total;
     } catch (error) {
       return 0;
     }

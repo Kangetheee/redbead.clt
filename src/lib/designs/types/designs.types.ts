@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { CanvasData } from "@/lib/design-studio/types/design-studio.types";
-import { PrintSpecifications } from "@/lib/design-studio/types/design-studio.types";
+// import { PrintSpecifications } from "@/lib/design-studio/types/design-studio.types";
 
 export interface Design {
   id: string;
@@ -18,7 +18,7 @@ export interface Design {
   status: string;
   version: number;
   parentDesignId?: string;
-  printSpecifications?: PrintSpecifications;
+  // printSpecifications?: PrintSpecifications;
   estimatedCost?: number;
   isTemplate: boolean;
   isPublic: boolean;

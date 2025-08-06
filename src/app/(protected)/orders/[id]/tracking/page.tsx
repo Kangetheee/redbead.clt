@@ -10,14 +10,16 @@ import { Button } from "@/components/ui/button";
 import CustomerOrderTracking from "@/components/orders/order-tracking";
 
 interface OrderTrackingPageProps {
-  params: {
+  params: Promise<{
     orderId: string;
-  };
+  }>;
 }
 
-export default function OrderTrackingPage({ params }: OrderTrackingPageProps) {
+export default async function OrderTrackingPage({
+  params,
+}: OrderTrackingPageProps) {
   const session = getSession();
-  const { orderId } = params;
+  const { orderId } = await params;
 
   if (!orderId || orderId.length < 10) {
     notFound();

@@ -132,7 +132,7 @@ export default function OrderAnalytics({
   const { data: ordersData, isLoading, refetch } = useOrders(filters);
 
   const orders: OrderListItem[] = ordersData?.success
-    ? ordersData.data?.items || []
+    ? ordersData.data.data || []
     : [];
 
   // Calculate analytics

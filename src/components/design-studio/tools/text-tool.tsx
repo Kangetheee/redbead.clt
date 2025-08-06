@@ -27,7 +27,7 @@ import {
   Plus,
 } from "lucide-react";
 import {
-  CanvasLayer,
+  CanvasElement,
   CanvasData,
 } from "@/lib/design-studio/types/design-studio.types";
 import { useFonts } from "@/hooks/use-design-studio";
@@ -36,15 +36,15 @@ import { ColorPicker } from "./color-picker";
 interface TextToolProps {
   canvas: CanvasData;
   onCanvasChange: (canvas: CanvasData) => void;
-  selectedLayerId?: string | null;
-  onLayerSelect: (layerId: string) => void;
+  selectedElementId?: string | null;
+  onElementSelect: (elementId: string) => void;
 }
 
 export function TextTool({
   canvas,
   onCanvasChange,
-  selectedLayerId,
-  onLayerSelect,
+  selectedElementId,
+  onElementSelect,
 }: TextToolProps) {
   const [text, setText] = useState("Add your text here");
   const [fontSize, setFontSize] = useState([16]);
@@ -58,99 +58,102 @@ export function TextTool({
   const { data: fontsData } = useFonts();
   const fonts = fontsData || [];
 
-  const selectedLayer = selectedLayerId
-    ? canvas.layers.find((l) => l.id === selectedLayerId && l.type === "text")
+  const selectedElement = selectedElementId
+    ? canvas.elements.find(
+        (e) => e.id === selectedElementId && e.type === "text"
+      )
     : null;
 
   useEffect(() => {
-    if (selectedLayer) {
-      const props = selectedLayer.properties as {
-        text?: string;
-        fontSize?: number;
-        color?: string;
-        fontFamily?: string;
-        fontWeight?: string;
-        fontStyle?: string;
-        textDecoration?: string;
-        textAlign?: string;
-      };
-
-      setText(props.text || "");
-      setFontSize([props.fontSize || 16]);
-      setColor(props.color || "#000000");
-      setFontFamily(props.fontFamily || "Arial");
-      setFontWeight(props.fontWeight || "normal");
-      setFontStyle(props.fontStyle || "normal");
-      setTextDecoration(props.textDecoration || "none");
-      setTextAlign(props.textAlign || "left");
+    if (selectedElement) {
+      setText(selectedElement.content || "");
+      setFontSize([selectedElement.fontSize || 16]);
+      setColor(selectedElement.color || "#000000");
+      setFontFamily(selectedElement.font || "Arial");
+      setFontWeight(selectedElement.fontWeight || "normal");
+      setFontStyle((selectedElement.properties as any)?.fontStyle || "normal");
+      setTextDecoration(
+        (selectedElement.properties as any)?.textDecoration || "none"
+      );
+      setTextAlign((selectedElement.properties as any)?.textAlign || "left");
     }
-  }, [selectedLayer]);
+  }, [selectedElement]);
 
-  const addTextLayer = () => {
-    const newLayer: CanvasLayer = {
+  const addTextElement = () => {
+    const newElement: CanvasElement = {
       id: `text_${Date.now()}`,
       type: "text",
       x: 50,
       y: 50,
       width: 200,
       height: 50,
+      content: text,
+      font: fontFamily,
+      fontSize: fontSize[0],
+      fontWeight,
+      color,
       properties: {
-        text,
-        fontSize: fontSize[0],
-        color,
-        fontFamily,
-        fontWeight,
         fontStyle,
         textDecoration,
         textAlign,
       },
     };
 
-    const updatedLayers = [...canvas.layers, newLayer];
-    onCanvasChange({ ...canvas, layers: updatedLayers });
-    onLayerSelect(newLayer.id);
+    const updatedElements = [...canvas.elements, newElement];
+    onCanvasChange({ ...canvas, elements: updatedElements });
+    onElementSelect(newElement.id);
   };
 
-  const updateSelectedLayer = (properties: Record<string, any>) => {
-    if (!selectedLayer) return;
+  const updateSelectedElement = (updates: Partial<CanvasElement>) => {
+    if (!selectedElement) return;
 
-    const updatedLayers = canvas.layers.map((layer) =>
-      layer.id === selectedLayer.id
-        ? {
-            ...layer,
-            properties: { ...layer.properties, ...properties },
-          }
-        : layer
+    const updatedElements = canvas.elements.map((element) =>
+      element.id === selectedElement.id ? { ...element, ...updates } : element
     );
 
-    onCanvasChange({ ...canvas, layers: updatedLayers });
+    onCanvasChange({ ...canvas, elements: updatedElements });
+  };
+
+  const updateSelectedElementProperties = (properties: Record<string, any>) => {
+    if (!selectedElement) return;
+
+    const updatedElements = canvas.elements.map((element) =>
+      element.id === selectedElement.id
+        ? {
+            ...element,
+            properties: { ...element.properties, ...properties },
+          }
+        : element
+    );
+
+    onCanvasChange({ ...canvas, elements: updatedElements });
   };
 
   const handleTextChange = (newText: string) => {
     setText(newText);
-    if (selectedLayer) {
-      updateSelectedLayer({ text: newText });
+    if (selectedElement) {
+      updateSelectedElement({ content: newText });
     }
   };
 
   const handleFontSizeChange = (newSize: number[]) => {
     setFontSize(newSize);
-    if (selectedLayer) {
-      updateSelectedLayer({ fontSize: newSize[0] });
+    if (selectedElement) {
+      updateSelectedElement({ fontSize: newSize[0] });
     }
   };
 
   const handleColorChange = (newColor: string) => {
     setColor(newColor);
-    if (selectedLayer) {
-      updateSelectedLayer({ color: newColor });
+    if (selectedElement) {
+      updateSelectedElement({ color: newColor });
     }
   };
 
   const handleFontFamilyChange = (newFamily: string) => {
     setFontFamily(newFamily);
-    if (selectedLayer) {
-      updateSelectedLayer({ fontFamily: newFamily });
+    if (selectedElement) {
+      updateSelectedElement({ font: newFamily });
     }
   };
 
@@ -158,29 +161,33 @@ export function TextTool({
     if (style === "bold") {
       const newWeight = fontWeight === "bold" ? "normal" : "bold";
       setFontWeight(newWeight);
-      if (selectedLayer) {
-        updateSelectedLayer({ fontWeight: newWeight });
+      if (selectedElement) {
+        updateSelectedElement({ fontWeight: newWeight });
       }
     } else if (style === "italic") {
-      const newStyle = fontStyle === "italic" ? "normal" : "italic";
+      const currentStyle =
+        (selectedElement?.properties as any)?.fontStyle || "normal";
+      const newStyle = currentStyle === "italic" ? "normal" : "italic";
       setFontStyle(newStyle);
-      if (selectedLayer) {
-        updateSelectedLayer({ fontStyle: newStyle });
+      if (selectedElement) {
+        updateSelectedElementProperties({ fontStyle: newStyle });
       }
     } else if (style === "underline") {
+      const currentDecoration =
+        (selectedElement?.properties as any)?.textDecoration || "none";
       const newDecoration =
-        textDecoration === "underline" ? "none" : "underline";
+        currentDecoration === "underline" ? "none" : "underline";
       setTextDecoration(newDecoration);
-      if (selectedLayer) {
-        updateSelectedLayer({ textDecoration: newDecoration });
+      if (selectedElement) {
+        updateSelectedElementProperties({ textDecoration: newDecoration });
       }
     }
   };
 
   const handleAlignmentChange = (alignment: string) => {
     setTextAlign(alignment);
-    if (selectedLayer) {
-      updateSelectedLayer({ textAlign: alignment });
+    if (selectedElement) {
+      updateSelectedElementProperties({ textAlign: alignment });
     }
   };
 
@@ -194,9 +201,9 @@ export function TextTool({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Add Text Button */}
-        <Button onClick={addTextLayer} className="w-full">
+        <Button onClick={addTextElement} className="w-full">
           <Plus className="h-4 w-4 mr-2" />
-          Add Text Layer
+          Add Text Element
         </Button>
 
         {/* Text Content */}
@@ -264,14 +271,24 @@ export function TextTool({
               <Bold className="h-4 w-4" />
             </Button>
             <Button
-              variant={fontStyle === "italic" ? "default" : "outline"}
+              variant={
+                (selectedElement?.properties as any)?.fontStyle === "italic" ||
+                fontStyle === "italic"
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
               onClick={() => toggleStyle("italic")}
             >
               <Italic className="h-4 w-4" />
             </Button>
             <Button
-              variant={textDecoration === "underline" ? "default" : "outline"}
+              variant={
+                (selectedElement?.properties as any)?.textDecoration ===
+                  "underline" || textDecoration === "underline"
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
               onClick={() => toggleStyle("underline")}
             >
@@ -285,21 +302,36 @@ export function TextTool({
           <Label>Text Alignment</Label>
           <div className="flex gap-1">
             <Button
-              variant={textAlign === "left" ? "default" : "outline"}
+              variant={
+                (selectedElement?.properties as any)?.textAlign === "left" ||
+                textAlign === "left"
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
               onClick={() => handleAlignmentChange("left")}
             >
               <AlignLeft className="h-4 w-4" />
             </Button>
             <Button
-              variant={textAlign === "center" ? "default" : "outline"}
+              variant={
+                (selectedElement?.properties as any)?.textAlign === "center" ||
+                textAlign === "center"
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
               onClick={() => handleAlignmentChange("center")}
             >
               <AlignCenter className="h-4 w-4" />
             </Button>
             <Button
-              variant={textAlign === "right" ? "default" : "outline"}
+              variant={
+                (selectedElement?.properties as any)?.textAlign === "right" ||
+                textAlign === "right"
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
               onClick={() => handleAlignmentChange("right")}
             >
@@ -308,12 +340,10 @@ export function TextTool({
           </div>
         </div>
 
-        {/* Selected Layer Info */}
-        {selectedLayer && (
+        {/* Selected Element Info */}
+        {selectedElement && (
           <div className="text-xs text-muted-foreground p-2 bg-accent rounded">
-            Editing:{" "}
-            {(selectedLayer.properties as { text?: string })?.text ||
-              "Image Layer"}
+            Editing: {selectedElement.content || "Text Element"}
           </div>
         )}
       </CardContent>

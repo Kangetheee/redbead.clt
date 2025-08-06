@@ -109,7 +109,7 @@ export async function getDesignAction(
 
 /**
  * Update design
- * PUT /v1/design-studio/designs/{id}
+ * PATCH /v1/design-studio/designs/{id}
  */
 export async function updateDesignAction(
   designId: string,
