@@ -151,10 +151,6 @@ export function FeaturedProductsSection({
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Discover our most popular custom products for your business needs
         </p>
-        {/* Debug info */}
-        <p className="text-xs text-muted-foreground mt-2">
-          Loaded {featuredProducts.length} products
-        </p>
       </div>
 
       {/* Products Grid */}

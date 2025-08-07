@@ -31,6 +31,7 @@ import {
 import { ProductTypeResponse } from "@/lib/products/types/products.types";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { cn } from "@/lib/utils";
+import { CustomerNavbar } from "../layouts/customer-nav";
 
 interface ProductDetailsViewProps {
   product: ProductTypeResponse;
@@ -76,13 +77,7 @@ export function ProductDetailsView({
   }: {
     template: (typeof templates)[0];
   }) => {
-    // For now, we'll use a placeholder sizeVariantId since the ProductTypeDesignTemplate
-    // doesn't include size variants. In a real implementation, you'd either:
-    // 1. Fetch the full template details that include size variants
-    // 2. Use a default size variant ID
-    // 3. Navigate to a customization page first
-
-    const defaultSizeVariantId = "default-size"; // This should come from your actual data
+    const defaultSizeVariantId = "default-size";
 
     return (
       <div className="flex items-center justify-between p-3 bg-background border border-green-200 dark:border-green-800 rounded-lg">
@@ -128,162 +123,7 @@ export function ProductDetailsView({
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar - Same as other pages */}
-      <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-red-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">RB</span>
-              </div>
-              <span className="text-xl font-bold text-foreground">
-                Red Bead
-              </span>
-            </Link>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link
-                href="/"
-                className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                href="/products"
-                className="text-green-600 dark:text-green-400 font-medium transition-colors"
-              >
-                Products
-              </Link>
-              <Link
-                href="/design-studio"
-                className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
-              >
-                Design Studio
-              </Link>
-              <Link
-                href="/about"
-                className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
-              >
-                About
-              </Link>
-              <Link
-                href="/contact"
-                className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
-              >
-                Contact
-              </Link>
-            </div>
-
-            {/* Desktop Auth & Cart */}
-            <div className="hidden md:flex items-center space-x-4">
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/cart">
-                  <ShoppingCart className="h-5 w-5" />
-                </Link>
-              </Button>
-
-              <Button variant="ghost" asChild>
-                <Link href="/sign-in">Sign In</Link>
-              </Button>
-
-              <Button
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-                asChild
-              >
-                <Link href="/register">Get Started</Link>
-              </Button>
-            </div>
-
-            {/* Mobile menu button */}
-            <button
-              className="md:hidden p-2 text-foreground hover:text-muted-foreground transition-colors"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
-          </div>
-
-          {/* Mobile Navigation */}
-          {isMenuOpen && (
-            <div className="md:hidden py-4 border-t border-border">
-              <div className="flex flex-col space-y-4">
-                <Link
-                  href="/"
-                  className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Home
-                </Link>
-                <Link
-                  href="/products"
-                  className="text-green-600 dark:text-green-400 font-medium transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Products
-                </Link>
-                <Link
-                  href="/design-studio"
-                  className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Design Studio
-                </Link>
-                <Link
-                  href="/about"
-                  className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  About
-                </Link>
-                <Link
-                  href="/contact"
-                  className="text-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors px-2 py-1"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Contact
-                </Link>
-
-                <div className="border-t border-border pt-4 space-y-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    asChild
-                  >
-                    <Link href="/cart" onClick={() => setIsMenuOpen(false)}>
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Cart
-                    </Link>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    asChild
-                  >
-                    <Link href="/sign-in" onClick={() => setIsMenuOpen(false)}>
-                      Sign In
-                    </Link>
-                  </Button>
-
-                  <Button
-                    className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-                    asChild
-                  >
-                    <Link href="/register" onClick={() => setIsMenuOpen(false)}>
-                      Get Started
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </nav>
+      <CustomerNavbar />
 
       <div className={cn("container mx-auto px-4 py-8", className)}>
         {/* Breadcrumbs */}
@@ -566,18 +406,20 @@ export function ProductDetailsView({
                             </p>
                           </div>
                         </div>
-                        <Button
+
+                        {/* Use AddToCartButton component for proper cart functionality */}
+                        <AddToCartButton
+                          templateId={template.id}
+                          sizeVariantId="default-size"
+                          quantity={1}
+                          variant="default"
                           size="sm"
                           className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-                          asChild
+                          showSuccessState={true}
                         >
-                          <Link
-                            href={`/customize/${template.slug}?product=${product.slug}`}
-                          >
-                            <ShoppingCart className="w-3 h-3 mr-1" />
-                            Add to Cart
-                          </Link>
-                        </Button>
+                          <ShoppingCart className="w-3 h-3 mr-1" />
+                          Add to Cart
+                        </AddToCartButton>
                       </div>
                     ))}
                   </div>

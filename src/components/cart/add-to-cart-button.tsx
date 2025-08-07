@@ -43,7 +43,6 @@ export function AddToCartButton({
   const isLoading = addToCart.isPending;
   const isSuccess = addToCart.isSuccess && showSuccess;
 
-  // Reset success state after a delay
   useEffect(() => {
     if (addToCart.isSuccess && showSuccessState) {
       setShowSuccess(true);

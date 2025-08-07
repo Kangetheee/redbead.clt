@@ -29,7 +29,7 @@ export default function DesignStudioPage({
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <TemplateSelectionPage
         productId={resolvedParams.productId}
         categoryId={resolvedParams.categoryId}
