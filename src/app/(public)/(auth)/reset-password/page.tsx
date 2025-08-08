@@ -3,25 +3,25 @@ import { Suspense } from "react";
 
 import { Card } from "@/components/ui/card";
 
-import ForgotPasswordForm from "./forgot-password-form";
+import ResetPasswordForm from "./reset-password-form";
 
 export const metadata: Metadata = {
-  title: "Forgot Password",
+  title: "Reset Password",
 };
 
-export default function ForgotPasswordPage() {
+export default function ResetPasswordPage() {
   return (
     <Card className="p-6">
       <div className="flex flex-col space-y-2 text-left">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Forgot Password
+          Reset Password
         </h1>
         <p className="text-sm text-muted-foreground">
-          Enter your phone number below and we&apos;ll send you a reset code
+          Enter the reset code sent to your phone and your new password
         </p>
       </div>
       <Suspense fallback={<div>Loading...</div>}>
-        <ForgotPasswordForm />
+        <ResetPasswordForm />
       </Suspense>
     </Card>
   );

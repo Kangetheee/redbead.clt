@@ -6,7 +6,12 @@ import type { Session } from "@/lib/session/session.types";
 import env from "@/config/server.env";
 
 const signInRoute = "/sign-in";
-const authRoutes = [signInRoute, "/sign-up"];
+const authRoutes = [
+  signInRoute,
+  "/sign-up",
+  "/forgot-password",
+  "/reset-password",
+];
 const publicRoutes = [
   "/",
   "/products",

@@ -6,6 +6,7 @@ import { ActionResponse } from "../shared/types";
 import { AuthService } from "./auth.service";
 import {
   RefreshTokenDto,
+  ForgotPasswordDto,
   ResetPasswordDto,
   SignInDto,
   RequestOtpDto,
@@ -19,6 +20,7 @@ import {
   SignInResponse,
   RequestOtpResponse,
   SignInOtpResponse,
+  ForgotPasswordResponse,
   ResetPasswordResponse,
   VerifyPhoneResponse,
   ConfirmPhoneResponse,
@@ -86,6 +88,17 @@ export async function signOutFormAction(): Promise<void> {
   } finally {
     // Always redirect to sign-in page after sign out attempt
     redirect("/sign-in");
+  }
+}
+
+export async function forgotPasswordAction(
+  values: ForgotPasswordDto
+): Promise<ActionResponse<ForgotPasswordResponse>> {
+  try {
+    const result = await authService.forgotPassword(values);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 

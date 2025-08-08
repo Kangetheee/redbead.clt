@@ -47,11 +47,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           {children}
 
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            <p>Secure login powered by Redbead</p> {/* Text updated */}
+            <p>Secure login powered by OLEQ</p>
             <p className="mt-1">
               © {new Date().getFullYear()} Redbead. All rights reserved.
             </p>{" "}
-            {/* Text updated */}
           </div>
         </div>
       </div>
