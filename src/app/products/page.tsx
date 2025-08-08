@@ -5,11 +5,9 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useProductTypes } from "@/hooks/use-products";
-import {
-  ProductFilters,
-  ProductFilterState,
-} from "@/components/products/product-filters";
+import { useProducts } from "@/hooks/use-products";
+import { ProductFilters } from "@/lib/products/types/products.types";
+import { ProductFilters as ProductFiltersComponent } from "@/components/products/product-filters";
 import { ProductGrid } from "@/components/products/product-grid";
 import {
   Breadcrumb,
@@ -36,7 +34,7 @@ import { CustomerNavbar } from "@/components/layouts/customer-nav";
 
 export default function ProductsPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [filters, setFilters] = useState<ProductFilterState>({});
+  const [filters, setFilters] = useState<ProductFilters>({});
   const [page, setPage] = useState(1);
   const limit = 12;
 
@@ -44,13 +42,13 @@ export default function ProductsPage() {
     data: productsData,
     isLoading,
     error,
-  } = useProductTypes({
+  } = useProducts({
     page,
     limit,
     ...filters,
   });
 
-  const handleFilterChange = (newFilters: ProductFilterState) => {
+  const handleFilterChange = (newFilters: ProductFilters) => {
     setFilters(newFilters);
     setPage(1); // Reset to first page when filters change
   };
@@ -96,7 +94,7 @@ export default function ProductsPage() {
                 All Products
               </h2>
               <p className="text-muted-foreground mt-1">
-                {productsData?.meta.totalItems || 0} products available
+                {productsData?.meta.itemsPerPage || 0} products available
               </p>
             </div>
 
@@ -121,7 +119,7 @@ export default function ProductsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ProductFilters
+                    <ProductFiltersComponent
                       currentFilters={filters}
                       onFilterChange={handleFilterChange}
                     />
@@ -163,7 +161,7 @@ export default function ProductsPage() {
               />
 
               {/* Pagination */}
-              {productsData && productsData.meta.totalPages > 1 && (
+              {productsData && productsData.meta.pageCount > 1 && (
                 <div className="flex justify-center mt-12">
                   <div className="flex items-center gap-2">
                     <Button
@@ -177,14 +175,14 @@ export default function ProductsPage() {
 
                     <div className="flex items-center gap-1">
                       {Array.from(
-                        { length: productsData.meta.totalPages },
+                        { length: productsData.meta.pageCount },
                         (_, i) => i + 1
                       )
                         .filter((pageNum) => {
                           // Show first page, last page, current page, and pages around current
                           return (
                             pageNum === 1 ||
-                            pageNum === productsData.meta.totalPages ||
+                            pageNum === productsData.meta.pageCount ||
                             Math.abs(pageNum - page) <= 1
                           );
                         })
@@ -214,7 +212,7 @@ export default function ProductsPage() {
 
                     <Button
                       variant="outline"
-                      disabled={page === productsData.meta.totalPages}
+                      disabled={page === productsData.meta.pageCount}
                       onClick={() => handlePageChange(page + 1)}
                       className="border-border hover:border-green-600 hover:text-green-600 dark:hover:border-green-400 dark:hover:text-green-400"
                     >

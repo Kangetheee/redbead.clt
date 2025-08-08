@@ -3,24 +3,28 @@
 import { getErrorMessage } from "../get-error-message";
 import { ActionResponse, PaginatedData } from "../shared/types";
 import {
-  CreateProductTypeDto,
-  UpdateProductTypeDto,
-  GetProductTypesDto,
-  GetProductTypesByCategoryDto,
+  CreateProductDto,
+  UpdateProductDto,
+  GetProductsDto,
+  SearchProductsDto,
+  CalculatePriceDto,
 } from "./dto/products.dto";
-import { ProductTypeResponse } from "./types/products.types";
-import { ProductTypeService } from "./products.service";
+import {
+  ProductResponse,
+  ProductPriceCalculation,
+} from "./types/products.types";
+import { ProductService } from "./products.service";
 
-const productTypeService = new ProductTypeService();
+const productService = new ProductService();
 
 /**
- * Get paginated list of product types with optional filtering and sorting
+ * Get paginated list of products with optional filtering and sorting
  */
-export async function getProductTypesAction(
-  params?: GetProductTypesDto
-): Promise<ActionResponse<PaginatedData<ProductTypeResponse>>> {
+export async function getProductsAction(
+  params?: GetProductsDto
+): Promise<ActionResponse<PaginatedData<ProductResponse>>> {
   try {
-    const res = await productTypeService.findAll(params);
+    const res = await productService.findAll(params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -28,13 +32,41 @@ export async function getProductTypesAction(
 }
 
 /**
- * Get featured product types for homepage/marketing display
+ * Create a new product
  */
-export async function getFeaturedProductTypesAction(
+export async function createProductAction(
+  values: CreateProductDto
+): Promise<ActionResponse<ProductResponse>> {
+  try {
+    const res = await productService.create(values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Quick product search by name or description
+ */
+export async function searchProductsAction(
+  params: SearchProductsDto
+): Promise<ActionResponse<ProductResponse[]>> {
+  try {
+    const res = await productService.search(params);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Get featured products for homepage/marketing display
+ */
+export async function getFeaturedProductsAction(
   limit?: number
-): Promise<ActionResponse<ProductTypeResponse[]>> {
+): Promise<ActionResponse<ProductResponse[]>> {
   try {
-    const res = await productTypeService.findFeatured(limit);
+    const res = await productService.findFeatured(limit);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -42,27 +74,13 @@ export async function getFeaturedProductTypesAction(
 }
 
 /**
- * Get detailed product type information by ID
+ * Get detailed product information using URL-friendly slug
  */
-export async function getProductTypeAction(
-  productTypeId: string
-): Promise<ActionResponse<ProductTypeResponse>> {
-  try {
-    const res = await productTypeService.findById(productTypeId);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-/**
- * Get detailed product type information using URL-friendly slug
- */
-export async function getProductTypeBySlugAction(
+export async function getProductBySlugAction(
   slug: string
-): Promise<ActionResponse<ProductTypeResponse>> {
+): Promise<ActionResponse<ProductResponse>> {
   try {
-    const res = await productTypeService.findBySlug(slug);
+    const res = await productService.findBySlug(slug);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -70,13 +88,14 @@ export async function getProductTypeBySlugAction(
 }
 
 /**
- * Get product types for a specific category
+ * Calculate product price with variants and customizations
  */
-export async function getProductTypesByCategoryAction(
-  params: GetProductTypesByCategoryDto
-): Promise<ActionResponse<PaginatedData<ProductTypeResponse>>> {
+export async function calculateProductPriceAction(
+  productId: string,
+  params: CalculatePriceDto
+): Promise<ActionResponse<ProductPriceCalculation>> {
   try {
-    const res = await productTypeService.findByCategory(params);
+    const res = await productService.calculatePrice(productId, params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -84,13 +103,13 @@ export async function getProductTypesByCategoryAction(
 }
 
 /**
- * Create a new product type within a category
+ * Get detailed product information by ID
  */
-export async function createProductTypeAction(
-  values: CreateProductTypeDto
-): Promise<ActionResponse<ProductTypeResponse>> {
+export async function getProductAction(
+  productId: string
+): Promise<ActionResponse<ProductResponse>> {
   try {
-    const res = await productTypeService.create(values);
+    const res = await productService.findById(productId);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -98,14 +117,14 @@ export async function createProductTypeAction(
 }
 
 /**
- * Update product type information
+ * Update product information
  */
-export async function updateProductTypeAction(
-  productTypeId: string,
-  values: UpdateProductTypeDto
-): Promise<ActionResponse<ProductTypeResponse>> {
+export async function updateProductAction(
+  productId: string,
+  values: UpdateProductDto
+): Promise<ActionResponse<ProductResponse>> {
   try {
-    const res = await productTypeService.update(productTypeId, values);
+    const res = await productService.update(productId, values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -113,14 +132,28 @@ export async function updateProductTypeAction(
 }
 
 /**
- * Permanently delete a product type (only if not used in orders or design templates)
+ * Permanently delete a product (only if not used in orders or carts)
  */
-export async function deleteProductTypeAction(
-  productTypeId: string
+export async function deleteProductAction(
+  productId: string
 ): Promise<ActionResponse<void>> {
   try {
-    await productTypeService.delete(productTypeId);
+    await productService.delete(productId);
     return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Toggle product featured status
+ */
+export async function toggleProductFeaturedAction(
+  productId: string
+): Promise<ActionResponse<ProductResponse>> {
+  try {
+    const res = await productService.toggleFeatured(productId);
+    return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }

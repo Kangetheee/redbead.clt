@@ -28,13 +28,13 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { ProductTypeResponse } from "@/lib/products/types/products.types";
+import { ProductResponse } from "@/lib/products/types/products.types";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { cn } from "@/lib/utils";
 import { CustomerNavbar } from "../layouts/customer-nav";
 
 interface ProductDetailsViewProps {
-  product: ProductTypeResponse;
+  product: ProductResponse;
   showBreadcrumbs?: boolean;
   showBackButton?: boolean;
   className?: string;
@@ -68,57 +68,12 @@ export function ProductDetailsView({
     );
   };
 
-  // Use the actual design templates without trying to add sizeVariants
+  // Use the actual design templates without trying to add non-existent properties
   const templates = product.designTemplates || [];
 
-  // Component to handle individual template add to cart
-  const TemplateAddToCartItem = ({
-    template,
-  }: {
-    template: (typeof templates)[0];
-  }) => {
-    const defaultSizeVariantId = "default-size";
-
-    return (
-      <div className="flex items-center justify-between p-3 bg-background border border-green-200 dark:border-green-800 rounded-lg">
-        <div className="flex items-center gap-3">
-          {template.previewImage && (
-            <div className="w-8 h-8 rounded overflow-hidden bg-muted">
-              <Image
-                src={template.previewImage}
-                alt={template.name}
-                width={32}
-                height={32}
-                className="object-cover w-full h-full"
-              />
-            </div>
-          )}
-          <div>
-            <p className="font-medium text-foreground text-sm">
-              {template.name}
-            </p>
-            <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-              KES {template.basePrice.toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        {/* Use AddToCartButton component for proper cart functionality */}
-        <AddToCartButton
-          templateId={template.id}
-          sizeVariantId={defaultSizeVariantId}
-          quantity={1}
-          variant="default"
-          size="sm"
-          className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-          showSuccessState={true}
-        >
-          <ShoppingCart className="w-3 h-3 mr-1" />
-          Add to Cart
-        </AddToCartButton>
-      </div>
-    );
-  };
+  // Get product metadata for type and material
+  const productType = product.metadata?.type || "Product";
+  const productMaterial = product.metadata?.material || "Standard";
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,8 +145,51 @@ export function ProductDetailsView({
           </Button>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Product Images */}
+        {/* Product Header - Mobile Only */}
+        <div className="mb-6 lg:hidden space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {product.isFeatured && (
+              <Badge className="bg-yellow-500 text-white dark:bg-yellow-600">
+                <Star className="w-3 h-3 mr-1" />
+                Featured
+              </Badge>
+            )}
+            {product.category && (
+              <Badge
+                variant="outline"
+                className="border-green-200 text-green-700 dark:border-green-800 dark:text-green-300"
+              >
+                {product.category.name}
+              </Badge>
+            )}
+            <Badge variant="secondary">{productType}</Badge>
+            <Badge variant="secondary">{productMaterial}</Badge>
+            {!product.isActive && <Badge variant="destructive">Inactive</Badge>}
+          </div>
+
+          <h1 className="text-2xl font-bold text-foreground">{product.name}</h1>
+
+          <p className="text-base text-muted-foreground">
+            {product.description}
+          </p>
+
+          {/* Base Price */}
+          <div className="flex items-center gap-4">
+            <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+              KES {product.basePrice.toLocaleString()}
+            </span>
+            {product.variants && product.variants.length > 0 && (
+              <span className="text-sm text-muted-foreground">
+                Base price • {product.variants.length} variant
+                {product.variants.length > 1 ? "s" : ""} available
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Main Product Section - Two Column Layout on Large Screens */}
+        <div className="grid lg:grid-cols-2 gap-8 mb-12">
+          {/* Product Images - Left Column */}
           <div className="space-y-4">
             {/* Main Image */}
             <Card className="overflow-hidden border-border bg-card">
@@ -273,10 +271,10 @@ export function ProductDetailsView({
             )}
           </div>
 
-          {/* Product Information */}
+          {/* Product Information - Right Column */}
           <div className="space-y-6">
-            {/* Header */}
-            <div className="space-y-2">
+            {/* Header - Desktop Only */}
+            <div className="hidden lg:block space-y-4">
               <div className="flex items-center gap-2 flex-wrap">
                 {product.isFeatured && (
                   <Badge className="bg-yellow-500 text-white dark:bg-yellow-600">
@@ -292,150 +290,181 @@ export function ProductDetailsView({
                     {product.category.name}
                   </Badge>
                 )}
-                <Badge variant="secondary">{product.type}</Badge>
-                <Badge variant="secondary">{product.material}</Badge>
+                <Badge variant="secondary">{productType}</Badge>
+                <Badge variant="secondary">{productMaterial}</Badge>
+                {!product.isActive && (
+                  <Badge variant="destructive">Inactive</Badge>
+                )}
               </div>
 
               <h1 className="text-3xl font-bold text-foreground">
                 {product.name}
               </h1>
+
               <p className="text-lg text-muted-foreground">
                 {product.description}
               </p>
+
+              {/* Base Price */}
+              <div className="flex items-center gap-4">
+                <span className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  KES {product.basePrice.toLocaleString()}
+                </span>
+                {product.variants && product.variants.length > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    Base price • {product.variants.length} variant
+                    {product.variants.length > 1 ? "s" : ""} available
+                  </span>
+                )}
+              </div>
             </div>
 
-            <Separator />
+            <Separator className="hidden lg:block" />
 
             {/* Design Templates */}
             {templates.length > 0 && (
               <Card className="border-border bg-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-foreground">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-foreground text-lg">
                     <Eye className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    Available Templates
+                    Available Templates ({templates.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {templates.map((template) => (
+                <CardContent className="space-y-3">
+                  {templates.slice(0, 3).map((template) => (
                     <div
                       key={template.id}
                       className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-green-50 hover:border-green-200 dark:hover:bg-green-950/30 dark:hover:border-green-800 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        {template.previewImage && (
-                          <div className="w-12 h-12 rounded-md overflow-hidden bg-muted">
+                        {template.thumbnail && (
+                          <div className="w-10 h-10 rounded-md overflow-hidden bg-muted">
                             <Image
-                              src={template.previewImage}
+                              src={template.thumbnail}
                               alt={template.name}
-                              width={48}
-                              height={48}
+                              width={40}
+                              height={40}
                               className="object-cover w-full h-full"
                             />
                           </div>
                         )}
                         <div>
-                          <h4 className="font-medium text-foreground">
+                          <h4 className="font-medium text-foreground text-sm">
                             {template.name}
                           </h4>
-                          <p className="text-sm text-muted-foreground">
-                            Starting from KES{" "}
+                          <p className="text-xs text-muted-foreground">
+                            Starting from{" "}
                             <span className="font-medium text-green-600 dark:text-green-400">
-                              {template.basePrice.toLocaleString()}
+                              KES {template.basePrice.toLocaleString()}
                             </span>
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
-                          asChild
-                        >
-                          <Link href={`/templates/${template.slug}`}>
-                            View Template
-                          </Link>
-                        </Button>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
+                        asChild
+                      >
+                        <Link href={`/templates/${template.id}`}>View</Link>
+                      </Button>
                     </div>
                   ))}
+                  {templates.length > 3 && (
+                    <Button variant="ghost" className="w-full text-sm">
+                      View All {templates.length} Templates
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
 
             {/* Add to Cart Section */}
-            {templates.length > 0 && (
-              <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-foreground">
-                    <ShoppingCart className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    Order This Product
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-sm text-muted-foreground">
-                    Choose from {templates.length} available template
-                    {templates.length !== 1 ? "s" : ""} and customize your order
-                  </div>
+            <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-foreground text-lg">
+                  <ShoppingCart className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  Order This Product
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {templates.length > 0 ? (
+                  <>
+                    <div className="text-sm text-muted-foreground">
+                      Choose from {templates.length} available template
+                      {templates.length !== 1 ? "s" : ""} and customize your
+                      order
+                    </div>
 
-                  {/* Template Selection for Add to Cart */}
-                  <div className="space-y-3">
-                    {templates.map((template) => (
-                      <div
-                        key={template.id}
-                        className="flex items-center justify-between p-3 bg-background border border-green-200 dark:border-green-800 rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          {template.previewImage && (
-                            <div className="w-8 h-8 rounded overflow-hidden bg-muted">
-                              <Image
-                                src={template.previewImage}
-                                alt={template.name}
-                                width={32}
-                                height={32}
-                                className="object-cover w-full h-full"
-                              />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-medium text-foreground text-sm">
-                              {template.name}
-                            </p>
-                            <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                              KES {template.basePrice.toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Use AddToCartButton component for proper cart functionality */}
-                        <AddToCartButton
-                          templateId={template.id}
-                          sizeVariantId="default-size"
-                          quantity={1}
-                          variant="default"
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-                          showSuccessState={true}
+                    {/* Template Selection for Add to Cart */}
+                    <div className="space-y-2">
+                      {templates.slice(0, 2).map((template) => (
+                        <div
+                          key={template.id}
+                          className="flex items-center justify-between p-3 bg-background border border-green-200 dark:border-green-800 rounded-lg"
                         >
-                          <ShoppingCart className="w-3 h-3 mr-1" />
-                          Add to Cart
-                        </AddToCartButton>
-                      </div>
-                    ))}
-                  </div>
+                          <div className="flex items-center gap-3">
+                            {template.thumbnail && (
+                              <div className="w-8 h-8 rounded overflow-hidden bg-muted">
+                                <Image
+                                  src={template.thumbnail}
+                                  alt={template.name}
+                                  width={32}
+                                  height={32}
+                                  className="object-cover w-full h-full"
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-foreground text-sm">
+                                {template.name}
+                              </p>
+                              <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                KES {template.basePrice.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
 
-                  <div className="text-xs text-muted-foreground bg-background p-3 rounded border border-green-200 dark:border-green-800">
-                    💡 Each template can be customized with your logo, text, and
-                    preferred colors during the ordering process.
+                          <AddToCartButton
+                            templateId={template.id}
+                            sizeVariantId="default-size"
+                            quantity={1}
+                            variant="default"
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                            showSuccessState={true}
+                          >
+                            <ShoppingCart className="w-3 h-3 mr-1" />
+                            Add
+                          </AddToCartButton>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Contact us for custom pricing and options for this
+                      product.
+                    </p>
+                    <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Request Quote
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+
+                <div className="text-xs text-muted-foreground bg-background p-3 rounded border border-green-200 dark:border-green-800">
+                  💡 Each template can be customized with your logo, text, and
+                  preferred colors during the ordering process.
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Product Features */}
             <Card className="border-border bg-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-foreground">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-foreground text-lg">
                   <Info className="h-5 w-5 text-green-600 dark:text-green-400" />
                   Product Features
                 </CardTitle>
@@ -445,13 +474,13 @@ export function ProductDetailsView({
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                     <span className="text-sm text-foreground">
-                      High-quality {product.material.toLowerCase()} material
+                      High-quality {productMaterial.toLowerCase()} material
                     </span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                     <span className="text-sm text-foreground">
-                      Professional {product.type.toLowerCase()} design
+                      Professional {productType.toLowerCase()} design
                     </span>
                   </li>
                   <li className="flex items-center gap-2">
@@ -472,6 +501,15 @@ export function ProductDetailsView({
                       <span className="text-sm text-foreground">
                         {templates.length} design template
                         {templates.length !== 1 ? "s" : ""} available
+                      </span>
+                    </li>
+                  )}
+                  {product.variants && product.variants.length > 0 && (
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      <span className="text-sm text-foreground">
+                        {product.variants.length} product variant
+                        {product.variants.length !== 1 ? "s" : ""} available
                       </span>
                     </li>
                   )}
@@ -499,8 +537,8 @@ export function ProductDetailsView({
           </div>
         </div>
 
-        {/* Additional Information Sections */}
-        <div className="mt-12 grid md:grid-cols-2 gap-8">
+        {/* Additional Information Sections - Full Width */}
+        <div className="grid md:grid-cols-2 gap-8">
           {/* Description Section */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -511,9 +549,17 @@ export function ProductDetailsView({
                 <p className="text-muted-foreground">{product.description}</p>
                 <div className="mt-4 space-y-2">
                   <div className="flex justify-between">
+                    <span className="font-medium text-foreground">
+                      Base Price:
+                    </span>
+                    <span className="text-muted-foreground">
+                      KES {product.basePrice.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="font-medium text-foreground">Type:</span>
                     <span className="capitalize text-muted-foreground">
-                      {product.type.toLowerCase()}
+                      {productType.toLowerCase()}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -521,7 +567,7 @@ export function ProductDetailsView({
                       Material:
                     </span>
                     <span className="capitalize text-muted-foreground">
-                      {product.material.toLowerCase()}
+                      {productMaterial.toLowerCase()}
                     </span>
                   </div>
                   {product.category && (
@@ -534,6 +580,19 @@ export function ProductDetailsView({
                       </span>
                     </div>
                   )}
+                  <div className="flex justify-between">
+                    <span className="font-medium text-foreground">Status:</span>
+                    <span
+                      className={cn(
+                        "text-sm",
+                        product.isActive
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-destructive"
+                      )}
+                    >
+                      {product.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </CardContent>

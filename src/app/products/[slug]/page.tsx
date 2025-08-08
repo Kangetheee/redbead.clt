@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getProductTypeBySlugAction } from "@/lib/products/products.actions";
+import { getProductBySlugAction } from "@/lib/products/products.actions";
 import { ProductDetailsView } from "@/components/products/product-details-view";
 
 interface ProductDetailsPageProps {
@@ -13,7 +13,7 @@ export async function generateMetadata({
   params,
 }: ProductDetailsPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await getProductTypeBySlugAction(slug);
+  const result = await getProductBySlugAction(slug);
 
   if (!result.success || !result.data) {
     return {
@@ -25,19 +25,23 @@ export async function generateMetadata({
   const product = result.data;
 
   return {
-    title: product.metaTitle || `${product.name} | Custom Products`,
-    description: product.metaDescription || product.description,
+    title: product.metadata?.metaTitle || `${product.name} | Custom Products`,
+    description: product.metadata?.metaDescription || product.description,
     openGraph: {
       title: product.name,
       description: product.description,
-      images: product.thumbnailImage ? [product.thumbnailImage] : undefined,
+      images: product.thumbnailImage
+        ? [product.thumbnailImage]
+        : product.images,
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: product.name,
       description: product.description,
-      images: product.thumbnailImage ? [product.thumbnailImage] : undefined,
+      images: product.thumbnailImage
+        ? [product.thumbnailImage]
+        : product.images,
     },
   };
 }
@@ -47,7 +51,7 @@ export default async function ProductDetailsPage({
 }: ProductDetailsPageProps) {
   const { slug } = await params;
 
-  const result = await getProductTypeBySlugAction(slug);
+  const result = await getProductBySlugAction(slug);
 
   if (!result.success || !result.data) {
     notFound();

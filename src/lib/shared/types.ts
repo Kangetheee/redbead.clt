@@ -3,6 +3,7 @@ export type Meta = {
   itemsPerPage: number;
   currentPage: number;
   totalPages: number;
+  pageIndex: number;
 };
 
 export type PaginatedData<T> = {

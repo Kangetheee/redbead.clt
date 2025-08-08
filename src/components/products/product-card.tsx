@@ -8,10 +8,10 @@ import { CheckCircle, Star, ShoppingCart, Eye, Plus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { ProductTypeResponse } from "@/lib/products/types/products.types";
+import { ProductResponse } from "@/lib/products/types/products.types";
 
 interface ProductCardProps {
-  product: ProductTypeResponse;
+  product: ProductResponse;
   layout?: "grid" | "list";
   size?: "sm" | "md" | "lg";
   showAddToCart?: boolean;
@@ -37,8 +37,12 @@ export function ProductCard({
   imageAspectRatio = "square",
   maxTemplatesShown = 2,
 }: ProductCardProps) {
-  // Use the correct ProductTypeDesignTemplate interface
+  // Use the correct ProductDesignTemplate interface
   const templates = product.designTemplates || [];
+
+  // Get product metadata for type and material
+  const productType = product.metadata?.type || "Product";
+  const productMaterial = product.metadata?.material || "Standard";
 
   // Size configurations - optimized for better density
   const sizeConfig = {
@@ -150,7 +154,11 @@ export function ProductCard({
         {/* Image */}
         <div className="relative bg-gradient-to-br from-green-50 to-muted dark:from-green-950/20 dark:to-muted flex-shrink-0 w-20 h-20">
           <Image
-            src={product.thumbnailImage || "/placeholder-product.jpg"}
+            src={
+              product.thumbnailImage ||
+              product.images?.[0] ||
+              "/placeholder-product.jpg"
+            }
             alt={product.name}
             fill
             className="object-cover"
@@ -160,6 +168,13 @@ export function ProductCard({
           {product.isFeatured && (
             <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-white dark:bg-yellow-600 text-xs p-0 w-4 h-4 flex items-center justify-center">
               <Star className="w-2 h-2" />
+            </Badge>
+          )}
+
+          {/* Inactive status */}
+          {!product.isActive && (
+            <Badge className="absolute top-1 left-1 bg-destructive text-destructive-foreground text-xs">
+              Inactive
             </Badge>
           )}
         </div>
@@ -178,11 +193,11 @@ export function ProductCard({
                 {showMaterial && (
                   <>
                     <span className="capitalize">
-                      {product.type.toLowerCase()}
+                      {productType.toLowerCase()}
                     </span>
                     <span>•</span>
                     <span className="capitalize">
-                      {product.material.toLowerCase()}
+                      {productMaterial.toLowerCase()}
                     </span>
                   </>
                 )}
@@ -195,6 +210,11 @@ export function ProductCard({
                   </>
                 )}
               </div>
+
+              {/* Price */}
+              <div className="text-sm font-medium text-primary">
+                KES {product.basePrice.toLocaleString()}
+              </div>
             </div>
 
             {/* Quick info */}
@@ -203,7 +223,7 @@ export function ProductCard({
                 {templates.length} template{templates.length !== 1 ? "s" : ""}
                 {templates[0] && (
                   <span className="text-green-600 dark:text-green-400 font-medium ml-2">
-                    from KES {templates[0].basePrice.toLocaleString()}
+                    from +KES {templates[0].basePrice.toLocaleString()}
                   </span>
                 )}
               </div>
@@ -225,6 +245,7 @@ export function ProductCard({
     <Card
       className={cn(
         "group overflow-hidden hover:shadow-lg transition-all duration-300 border-border hover:border-green-200 dark:hover:border-green-800 bg-card",
+        !product.isActive && "opacity-75",
         className
       )}
     >
@@ -236,7 +257,11 @@ export function ProductCard({
         )}
       >
         <Image
-          src={product.thumbnailImage || "/placeholder-product.jpg"}
+          src={
+            product.thumbnailImage ||
+            product.images?.[0] ||
+            "/placeholder-product.jpg"
+          }
           alt={product.name}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -264,6 +289,15 @@ export function ProductCard({
           )}
         </div>
 
+        {/* Status badges */}
+        <div className="absolute bottom-2 left-2">
+          {!product.isActive && (
+            <Badge variant="destructive" className="text-xs">
+              Inactive
+            </Badge>
+          )}
+        </div>
+
         {/* Quick actions overlay - appears on hover */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
           <div className="flex gap-2">
@@ -275,7 +309,7 @@ export function ProductCard({
 
       {/* Product Content */}
       <CardContent className={config.spacing}>
-        {/* Product Title */}
+        {/* Product Title and Price */}
         <div>
           <h3
             className={cn(
@@ -291,13 +325,26 @@ export function ProductCard({
             </Link>
           </h3>
 
+          {/* Price */}
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-lg font-bold text-primary">
+              KES {product.basePrice.toLocaleString()}
+            </span>
+            {product.variants && product.variants.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {product.variants.length} variant
+                {product.variants.length > 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+
           {/* Product Type & Material - compact */}
           {showMaterial && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-              <span className="capitalize">{product.type.toLowerCase()}</span>
+              <span className="capitalize">{productType.toLowerCase()}</span>
               <span>•</span>
               <span className="capitalize">
-                {product.material.toLowerCase()}
+                {productMaterial.toLowerCase()}
               </span>
             </div>
           )}
@@ -337,7 +384,7 @@ export function ProductCard({
                     </span>
                     {template.basePrice > 0 && (
                       <span className="font-medium text-green-600 dark:text-green-400 ml-1 text-xs">
-                        KES {template.basePrice.toLocaleString()}
+                        +KES {template.basePrice.toLocaleString()}
                       </span>
                     )}
                   </li>
@@ -348,6 +395,36 @@ export function ProductCard({
                 </li>
               )}
             </ul>
+          </div>
+        )}
+
+        {/* Variants Info */}
+        {product.variants && product.variants.length > 0 && size !== "sm" && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-foreground">
+              Variants ({product.variants.length}):
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {product.variants.slice(0, 2).map((variant) => (
+                <Badge
+                  key={variant.id}
+                  variant="outline"
+                  className="text-xs py-0 px-2"
+                >
+                  {variant.name}
+                  {variant.price !== product.basePrice && (
+                    <span className="ml-1 text-primary">
+                      +{(variant.price - product.basePrice).toLocaleString()}
+                    </span>
+                  )}
+                </Badge>
+              ))}
+              {product.variants.length > 2 && (
+                <span className="text-xs text-muted-foreground self-center">
+                  +{product.variants.length - 2} more
+                </span>
+              )}
+            </div>
           </div>
         )}
 

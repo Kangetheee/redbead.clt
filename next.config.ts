@@ -41,13 +41,13 @@ const nextConfig = {
       // Add other image domains your product images might use
       {
         protocol: "https",
-        hostname: "res.cloudinary.com",
+        hostname: "5.imimg.com",
         port: "",
         pathname: "/**",
       },
       {
         protocol: "https",
-        hostname: "storage.googleapis.com",
+        hostname: "badgeland.com",
         port: "",
         pathname: "/**",
       },

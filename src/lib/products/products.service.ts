@@ -1,22 +1,26 @@
 import { Fetcher } from "../api/api.service";
 import { PaginatedData } from "../shared/types";
 import {
-  CreateProductTypeDto,
-  UpdateProductTypeDto,
-  GetProductTypesDto,
-  GetProductTypesByCategoryDto,
+  CreateProductDto,
+  UpdateProductDto,
+  GetProductsDto,
+  SearchProductsDto,
+  CalculatePriceDto,
 } from "./dto/products.dto";
-import { ProductTypeResponse } from "./types/products.types";
+import {
+  ProductResponse,
+  ProductPriceCalculation,
+} from "./types/products.types";
 
-export class ProductTypeService {
+export class ProductService {
   constructor(private fetcher = new Fetcher()) {}
 
   /**
-   * Get paginated list of product types with optional filtering and sorting
+   * Get paginated list of products with optional filtering and sorting
    */
   public async findAll(
-    params?: GetProductTypesDto
-  ): Promise<PaginatedData<ProductTypeResponse>> {
+    params?: GetProductsDto
+  ): Promise<PaginatedData<ProductResponse>> {
     const queryParams = new URLSearchParams();
 
     if (params?.page) {
@@ -31,17 +35,20 @@ export class ProductTypeService {
     if (params?.search) {
       queryParams.append("search", params.search);
     }
-    if (params?.type) {
-      queryParams.append("type", params.type);
+    if (params?.minPrice !== undefined) {
+      queryParams.append("minPrice", params.minPrice.toString());
     }
-    if (params?.material) {
-      queryParams.append("material", params.material);
+    if (params?.maxPrice !== undefined) {
+      queryParams.append("maxPrice", params.maxPrice.toString());
+    }
+    if (params?.isActive !== undefined) {
+      queryParams.append("isActive", params.isActive.toString());
     }
     if (params?.isFeatured !== undefined) {
       queryParams.append("isFeatured", params.isFeatured.toString());
     }
-    if (params?.isActive !== undefined) {
-      queryParams.append("isActive", params.isActive.toString());
+    if (params?.relatedTo) {
+      queryParams.append("relatedTo", params.relatedTo);
     }
     if (params?.sortBy) {
       queryParams.append("sortBy", params.sortBy);
@@ -51,139 +58,130 @@ export class ProductTypeService {
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/product${queryString ? `?${queryString}` : ""}`;
+    const url = `/v1/products${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<PaginatedData<ProductTypeResponse>>(
+    return this.fetcher.request<PaginatedData<ProductResponse>>(
       url,
       {},
-      { auth: false } // Public endpoint
+      { auth: false }
     );
   }
 
   /**
-   * Get featured product types for homepage/marketing display
+   * Create a new product
    */
-  public async findFeatured(limit?: number): Promise<ProductTypeResponse[]> {
+  public async create(values: CreateProductDto): Promise<ProductResponse> {
+    return this.fetcher.request<ProductResponse>("/v1/products", {
+      method: "POST",
+      data: values,
+    });
+  }
+
+  /**
+   * Quick product search by name or description
+   */
+  public async search(params: SearchProductsDto): Promise<ProductResponse[]> {
+    const queryParams = new URLSearchParams();
+
+    queryParams.append("q", params.q);
+    if (params.limit) {
+      queryParams.append("limit", params.limit.toString());
+    }
+    if (params.categoryId) {
+      queryParams.append("categoryId", params.categoryId);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/v1/products/search?${queryString}`;
+
+    return this.fetcher.request<ProductResponse[]>(url, {}, { auth: false });
+  }
+
+  /**
+   * Get featured products for homepage/marketing display
+   */
+  public async findFeatured(limit?: number): Promise<ProductResponse[]> {
     const queryParams = new URLSearchParams();
     if (limit) {
       queryParams.append("limit", limit.toString());
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/product/featured${queryString ? `?${queryString}` : ""}`;
+    const url = `/v1/products/featured${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<ProductTypeResponse[]>(
-      url,
-      {},
-      { auth: false } // Public endpoint - no authentication required
-    );
+    return this.fetcher.request<ProductResponse[]>(url, {}, { auth: false });
   }
 
   /**
-   * Get detailed product type information by ID
+   * Get detailed product information using URL-friendly slug
    */
-  public async findById(productTypeId: string): Promise<ProductTypeResponse> {
-    return this.fetcher.request<ProductTypeResponse>(
-      `/v1/product/${productTypeId}`,
+  public async findBySlug(slug: string): Promise<ProductResponse> {
+    return this.fetcher.request<ProductResponse>(
+      `/v1/products/by-slug/${slug}`,
       {},
       { auth: false } // Public endpoint
     );
   }
 
   /**
-   * Get detailed product type information using URL-friendly slug
+   * Calculate product price with variants and customizations
    */
-  public async findBySlug(slug: string): Promise<ProductTypeResponse> {
-    return this.fetcher.request<ProductTypeResponse>(
-      `/v1/product/slug/${slug}`,
+  public async calculatePrice(
+    productId: string,
+    params: CalculatePriceDto
+  ): Promise<ProductPriceCalculation> {
+    return this.fetcher.request<ProductPriceCalculation>(
+      `/v1/products/${productId}/calculate-price`,
+      {
+        method: "POST",
+        data: params,
+      },
+      { auth: false } // Public endpoint - anyone can calculate prices
+    );
+  }
+
+  /**
+   * Get detailed product information by ID
+   */
+  public async findById(productId: string): Promise<ProductResponse> {
+    return this.fetcher.request<ProductResponse>(
+      `/v1/products/${productId}`,
       {},
       { auth: false } // Public endpoint
     );
   }
 
   /**
-   * Get product types for a specific category
+   * Update product information (Admin only)
    */
-  public async findByCategory(
-    params: GetProductTypesByCategoryDto
-  ): Promise<PaginatedData<ProductTypeResponse>> {
-    const { categoryId, ...queryParams } = params;
-    const urlParams = new URLSearchParams();
-
-    if (queryParams.page) {
-      urlParams.append("page", queryParams.page.toString());
-    }
-    if (queryParams.limit) {
-      urlParams.append("limit", queryParams.limit.toString());
-    }
-    if (queryParams.search) {
-      urlParams.append("search", queryParams.search);
-    }
-    if (queryParams.type) {
-      urlParams.append("type", queryParams.type);
-    }
-    if (queryParams.material) {
-      urlParams.append("material", queryParams.material);
-    }
-    if (queryParams.isFeatured !== undefined) {
-      urlParams.append("isFeatured", queryParams.isFeatured.toString());
-    }
-    if (queryParams.isActive !== undefined) {
-      urlParams.append("isActive", queryParams.isActive.toString());
-    }
-    if (queryParams.sortBy) {
-      urlParams.append("sortBy", queryParams.sortBy);
-    }
-    if (queryParams.sortDirection) {
-      urlParams.append("sortDirection", queryParams.sortDirection);
-    }
-
-    const queryString = urlParams.toString();
-    const url = `/v1/product/category/${categoryId}${
-      queryString ? `?${queryString}` : ""
-    }`;
-
-    return this.fetcher.request<PaginatedData<ProductTypeResponse>>(
-      url,
-      {},
-      { auth: false } // Public endpoint
-    );
-  }
-
-  /**
-   * Create a new product type within a category (Admin only)
-   */
-  public async create(
-    values: CreateProductTypeDto
-  ): Promise<ProductTypeResponse> {
-    return this.fetcher.request<ProductTypeResponse>("/v1/product", {
-      method: "POST",
+  public async update(
+    productId: string,
+    values: UpdateProductDto
+  ): Promise<ProductResponse> {
+    return this.fetcher.request<ProductResponse>(`/v1/products/${productId}`, {
+      method: "PATCH",
       data: values,
     }); // Requires authentication (default auth: true)
   }
 
   /**
-   * Update product type information (Admin only)
+   * Permanently delete a product (Admin only)
    */
-  public async update(
-    productTypeId: string,
-    values: UpdateProductTypeDto
-  ): Promise<ProductTypeResponse> {
-    return this.fetcher.request<ProductTypeResponse>(
-      `/v1/product/${productTypeId}`,
-      {
-        method: "PATCH",
-        data: values,
-      }
-    ); // Requires authentication (default auth: true)
+  public async delete(productId: string): Promise<void> {
+    return this.fetcher.request<void>(`/v1/products/${productId}`, {
+      method: "DELETE",
+    }); // Requires authentication (default auth: true)
   }
 
   /**
-   * Permanently delete a product type (Admin only)
+   * Toggle product featured status (Admin only)
    */
-  public async delete(productTypeId: string): Promise<void> {
-    return this.fetcher.request<void>(`/v1/product/${productTypeId}`, {
-      method: "DELETE",
-    }); // Requires authentication (default auth: true)
+  public async toggleFeatured(productId: string): Promise<ProductResponse> {
+    return this.fetcher.request<ProductResponse>(
+      `/v1/products/${productId}/toggle-featured`,
+      {
+        method: "PATCH",
+      }
+    ); // Requires authentication (default auth: true)
   }
 }
