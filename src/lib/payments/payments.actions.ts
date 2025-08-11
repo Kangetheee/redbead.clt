@@ -2,17 +2,70 @@
 
 import { getErrorMessage } from "../get-error-message";
 import { ActionResponse } from "../shared/types";
-import { InitiatePaymentDto, RefundRequestDto } from "./dto/payments.dto";
+import {
+  InitiatePaymentDto,
+  RefundRequestDto,
+  CreatePaymentDto,
+  ListPaymentsDto,
+  SqroolCallbackDto,
+} from "./dto/payments.dto";
 import {
   PaymentMethod,
   PaymentDetails,
   PaymentInitiationResponse,
   PaymentStatus,
   RefundResponse,
+  PaymentListResponse,
+  PaymentSummary,
 } from "./types/payments.types";
 import { PaymentsService } from "./payments.service";
 
 const paymentsService = new PaymentsService();
+
+/**
+ * Get list of payments with pagination and filtering
+ * GET /v1/payments
+ */
+export async function listPaymentsAction(
+  params?: ListPaymentsDto
+): Promise<ActionResponse<PaymentListResponse>> {
+  try {
+    const res = await paymentsService.listPayments(params);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Create a new payment record
+ * POST /v1/payments
+ */
+export async function createPaymentAction(
+  values: CreatePaymentDto
+): Promise<ActionResponse<PaymentDetails>> {
+  try {
+    const res = await paymentsService.createPayment(values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Get payment summary statistics
+ * GET /v1/payments/summary
+ */
+export async function getPaymentSummaryAction(
+  orderId?: string
+): Promise<ActionResponse<PaymentSummary>> {
+  try {
+    const res = await paymentsService.getPaymentSummary(orderId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
 
 /**
  * Get allowed payment methods
@@ -23,6 +76,21 @@ export async function getPaymentMethodsAction(): Promise<
 > {
   try {
     const res = await paymentsService.getPaymentMethods();
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Get payment by ID
+ * GET /v1/payments/{id}
+ */
+export async function getPaymentByIdAction(
+  id: string
+): Promise<ActionResponse<PaymentDetails>> {
+  try {
+    const res = await paymentsService.getPaymentById(id);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -62,7 +130,7 @@ export async function getPaymentStatusAction(
 
 /**
  * Get payment details for an order
- * GET /v1/payments/{orderId}
+ * GET /v1/payments/order/{orderId}
  */
 export async function getPaymentDetailsAction(
   orderId: string
@@ -98,7 +166,7 @@ export async function initiateRefundAction(
  * Note: This is typically used for webhook processing and should not be called directly from client code
  */
 export async function handleSqroolCallbackAction(
-  callbackData: object
+  callbackData: SqroolCallbackDto
 ): Promise<ActionResponse<void>> {
   try {
     await paymentsService.handleSqroolCallback(callbackData);

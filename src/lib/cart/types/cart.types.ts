@@ -1,113 +1,138 @@
-export interface CustomizationValue {
-  id: string;
-  value: string;
-  displayName: string;
-  description?: string;
-  imageUrl?: string;
-  hexColor?: string;
-  priceAdjustment: number;
-  sortOrder: number;
-  isActive: boolean;
-  optionId: string;
-  createdAt: string;
-  updatedAt: string;
-  option: {
-    id: string;
-    name: string;
-    displayName: string;
-    type: string;
-  };
-}
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface CustomizationOption {
   id: string;
   name: string;
-  displayName: string;
-  description?: string;
   type: "DROPDOWN" | "TEXT" | "COLOR" | "IMAGE";
   required: boolean;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-  values: CustomizationValue[];
-  templates: {
-    id: string;
-    name: string;
-    slug: string;
-    required: boolean;
-    sortOrder: number;
-    isActive: boolean;
-  }[];
-  templateSettings: {
-    required: boolean;
-    sortOrder: number;
-    isActive: boolean;
+  metadata?: {
+    options?: Array<{
+      value: string;
+      label: string;
+      hexCode?: string;
+      priceAdjustment: number;
+    }>;
+    colors?: string[];
+    defaultColor?: string;
+    maxLength?: number;
+    allowedFormats?: string[];
   };
+  isActive: boolean;
+  productAssignments?: Array<{
+    id: string;
+    productId: string;
+    optionId: string;
+    required: boolean;
+    sortOrder: number;
+    product: CartProduct;
+    option: Record<string, any>;
+  }>;
 }
 
 export interface CartItemCustomization {
   optionId: string;
-  valueId: string;
+  valueId?: string;
   customValue?: string;
   option: CustomizationOption;
-  value: CustomizationValue;
+}
+
+// Product & Variant Types
+export interface CartCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface CartVariant {
+  id: string;
+  name: string;
+  type: string;
+  price: number;
+  sku?: string;
+  stock: number;
+  isDefault: boolean;
+  metadata?: Record<string, any>;
 }
 
 export interface CartProduct {
   id: string;
   name: string;
-  type: string;
-  material: string;
+  slug: string;
+  description?: string;
+  images: string[];
   thumbnailImage?: string;
-}
-
-export interface CartTemplate {
-  id: string;
-  name: string;
   basePrice: number;
-  previewImage: string;
-  stock: number;
-  minOrderQuantity: number;
-  maxOrderQuantity: number;
-  product: CartProduct;
+  categoryId?: string;
+  isActive: boolean;
+  isFeatured?: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+  category?: CartCategory;
+  variants?: CartVariant[];
+  customizations?: Array<{
+    id: string;
+    productId: string;
+    optionId: string;
+    required: boolean;
+    sortOrder: number;
+    option: CustomizationOption;
+  }>;
+  designTemplates?: Array<{
+    id: string;
+    name: string;
+    thumbnail: string;
+    basePrice: number;
+  }>;
 }
 
-export interface CartSizeVariant {
-  id: string;
-  name: string;
-  displayName: string;
-  dimensions: {
-    width: number;
-    height: number;
-    unit: string;
-  };
-  price: number;
-  description: string;
-}
-
-export interface CartDesign {
-  id: string;
-  name: string;
-  preview: string;
-}
-
+// Cart Item Response
 export interface CartItemResponse {
   id: string;
-  templateId: string;
-  sizeVariantId: string;
+  productId: string;
+  variantId: string;
   quantity: number;
+  unitPrice: number;
   customizations: CartItemCustomization[];
-  designId?: string;
-  template: CartTemplate;
-  sizeVariant: CartSizeVariant;
-  design?: CartDesign;
+  product: CartProduct;
+  variant: CartVariant;
   totalPrice: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CustomizationChoice {
-  optionId: string;
-  valueId: string;
-  customValue?: string;
+// Cart Response Structure
+export interface CartResponse {
+  items: CartItemResponse[];
+  meta: {
+    pageCount: number;
+    pageSize: number;
+    currentPage: number;
+    pageIndex: number;
+    itemCount: number;
+  };
+  summary: {
+    itemCount: number;
+    totalQuantity: number;
+    subtotal: number;
+    total: number;
+  };
+}
+
+// Bulk Operations
+export interface BulkRemoveRequest {
+  cartItemIds: string[];
+}
+
+export interface SaveForLaterRequest {
+  cartItemIds: string[];
+  saveForLater: boolean;
+}
+
+export interface MergeSessionCartResponse {
+  success: boolean;
+  mergedItemsCount: number;
+}
+
+export interface CleanupExpiredSessionsResponse {
+  deletedCount: number;
 }

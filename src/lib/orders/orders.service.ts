@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { Fetcher } from "../api/api.service";
-import { PaginatedData4 } from "../shared/types";
+import { PaginatedData2 } from "../shared/types";
 import {
   GetOrdersDto,
   CreateOrderDto,
@@ -23,7 +23,6 @@ import {
   PaymentStatus,
   ProductionRequirements,
   TimelineCalculation,
-  OrdersListResponse,
 } from "./types/orders.types";
 
 export class OrderService {
@@ -31,9 +30,10 @@ export class OrderService {
 
   public async findAll(
     params?: GetOrdersDto
-  ): Promise<PaginatedData4<OrderResponse>> {
+  ): Promise<PaginatedData2<OrderResponse>> {
     const queryParams = new URLSearchParams();
 
+    // Changed to match API parameters
     if (params?.page) {
       queryParams.append("page", params.page.toString());
     }
@@ -42,9 +42,6 @@ export class OrderService {
     }
     if (params?.status) {
       queryParams.append("status", params.status);
-    }
-    if (params?.designApprovalStatus) {
-      queryParams.append("designApprovalStatus", params.designApprovalStatus);
     }
     if (params?.minTotal) {
       queryParams.append("minTotal", params.minTotal.toString());
@@ -61,6 +58,11 @@ export class OrderService {
     if (params?.search) {
       queryParams.append("search", params.search);
     }
+
+    // Optional parameters
+    if (params?.designApprovalStatus) {
+      queryParams.append("designApprovalStatus", params.designApprovalStatus);
+    }
     if (params?.urgencyLevel) {
       queryParams.append("urgencyLevel", params.urgencyLevel);
     }
@@ -71,7 +73,7 @@ export class OrderService {
     const queryString = queryParams.toString();
     const url = `/v1/orders${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<PaginatedData4<OrderResponse>>(
+    return this.fetcher.request<PaginatedData2<OrderResponse>>(
       url,
       { method: "GET" },
       { auth: true }

@@ -16,7 +16,7 @@ export const canvasElementSchema = z.object({
   color: z.string().optional(),
   mediaId: z.string().optional(),
   shapeType: z.string().optional(),
-  properties: z.object({}).optional(),
+  properties: z.record(z.any()).optional(),
 });
 
 // Canvas Data Schema
@@ -25,14 +25,14 @@ export const canvasDataSchema = z.object({
   height: z.number().min(1, "Canvas height is required"),
   backgroundColor: z.string().optional(),
   elements: z.array(canvasElementSchema),
-  metadata: z.object({}).optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 // Configure Canvas Schema
 export const configureCanvasSchema = z.object({
   templateId: z.string().min(1, "Template ID is required"),
   sizeVariantId: z.string().min(1, "Size variant ID is required"),
-  customizations: z.object({}).optional(),
+  customizations: z.record(z.any()).optional(),
 });
 
 export type ConfigureCanvasDto = z.infer<typeof configureCanvasSchema>;
@@ -106,16 +106,16 @@ export const shareDesignSchema = z.object({
   expiresAt: z.string().datetime().optional(),
   allowDownload: z.boolean().default(false),
   password: z.string().optional(),
-  note: z.string().max(500).optional(),
+  note: z.string().max(500, "Note too long").optional(),
 });
 
 export type ShareDesignDto = z.infer<typeof shareDesignSchema>;
 
 // Upload Asset Schema
 export const uploadAssetSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "Name is required").max(255, "Name too long"),
   type: z.enum(["image", "logo", "background", "texture", "icon"]),
-  description: z.string().optional(),
+  description: z.string().max(500, "Description too long").optional(),
   folderId: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
@@ -131,7 +131,14 @@ export const getDesignsSchema = z.object({
   templateId: z.string().optional(),
 });
 
-export type GetDesignsDto = z.infer<typeof getDesignsSchema>;
+// Explicit type definition
+export type GetDesignsDto = {
+  limit?: number;
+  page?: number;
+  isTemplate?: boolean;
+  status?: "DRAFT" | "COMPLETED" | "ARCHIVED";
+  templateId?: string;
+};
 
 // Get Fonts Schema
 export const getFontsSchema = z.object({
@@ -140,7 +147,12 @@ export const getFontsSchema = z.object({
   premium: z.boolean().optional(),
 });
 
-export type GetFontsDto = z.infer<typeof getFontsSchema>;
+// Explicit type definition
+export type GetFontsDto = {
+  category?: string;
+  search?: string;
+  premium?: boolean;
+};
 
 // Get User Assets Schema
 export const getUserAssetsSchema = z.object({
@@ -148,4 +160,8 @@ export const getUserAssetsSchema = z.object({
   folderId: z.string().optional(),
 });
 
-export type GetUserAssetsDto = z.infer<typeof getUserAssetsSchema>;
+// Explicit type definition
+export type GetUserAssetsDto = {
+  type?: string;
+  folderId?: string;
+};

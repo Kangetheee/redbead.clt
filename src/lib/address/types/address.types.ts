@@ -11,11 +11,22 @@ export interface AddressResponse {
   postalCode: string;
   country: string;
   phone: string | null;
-  addressType: "SHIPPING" | "BILLING" | "BOTH";
+  addressType: AddressType;
   isDefault: boolean;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   formattedAddress: string;
 }
 
 export type AddressType = "SHIPPING" | "BILLING" | "BOTH";
+
+export interface PaginatedAddressesResponse {
+  items: AddressResponse[];
+  meta: {
+    pageCount: number;
+    pageSize: number;
+    currentPage: number;
+    pageIndex: number;
+    itemCount: number;
+  };
+}

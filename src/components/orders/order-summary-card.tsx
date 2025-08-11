@@ -59,10 +59,12 @@ export default function OrderSummaryCard({
   const getProgressPercentage = (status: string) => {
     const statusFlow = [
       "PENDING",
+      "CONFIRMED",
       "DESIGN_PENDING",
       "DESIGN_APPROVED",
       "PAYMENT_CONFIRMED",
       "PROCESSING",
+      "PRODUCTION",
       "SHIPPED",
       "DELIVERED",
     ];
@@ -94,6 +96,23 @@ export default function OrderSummaryCard({
     );
   };
 
+  // Helper function to get customer display info
+  const getCustomerInfo = () => {
+    const customerId = order.customerId || "GUEST";
+    const customerDisplayName = order.customerId
+      ? `Customer ${customerId}`
+      : "Guest Order";
+    const avatarFallback = customerId.slice(0, 2).toUpperCase();
+
+    return {
+      customerId,
+      customerDisplayName,
+      avatarFallback,
+    };
+  };
+
+  const customerInfo = getCustomerInfo();
+
   if (variant === "compact") {
     return (
       <Card className={cn("hover:shadow-md transition-shadow", className)}>
@@ -111,7 +130,7 @@ export default function OrderSummaryCard({
                   {order.orderNumber}
                 </Link>
                 <p className="text-sm text-muted-foreground">
-                  {order.customerId} • ${order.totalAmount.toFixed(2)}
+                  {customerInfo.customerId} • ${order.totalAmount.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -154,9 +173,7 @@ export default function OrderSummaryCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
-              <AvatarFallback>
-                {order.customerId.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
+              <AvatarFallback>{customerInfo.avatarFallback}</AvatarFallback>
             </Avatar>
             <div>
               <Link
@@ -166,7 +183,7 @@ export default function OrderSummaryCard({
                 {order.orderNumber}
               </Link>
               <p className="text-sm text-muted-foreground">
-                Customer {order.customerId}
+                {customerInfo.customerDisplayName}
               </p>
             </div>
           </div>
@@ -241,11 +258,19 @@ export default function OrderSummaryCard({
             <Package className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">
-                {order.orderItems.length} Items
+                {Array.isArray(order.orderItems) ? order.orderItems.length : 0}{" "}
+                Items
               </p>
               <p className="text-xs text-muted-foreground">
                 Total quantity:{" "}
-                {order.orderItems.reduce((sum, item) => sum + item.quantity, 0)}
+                {Array.isArray(order.orderItems)
+                  ? order.orderItems.reduce((sum, item) => {
+                      if (typeof item === "object" && "quantity" in item) {
+                        return sum + item.quantity;
+                      }
+                      return sum;
+                    }, 0)
+                  : 0}
               </p>
             </div>
           </div>
@@ -292,7 +317,9 @@ export default function OrderSummaryCard({
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">
-                    Address ID: {order.shippingAddress.id}
+                    {order.shippingAddress.id
+                      ? `Address ID: ${order.shippingAddress.id}`
+                      : "Address info"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Shipping address

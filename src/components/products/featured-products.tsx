@@ -1,40 +1,34 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, Star, ShoppingCart, AlertCircle } from "lucide-react";
-import { useFeaturedProductTypes } from "@/hooks/use-products";
-import { ProductTypeResponse } from "@/lib/products/types/products.types";
+import { CheckCircle, Star, AlertCircle, ShoppingCart } from "lucide-react";
+import { useFeaturedProducts } from "@/hooks/use-products";
+import { ProductResponse } from "@/lib/products/types/products.types";
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
 import { ViewDetailsButton } from "@/components/products/view-details";
-import { QuickAddToCartButton } from "@/components/cart/quick-add-to-cart-button";
-import { ProductGrid } from "./product-grid";
 
 interface FeaturedProductsSectionProps {
   limit?: number;
   className?: string;
-  showAddToCart?: boolean;
 }
 
 export function FeaturedProductsSection({
   limit = 8,
   className,
-  showAddToCart = true,
 }: FeaturedProductsSectionProps) {
   const {
     data: featuredProducts,
     isLoading,
     error,
     isError,
-  } = useFeaturedProductTypes(limit);
+  } = useFeaturedProducts(limit);
 
   // Debug logging
   useEffect(() => {
@@ -141,6 +135,20 @@ export function FeaturedProductsSection({
     );
   }
 
+  // Helper function to get the default variant for a product
+  const getDefaultVariant = (product: ProductResponse) => {
+    if (!product.variants || product.variants.length === 0) {
+      return null;
+    }
+    return product.variants.find((v) => v.isDefault) || product.variants[0];
+  };
+
+  // Helper function to check if product can be added to cart
+  const canAddToCart = (product: ProductResponse) => {
+    const defaultVariant = getDefaultVariant(product);
+    return product.isActive && defaultVariant && defaultVariant.stock > 0;
+  };
+
   return (
     <div className={cn("space-y-8", className)}>
       {/* Section Header */}
@@ -151,149 +159,261 @@ export function FeaturedProductsSection({
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Discover our most popular custom products for your business needs
         </p>
-        {/* Debug info */}
-        <p className="text-xs text-muted-foreground mt-2">
-          Loaded {featuredProducts.length} products
-        </p>
       </div>
 
       {/* Products Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {featuredProducts.map((product: ProductTypeResponse) => (
-          <Card
-            key={product.id}
-            className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-border bg-card shadow-md hover:shadow-lg dark:hover:shadow-2xl"
-          >
-            {/* Product Image */}
-            <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-muted/50 to-muted">
-              <Image
-                src={product.thumbnailImage || "/placeholder-product.jpg"}
-                alt={product.name}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
-              />
+        {featuredProducts.map((product: ProductResponse) => {
+          const defaultVariant = getDefaultVariant(product);
+          const isAddToCartEnabled = canAddToCart(product);
 
-              {/* Featured Badge */}
-              {product.isFeatured && (
-                <Badge className="absolute top-3 left-3 bg-yellow-500 text-white dark:bg-yellow-600">
-                  <Star className="w-3 h-3 mr-1" />
-                  Featured
-                </Badge>
-              )}
+          return (
+            <Card
+              key={product.id}
+              className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-border bg-card shadow-md hover:shadow-lg dark:hover:shadow-2xl"
+            >
+              {/* Product Image */}
+              <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-muted/50 to-muted">
+                <Image
+                  src={
+                    product.thumbnailImage ||
+                    product.images?.[0] ||
+                    "/placeholder-product.jpg"
+                  }
+                  alt={product.name}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                />
 
-              {/* Category Badge */}
-              {product.category && (
-                <Badge
-                  variant="secondary"
-                  className="absolute top-3 right-3 bg-background/90 text-foreground dark:bg-background/95"
-                >
-                  {product.category.name}
-                </Badge>
-              )}
-            </div>
+                {/* Featured Badge */}
+                {product.isFeatured && (
+                  <Badge className="absolute top-3 left-3 bg-yellow-500 text-white dark:bg-yellow-600">
+                    <Star className="w-3 h-3 mr-1" />
+                    Featured
+                  </Badge>
+                )}
 
-            {/* Product Content */}
-            <CardContent className="p-4 space-y-3">
-              {/* Product Title */}
-              <div>
-                <h3 className="font-semibold text-foreground mb-1 line-clamp-2 group-hover:text-primary transition-colors">
-                  <Link href={`/products/${product.slug}`}>{product.name}</Link>
-                </h3>
+                {/* Category Badge */}
+                {product.category && (
+                  <Badge
+                    variant="secondary"
+                    className="absolute top-3 right-3 bg-background/90 text-foreground dark:bg-background/95"
+                  >
+                    {product.category.name}
+                  </Badge>
+                )}
 
-                {/* Product Type & Material */}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="capitalize">{product.type}</span>
-                  <span>•</span>
-                  <span className="capitalize">{product.material}</span>
-                </div>
+                {/* Status Badges */}
+                {!product.isActive && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute bottom-3 left-3"
+                  >
+                    Inactive
+                  </Badge>
+                )}
+
+                {defaultVariant && defaultVariant.stock === 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute bottom-3 right-3"
+                  >
+                    Out of Stock
+                  </Badge>
+                )}
               </div>
 
-              {/* Product Description */}
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {product.description}
-              </p>
+              {/* Product Content */}
+              <CardContent className="p-4 space-y-3">
+                {/* Product Title and Price */}
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+                    <Link href={`/products/${product.slug}`}>
+                      {product.name}
+                    </Link>
+                  </h3>
 
-              {/* Features/Benefits */}
-              {product.designTemplates &&
-                product.designTemplates.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-foreground">
-                      Available Templates:
-                    </p>
-                    <ul className="space-y-1">
-                      {product.designTemplates
-                        .slice(0, 3)
-                        .map((template: any, idx: number) => (
+                  {/* Base Price */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-primary">
+                      KES {product.basePrice.toLocaleString()}
+                    </span>
+                    {product.variants && product.variants.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {product.variants.length} variant
+                        {product.variants.length > 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Metadata info (type, material, etc.) */}
+                  {product.metadata && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                      {product.metadata.type && (
+                        <>
+                          <span className="capitalize">
+                            {product.metadata.type}
+                          </span>
+                          {product.metadata.material && <span>•</span>}
+                        </>
+                      )}
+                      {product.metadata.material && (
+                        <span className="capitalize">
+                          {product.metadata.material}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Product Description */}
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {product.description}
+                </p>
+
+                {/* Design Templates */}
+                {product.designTemplates &&
+                  product.designTemplates.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-foreground">
+                        Available Templates:
+                      </p>
+                      <ul className="space-y-1">
+                        {product.designTemplates.slice(0, 3).map((template) => (
                           <li
                             key={template.id}
                             className="flex items-center text-xs text-muted-foreground"
                           >
                             <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400 mr-2 flex-shrink-0" />
-                            <span className="line-clamp-1">
+                            <span className="line-clamp-1 flex-1">
                               {template.name}
                             </span>
                             {template.basePrice > 0 && (
                               <span className="ml-auto font-medium text-green-600 dark:text-green-400">
-                                From KES {template.basePrice.toLocaleString()}
+                                +KES {template.basePrice.toLocaleString()}
                               </span>
                             )}
                           </li>
                         ))}
-                      {product.designTemplates.length > 3 && (
-                        <li className="text-xs text-muted-foreground ml-5">
-                          +{product.designTemplates.length - 3} more templates
-                        </li>
+                        {product.designTemplates.length > 3 && (
+                          <li className="text-xs text-muted-foreground ml-5">
+                            +{product.designTemplates.length - 3} more template
+                            {product.designTemplates.length - 3 > 1 ? "s" : ""}
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                {/* Variants Info */}
+                {product.variants && product.variants.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-foreground">
+                      Available Variants:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {product.variants.slice(0, 3).map((variant) => (
+                        <Badge
+                          key={variant.id}
+                          variant="outline"
+                          className={cn(
+                            "text-xs py-0 px-2",
+                            variant.isDefault && "border-primary bg-primary/10"
+                          )}
+                        >
+                          {variant.name}
+                          {variant.price !== product.basePrice && (
+                            <span className="ml-1 text-primary">
+                              +
+                              {(
+                                variant.price - product.basePrice
+                              ).toLocaleString()}
+                            </span>
+                          )}
+                          {variant.stock === 0 && (
+                            <span className="ml-1 text-destructive text-xs">
+                              (OOS)
+                            </span>
+                          )}
+                        </Badge>
+                      ))}
+                      {product.variants.length > 3 && (
+                        <span className="text-xs text-muted-foreground self-center">
+                          +{product.variants.length - 3} more
+                        </span>
                       )}
-                    </ul>
+                    </div>
                   </div>
                 )}
 
-              {/* Action Buttons */}
-              <div className="pt-2 space-y-2">
-                {/* Primary Action Button */}
-                {showAddToCart &&
-                product.designTemplates &&
-                product.designTemplates.length > 0 ? (
-                  <QuickAddToCartButton
-                    templates={product.designTemplates.map((template: any) => ({
-                      id: template.id,
-                      name: template.name,
-                      basePrice: template.basePrice,
-                      sizeVariants: template.sizeVariants || [],
-                    }))}
-                    fullWidth={true}
-                    variant="default"
-                    size="sm"
-                  >
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Add to Cart
-                  </QuickAddToCartButton>
-                ) : (
+                {/* Customization Options */}
+                {product.customizations &&
+                  product.customizations.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-foreground">
+                        Customization Options:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {product.customizations
+                          .slice(0, 2)
+                          .map((customization) => (
+                            <Badge
+                              key={customization.id}
+                              variant="secondary"
+                              className="text-xs py-0 px-2"
+                            >
+                              {customization.option.name}
+                              {customization.required && (
+                                <span className="ml-1 text-destructive">*</span>
+                              )}
+                            </Badge>
+                          ))}
+                        {product.customizations.length > 2 && (
+                          <span className="text-xs text-muted-foreground self-center">
+                            +{product.customizations.length - 2} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Action Buttons */}
+                <div className="pt-2 space-y-2">
+                  {/* Add to Cart Button */}
+                  {defaultVariant && (
+                    <AddToCartButton
+                      productId={product.id}
+                      variantId={defaultVariant.id}
+                      quantity={1}
+                      variant="default"
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                      disabled={!isAddToCartEnabled}
+                      showSuccessState={true}
+                    >
+                      <ShoppingCart className="w-3 h-3 mr-1" />
+                      {!product.isActive
+                        ? "Inactive"
+                        : defaultVariant.stock === 0
+                          ? "Out of Stock"
+                          : "Add to Cart"}
+                    </AddToCartButton>
+                  )}
+
+                  {/* View Details Button */}
                   <ViewDetailsButton
                     productSlug={product.slug}
-                    variant="default"
+                    variant="outline"
                     size="sm"
                     fullWidth={true}
                   >
                     View Details
                   </ViewDetailsButton>
-                )}
-
-                {/* Secondary Action Button */}
-                <ViewDetailsButton
-                  productSlug={product.slug}
-                  variant="ghost"
-                  size="sm"
-                  fullWidth={true}
-                  showIcon={false}
-                  className="hover:bg-muted/50"
-                >
-                  View Full Details →
-                </ViewDetailsButton>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* View All Button */}

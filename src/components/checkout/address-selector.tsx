@@ -20,7 +20,6 @@ import {
   createAddressSchema,
   updateAddressSchema,
 } from "@/lib/address/dto/address.dto";
-import { addressInputSchema } from "@/lib/checkout/dto/checkout.dto";
 import {
   Card,
   CardContent,
@@ -173,7 +172,7 @@ export function AddressSelector({
 
   // Hooks
   const {
-    data: addressesData,
+    data: addressesResponse,
     isLoading: loadingAddresses,
     refetch: refetchAddresses,
   } = useAddresses({ page: 1, limit: 50 });
@@ -222,20 +221,27 @@ export function AddressSelector({
       newUrl.searchParams.delete("selectedAddress");
       window.history.replaceState({}, "", newUrl.toString());
       toast.success("New address created and selected!");
-    } else if (
-      defaultAddress?.success &&
-      defaultAddress.data &&
-      !selectedAddressId
-    ) {
-      onAddressSelect(defaultAddress.data.id);
+    } else if (defaultAddress && !selectedAddressId) {
+      // defaultAddress is already the extracted data (AddressResponse | undefined)
+      onAddressSelect(defaultAddress.id);
     }
   }, [returnedAddressId, defaultAddress, selectedAddressId, onAddressSelect]);
 
   // Filter and search addresses
   const { filteredAddresses, categoryCounts } = useMemo(() => {
-    const addresses = addressesData?.success
-      ? addressesData.data?.data || addressesData.data || []
-      : [];
+    // Extract addresses from the response structure
+    let addresses: AddressResponse[] = [];
+
+    if (addressesResponse?.success && addressesResponse.data) {
+      // Handle both paginated and non-paginated responses
+      if ("items" in addressesResponse.data) {
+        // Paginated response
+        addresses = addressesResponse.data.items;
+      } else if (Array.isArray(addressesResponse.data)) {
+        // Array response
+        addresses = addressesResponse.data;
+      }
+    }
 
     let filtered = addresses.filter(
       (address: AddressResponse) =>
@@ -270,8 +276,8 @@ export function AddressSelector({
       if (!a.isDefault && b.isDefault) return 1;
 
       // Then by updated date
-      const aDate = new Date(a.updatedAt);
-      const bDate = new Date(b.updatedAt);
+      const aDate = new Date(a.updatedAt || a.createdAt);
+      const bDate = new Date(b.updatedAt || b.createdAt);
       if (aDate > bDate) return -1;
       if (aDate < bDate) return 1;
 
@@ -300,7 +306,7 @@ export function AddressSelector({
 
     return { filteredAddresses: filtered, categoryCounts: counts };
   }, [
-    addressesData,
+    addressesResponse,
     addressType,
     searchQuery,
     selectedCategory,
@@ -644,7 +650,7 @@ export function AddressSelector({
                                 <span className="text-xs text-muted-foreground">
                                   Updated{" "}
                                   {new Date(
-                                    address.updatedAt
+                                    address.updatedAt || address.createdAt
                                   ).toLocaleDateString()}
                                 </span>
                               </div>

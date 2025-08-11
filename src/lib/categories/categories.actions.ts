@@ -1,7 +1,7 @@
 "use server";
 
-import { getErrorMessage } from "../get-error-message";
-import { ActionResponse, PaginatedData } from "../shared/types";
+import { getErrorMessage } from "@/lib/get-error-message";
+import { ActionResponse } from "@/lib/shared/types";
 import {
   CreateCategoryDto,
   UpdateCategoryDto,
@@ -9,20 +9,21 @@ import {
 } from "./dto/categories.dto";
 import {
   CategoryResponse,
-  CategoryWithRelations,
   CategoryTreeResponse,
   CategoryDetail,
+  PaginatedCategoriesResponse,
 } from "./types/categories.types";
 import { CategoryService } from "./categories.service";
 
 const categoryService = new CategoryService();
 
 /**
- * Get paginated list of categories with optional filtering
+ * Get paginated list of categories with optional filtering and sorting
+ * Uses GET /v1/categories
  */
 export async function getCategoriesAction(
   params?: GetCategoriesDto
-): Promise<ActionResponse<PaginatedData<CategoryWithRelations>>> {
+): Promise<ActionResponse<PaginatedCategoriesResponse>> {
   try {
     const res = await categoryService.findAll(params);
     return { success: true, data: res };
@@ -33,6 +34,7 @@ export async function getCategoriesAction(
 
 /**
  * Get all categories in hierarchical tree structure
+ * Uses GET /v1/categories/tree
  */
 export async function getCategoriesTreeAction(): Promise<
   ActionResponse<CategoryTreeResponse[]>
@@ -46,7 +48,8 @@ export async function getCategoriesTreeAction(): Promise<
 }
 
 /**
- * Get detailed category information including products and options by ID
+ * Get detailed category information including products by ID
+ * Uses GET /v1/categories/{id}
  */
 export async function getCategoryAction(
   categoryId: string
@@ -61,6 +64,7 @@ export async function getCategoryAction(
 
 /**
  * Get category using URL-friendly slug identifier
+ * Uses GET /v1/categories/slug/{slug}
  */
 export async function getCategoryBySlugAction(
   slug: string
@@ -75,6 +79,7 @@ export async function getCategoryBySlugAction(
 
 /**
  * Create a new product category with optional parent relationship
+ * Uses POST /v1/categories
  */
 export async function createCategoryAction(
   values: CreateCategoryDto
@@ -89,6 +94,7 @@ export async function createCategoryAction(
 
 /**
  * Update category information and settings
+ * Uses PATCH /v1/categories/{id}
  */
 export async function updateCategoryAction(
   categoryId: string,
@@ -104,6 +110,7 @@ export async function updateCategoryAction(
 
 /**
  * Delete category (must have no products or children)
+ * Uses DELETE /v1/categories/{id}
  */
 export async function deleteCategoryAction(
   categoryId: string

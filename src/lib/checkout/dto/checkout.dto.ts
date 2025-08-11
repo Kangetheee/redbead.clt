@@ -113,3 +113,14 @@ export const guestCompleteCheckoutSchema = z.object({
 export type GuestCompleteCheckoutDto = z.infer<
   typeof guestCompleteCheckoutSchema
 >;
+
+export const listCheckoutSessionsSchema = z.object({
+  pageIndex: z.number().default(0),
+  pageSize: z.number().default(10),
+  customerEmail: z.string().email("Invalid email address").optional(),
+  status: z.enum(["ACTIVE", "EXPIRED", "COMPLETED"]).optional(),
+});
+
+export type ListCheckoutSessionsDto = z.infer<
+  typeof listCheckoutSessionsSchema
+>;

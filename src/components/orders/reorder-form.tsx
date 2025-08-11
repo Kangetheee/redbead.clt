@@ -20,6 +20,7 @@ import {
   CheckCircle,
   Copy,
   Trash2,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 
 import { OrderResponse } from "@/lib/orders/types/orders.types";
 import { useCreateOrder } from "@/hooks/use-orders";
@@ -91,19 +93,24 @@ export default function CustomerReorderForm({
   onCancel,
 }: CustomerReorderFormProps) {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomizations, setShowCustomizations] = useState(false);
 
-  const createOrder = useCreateOrder();
+  // FIXED: Use the hook correctly
+  const { mutate: createOrder, isPending: isCreatingOrder } = useCreateOrder();
 
   // Transform original order items to match the new schema
   const transformOriginalItems = () => {
-    return originalOrder.orderItems.map((item, index) => ({
-      templateId: item.templateId,
-      sizeVariantId: item.sizeVariantId,
-      quantity: item.quantity,
-      customizations: item.customizations || [],
-      designId: item.designId,
+    // Handle both array and string cases for orderItems
+    const items = Array.isArray(originalOrder.orderItems)
+      ? originalOrder.orderItems
+      : [];
+
+    return items.map((item, index) => ({
+      templateId: typeof item === "object" ? item.templateId : "",
+      sizeVariantId: typeof item === "object" ? item.sizeVariantId : "",
+      quantity: typeof item === "object" ? item.quantity : 1,
+      customizations: typeof item === "object" ? item.customizations || [] : [],
+      designId: typeof item === "object" ? item.designId : undefined,
       included: true,
       originalIndex: index,
     }));
@@ -148,12 +155,21 @@ export default function CustomerReorderForm({
   // Calculate totals (simplified - in real app, would call pricing API)
   const subtotal = includedItems.reduce((sum, item) => {
     // Mock pricing - in real app, would fetch from API based on templateId + sizeVariantId
-    const originalItem = originalOrder.orderItems.find(
-      (oi) =>
-        oi.templateId === item.templateId &&
-        oi.sizeVariantId === item.sizeVariantId
-    );
-    const basePrice = originalItem?.sizeVariant?.price || 10;
+    const originalItems = Array.isArray(originalOrder.orderItems)
+      ? originalOrder.orderItems
+      : [];
+    const originalItem = originalItems.find((oi) => {
+      if (typeof oi === "object") {
+        return (
+          oi.templateId === item.templateId &&
+          oi.sizeVariantId === item.sizeVariantId
+        );
+      }
+      return false;
+    });
+    const basePrice =
+      (typeof originalItem === "object" && originalItem.sizeVariant?.price) ||
+      10;
     return sum + basePrice * item.quantity;
   }, 0);
 
@@ -161,9 +177,8 @@ export default function CustomerReorderForm({
   const shipping = urgencyFee > 0 ? urgencyFee : 5.0; // Free shipping for standard, otherwise urgency fee
   const total = subtotal + tax + shipping;
 
+  // FIXED: Corrected onSubmit to use the mutation properly
   const onSubmit = async (data: ReorderFormData) => {
-    setIsSubmitting(true);
-
     try {
       const itemsToOrder = data.items?.filter((item) => item.included) || [];
 
@@ -209,16 +224,22 @@ export default function CustomerReorderForm({
         templateId: originalOrder.templateId, // Preserve template if applicable
       };
 
-      const result = await createOrder.mutateAsync(orderData);
-
-      if (result.success && result.data) {
-        onSuccess?.(result.data.id);
-        router.push(`/orders/${result.data.id}`);
-      }
-    } catch (error) {
+      // FIXED: Use the mutation correctly - it returns OrderResponse directly
+      createOrder(orderData, {
+        onSuccess: (orderResponse) => {
+          // orderResponse is already the OrderResponse object
+          toast.success("Reorder created successfully!");
+          onSuccess?.(orderResponse.id);
+          router.push(`/orders/${orderResponse.id}`);
+        },
+        onError: (error: any) => {
+          console.error("Failed to create reorder:", error);
+          toast.error(error?.message || "Failed to create reorder");
+        },
+      });
+    } catch (error: any) {
       console.error("Failed to create reorder:", error);
-    } finally {
-      setIsSubmitting(false);
+      toast.error(error?.message || "Failed to create reorder");
     }
   };
 
@@ -246,11 +267,12 @@ export default function CustomerReorderForm({
 
     // Reset all items to original quantities
     watchedValues.items?.forEach((_, index) => {
+      const originalItems = Array.isArray(originalOrder.orderItems)
+        ? originalOrder.orderItems
+        : [];
       const originalItem =
-        originalOrder.orderItems[
-          watchedValues.items?.[index]?.originalIndex || 0
-        ];
-      if (originalItem) {
+        originalItems[watchedValues.items?.[index]?.originalIndex || 0];
+      if (originalItem && typeof originalItem === "object") {
         setValue(`items.${index}.quantity`, originalItem.quantity);
         setValue(`items.${index}.included`, true);
       }
@@ -258,8 +280,18 @@ export default function CustomerReorderForm({
   };
 
   const renderItemCustomizations = (item: any, originalIndex?: number) => {
-    const originalItem = originalOrder.orderItems[originalIndex || 0];
-    if (!originalItem?.customizations?.length) return null;
+    const originalItems = Array.isArray(originalOrder.orderItems)
+      ? originalOrder.orderItems
+      : [];
+    const originalItem = originalItems[originalIndex || 0];
+
+    if (
+      !originalItem ||
+      typeof originalItem !== "object" ||
+      !originalItem.customizations?.length
+    ) {
+      return null;
+    }
 
     return (
       <div className="mt-2">
@@ -276,6 +308,15 @@ export default function CustomerReorderForm({
         </div>
       </div>
     );
+  };
+
+  // Helper function to safely get original item
+  const getOriginalItem = (index?: number) => {
+    const originalItems = Array.isArray(originalOrder.orderItems)
+      ? originalOrder.orderItems
+      : [];
+    const item = originalItems[index || 0];
+    return typeof item === "object" ? item : null;
   };
 
   return (
@@ -331,8 +372,7 @@ export default function CustomerReorderForm({
             {fields.map((field, index) => {
               const item = watchedValues.items?.[index];
               const isIncluded = item?.included || false;
-              const originalItem =
-                originalOrder.orderItems[item?.originalIndex || 0];
+              const originalItem = getOriginalItem(item?.originalIndex);
 
               return (
                 <div
@@ -366,7 +406,7 @@ export default function CustomerReorderForm({
                               originalItem?.sizeVariantId}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Original quantity: {originalItem?.quantity}
+                            Original quantity: {originalItem?.quantity || 1}
                           </p>
                           {originalItem?.sizeVariant?.price && (
                             <p className="text-sm font-medium">
@@ -557,8 +597,7 @@ export default function CustomerReorderForm({
           <CardContent className="space-y-4">
             <div className="space-y-2">
               {includedItems.map((item, index) => {
-                const originalItem =
-                  originalOrder.orderItems[item.originalIndex || 0];
+                const originalItem = getOriginalItem(item.originalIndex);
                 const price = originalItem?.sizeVariant?.price || 10;
                 return (
                   <div key={index} className="flex justify-between text-sm">
@@ -622,7 +661,7 @@ export default function CustomerReorderForm({
             type="button"
             variant="outline"
             onClick={onCancel || (() => router.back())}
-            disabled={isSubmitting}
+            disabled={isCreatingOrder}
           >
             Cancel
           </Button>
@@ -631,10 +670,11 @@ export default function CustomerReorderForm({
             <Button
               type="button"
               variant="outline"
-              disabled={!isDirty || isSubmitting}
+              disabled={!isDirty || isCreatingOrder}
               onClick={() => {
                 // Save as draft functionality - could implement with a separate mutation
                 console.log("Save as draft", watchedValues);
+                toast.info("Draft saved locally");
               }}
             >
               <Save className="h-4 w-4 mr-2" />
@@ -643,11 +683,11 @@ export default function CustomerReorderForm({
 
             <Button
               type="submit"
-              disabled={includedItems.length === 0 || isSubmitting}
+              disabled={includedItems.length === 0 || isCreatingOrder}
             >
-              {isSubmitting ? (
+              {isCreatingOrder ? (
                 <>
-                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Creating Order...
                 </>
               ) : (

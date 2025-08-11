@@ -2,6 +2,7 @@ import { Fetcher } from "../api/api.service";
 import { createSession, destroySession } from "../session/session";
 import {
   RefreshTokenDto,
+  ForgotPasswordDto,
   ResetPasswordDto,
   SignInDto,
   RequestOtpDto,
@@ -15,6 +16,7 @@ import {
   SignInResponse,
   RequestOtpResponse,
   SignInOtpResponse,
+  ForgotPasswordResponse,
   ResetPasswordResponse,
   SignOutResponse,
   VerifyPhoneResponse,
@@ -93,6 +95,16 @@ export class AuthService {
     return res;
   }
 
+  async forgotPassword(data: ForgotPasswordDto) {
+    const res = await this.fetcher.request<ForgotPasswordResponse>(
+      "/v1/auth/forgot-password",
+      { data, method: "POST" },
+      { auth: false }
+    );
+
+    return res;
+  }
+
   async resetPassword(data: ResetPasswordDto) {
     const res = await this.fetcher.request<ResetPasswordResponse>(
       "/v1/auth/reset-password",
@@ -126,7 +138,6 @@ export class AuthService {
   async signUp(data: SignUpDto) {
     const res = await this.fetcher.request<SignUpResponse>(
       "/v1/auth/sign-up",
-      // TODO: throw error in instance where email exists
       { data, method: "POST" },
       { auth: false }
     );

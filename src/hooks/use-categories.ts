@@ -1,6 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useCallback } from "react";
 import {
   getCategoriesAction,
   getCategoriesTreeAction,
@@ -16,19 +19,27 @@ import {
   GetCategoriesDto,
 } from "@/lib/categories/dto/categories.dto";
 
-export const CATEGORIES_QUERY_KEYS = {
-  categories: (params?: GetCategoriesDto) => ["categories", params] as const,
-  categoriesTree: () => ["categories", "tree"] as const,
-  category: (id: string) => ["categories", "detail", id] as const,
-  categoryBySlug: (slug: string) => ["categories", "slug", slug] as const,
+// Query Keys
+export const categoryKeys = {
+  all: ["categories"] as const,
+  lists: () => [...categoryKeys.all, "list"] as const,
+  list: (params?: GetCategoriesDto) =>
+    [...categoryKeys.lists(), params] as const,
+  tree: () => [...categoryKeys.all, "tree"] as const,
+  details: () => [...categoryKeys.all, "detail"] as const,
+  detail: (id: string) => [...categoryKeys.details(), id] as const,
+  bySlug: (slug: string) => [...categoryKeys.all, "slug", slug] as const,
 };
 
+// Query Hooks
+
 /**
- * Hook to get paginated categories with optional filtering
+ * Get paginated categories with optional filtering and sorting
+ * Uses GET /v1/categories
  */
 export function useCategories(params?: GetCategoriesDto) {
   return useQuery({
-    queryKey: CATEGORIES_QUERY_KEYS.categories(params),
+    queryKey: categoryKeys.list(params),
     queryFn: async () => {
       const result = await getCategoriesAction(params);
       if (!result.success) {
@@ -36,15 +47,17 @@ export function useCategories(params?: GetCategoriesDto) {
       }
       return result.data;
     },
+    staleTime: 10 * 60 * 1000, // 10 minutes - categories don't change often
   });
 }
 
 /**
- * Hook to get categories in tree structure
+ * Get categories in hierarchical tree structure
+ * Uses GET /v1/categories/tree
  */
 export function useCategoriesTree() {
   return useQuery({
-    queryKey: CATEGORIES_QUERY_KEYS.categoriesTree(),
+    queryKey: categoryKeys.tree(),
     queryFn: async () => {
       const result = await getCategoriesTreeAction();
       if (!result.success) {
@@ -52,15 +65,17 @@ export function useCategoriesTree() {
       }
       return result.data;
     },
+    staleTime: 15 * 60 * 1000, // 15 minutes - tree structure changes rarely
   });
 }
 
 /**
- * Hook to get category by ID with full details
+ * Get category by ID with full details including products
+ * Uses GET /v1/categories/{id}
  */
-export function useCategory(categoryId: string) {
+export function useCategory(categoryId: string, enabled = true) {
   return useQuery({
-    queryKey: CATEGORIES_QUERY_KEYS.category(categoryId),
+    queryKey: categoryKeys.detail(categoryId),
     queryFn: async () => {
       const result = await getCategoryAction(categoryId);
       if (!result.success) {
@@ -68,16 +83,23 @@ export function useCategory(categoryId: string) {
       }
       return result.data;
     },
-    enabled: !!categoryId,
+    enabled: enabled && !!categoryId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    retry: (failureCount, error: any) => {
+      // Don't retry if it's a 404 (category not found)
+      if (error?.status === 404) return false;
+      return failureCount < 3;
+    },
   });
 }
 
 /**
- * Hook to get category by slug with full details
+ * Get category by slug with full details including products
+ * Uses GET /v1/categories/slug/{slug}
  */
-export function useCategoryBySlug(slug: string) {
+export function useCategoryBySlug(slug: string, enabled = true) {
   return useQuery({
-    queryKey: CATEGORIES_QUERY_KEYS.categoryBySlug(slug),
+    queryKey: categoryKeys.bySlug(slug),
     queryFn: async () => {
       const result = await getCategoryBySlugAction(slug);
       if (!result.success) {
@@ -85,12 +107,21 @@ export function useCategoryBySlug(slug: string) {
       }
       return result.data;
     },
-    enabled: !!slug,
+    enabled: enabled && !!slug,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    retry: (failureCount, error: any) => {
+      // Don't retry if it's a 404 (category not found)
+      if (error?.status === 404) return false;
+      return failureCount < 3;
+    },
   });
 }
 
+// Mutation Hooks
+
 /**
- * Hook to create categories
+ * Create a new category
+ * Uses POST /v1/categories
  */
 export function useCreateCategory() {
   const queryClient = useQueryClient();
@@ -104,18 +135,41 @@ export function useCreateCategory() {
       return result.data;
     },
     onSuccess: (data) => {
-      // Invalidate categories queries to refetch updated data
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Category created successfully");
+
+      // Invalidate category lists and tree
+      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: categoryKeys.tree() });
+
+      // Set the created category in cache
+      queryClient.setQueryData(categoryKeys.detail(data.id), data);
+      queryClient.setQueryData(categoryKeys.bySlug(data.slug), data);
+
+      toast.info(`Category "${data.name}" created with slug: ${data.slug}`, {
+        duration: 6000,
+      });
     },
-    onError: (error) => {
-      toast.error(`Failed to create category: ${error.message}`);
+    onError: (error: Error) => {
+      if (error.message.includes("409")) {
+        toast.error("Category slug already exists", {
+          description: "Please choose a different slug and try again.",
+          duration: 8000,
+        });
+      } else if (error.message.includes("400")) {
+        toast.error("Invalid category data", {
+          description: "Please check all fields and try again.",
+          duration: 6000,
+        });
+      } else {
+        toast.error(`Failed to create category: ${error.message}`);
+      }
     },
   });
 }
 
 /**
- * Hook to update categories
+ * Update an existing category
+ * Uses PATCH /v1/categories/{id}
  */
 export function useUpdateCategory() {
   const queryClient = useQueryClient();
@@ -135,27 +189,42 @@ export function useUpdateCategory() {
       return result.data;
     },
     onSuccess: (data, variables) => {
-      // Invalidate categories queries and specific category
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      queryClient.invalidateQueries({
-        queryKey: CATEGORIES_QUERY_KEYS.category(variables.categoryId),
-      });
-      // Also invalidate by slug if we have the updated data
-      if (data.slug) {
-        queryClient.invalidateQueries({
-          queryKey: CATEGORIES_QUERY_KEYS.categoryBySlug(data.slug),
-        });
-      }
       toast.success("Category updated successfully");
+
+      // Update specific category cache
+      queryClient.setQueryData(categoryKeys.detail(variables.categoryId), data);
+      queryClient.setQueryData(categoryKeys.bySlug(data.slug), data);
+
+      // Invalidate lists and tree to reflect changes
+      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: categoryKeys.tree() });
     },
-    onError: (error) => {
-      toast.error(`Failed to update category: ${error.message}`);
+    onError: (error: Error) => {
+      if (error.message.includes("409")) {
+        toast.error("Category slug already exists", {
+          description: "Please choose a different slug and try again.",
+          duration: 8000,
+        });
+      } else if (error.message.includes("400")) {
+        toast.error("Invalid update data or circular reference", {
+          description: "Please check all fields and hierarchy.",
+          duration: 8000,
+        });
+      } else if (error.message.includes("404")) {
+        toast.error("Category not found", {
+          description: "The category may have been deleted.",
+          duration: 6000,
+        });
+      } else {
+        toast.error(`Failed to update category: ${error.message}`);
+      }
     },
   });
 }
 
 /**
- * Hook to delete categories
+ * Delete a category
+ * Uses DELETE /v1/categories/{id}
  */
 export function useDeleteCategory() {
   const queryClient = useQueryClient();
@@ -166,27 +235,52 @@ export function useDeleteCategory() {
       if (!result.success) {
         throw new Error(result.error);
       }
-      return result.data;
+      return categoryId;
     },
-    onSuccess: (_, categoryId) => {
-      // Invalidate categories queries and remove specific category from cache
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      queryClient.removeQueries({
-        queryKey: CATEGORIES_QUERY_KEYS.category(categoryId),
-      });
+    onSuccess: (categoryId) => {
       toast.success("Category deleted successfully");
+
+      // Remove from cache
+      queryClient.removeQueries({
+        queryKey: categoryKeys.detail(categoryId),
+      });
+
+      // Invalidate lists and tree
+      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: categoryKeys.tree() });
     },
-    onError: (error) => {
-      toast.error(`Failed to delete category: ${error.message}`);
+    onError: (error: Error) => {
+      if (error.message.includes("400")) {
+        toast.error("Cannot delete category", {
+          description: "Category has products assigned or child categories.",
+          duration: 8000,
+        });
+      } else if (error.message.includes("404")) {
+        toast.error("Category not found", {
+          description: "The category may have already been deleted.",
+          duration: 6000,
+        });
+      } else if (error.message.includes("409")) {
+        toast.error("Category has child categories", {
+          description: "Please remove all child categories first.",
+          duration: 8000,
+        });
+      } else {
+        toast.error(`Failed to delete category: ${error.message}`);
+      }
     },
   });
 }
 
+// Utility Hooks
+
 /**
- * Hook to get category options for dropdowns/selects
+ * Get category options for dropdowns/selects
  */
-export function useCategoryOptions(includeInactive: boolean = false) {
-  const { data: categories, ...rest } = useCategories();
+export function useCategoryOptions(includeInactive = false) {
+  const { data: categories, ...rest } = useCategories({
+    isActive: includeInactive ? undefined : true,
+  });
 
   const options =
     categories?.items.map((category) => ({
@@ -204,7 +298,7 @@ export function useCategoryOptions(includeInactive: boolean = false) {
 }
 
 /**
- * Hook to get category tree options for hierarchical selects
+ * Get category tree options for hierarchical selects
  */
 export function useCategoryTreeOptions() {
   const { data: tree, ...rest } = useCategoriesTree();
@@ -250,5 +344,112 @@ export function useCategoryTreeOptions() {
   return {
     ...rest,
     data: flattenTree(tree),
+  };
+}
+
+/**
+ * Get categories by parent ID
+ */
+export function useCategoriesByParent(parentId?: string) {
+  return useCategories({ parentId });
+}
+
+/**
+ * Get active categories only
+ */
+export function useActiveCategories(
+  params?: Omit<GetCategoriesDto, "isActive">
+) {
+  return useCategories({ ...params, isActive: true });
+}
+
+/**
+ * Search categories
+ */
+export function useSearchCategories(
+  search?: string,
+  params?: Omit<GetCategoriesDto, "search">
+) {
+  const searchParams = search ? { ...params, search } : params;
+  return useCategories(searchParams);
+}
+
+/**
+ * Manual refetch hook for categories
+ */
+export function useRefetchCategories() {
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (params?: GetCategoriesDto) => {
+      queryClient.invalidateQueries({
+        queryKey: params ? categoryKeys.list(params) : categoryKeys.lists(),
+      });
+    },
+    [queryClient]
+  );
+}
+
+/**
+ * Manual refetch hook for category tree
+ */
+export function useRefetchCategoriesTree() {
+  const queryClient = useQueryClient();
+
+  return useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: categoryKeys.tree() });
+  }, [queryClient]);
+}
+
+/**
+ * Get category from cache without triggering network request
+ */
+export function useCategoryFromCache(categoryId: string) {
+  const queryClient = useQueryClient();
+  return queryClient.getQueryData(categoryKeys.detail(categoryId));
+}
+
+/**
+ * Prefetch category data
+ */
+export function usePrefetchCategory() {
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (categoryId: string) => {
+      queryClient.prefetchQuery({
+        queryKey: categoryKeys.detail(categoryId),
+        queryFn: async () => {
+          const result = await getCategoryAction(categoryId);
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+          return result.data;
+        },
+        staleTime: 10 * 60 * 1000,
+      });
+    },
+    [queryClient]
+  );
+}
+
+/**
+ * Check if category can be deleted (useful for UI state)
+ */
+export function useCanDeleteCategory(categoryId: string) {
+  const { data: category } = useCategory(categoryId);
+
+  return {
+    canDelete:
+      !!category &&
+      category.productCount === 0 &&
+      category.children.length === 0,
+    reason: !category
+      ? "Category not found"
+      : category.productCount > 0
+        ? "Category has products assigned"
+        : category.children.length > 0
+          ? "Category has child categories"
+          : undefined,
   };
 }

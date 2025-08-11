@@ -2,26 +2,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  ArrowLeft,
-  Palette,
-  Download,
-  Save,
-  Loader2,
-  AlertCircle,
-  Upload,
-  Eye,
-  Share2,
-  CheckCircle,
-  Type,
-  Image as ImageIcon,
-  Square,
-  Layers,
-} from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 // Design Studio hooks and types
@@ -37,6 +22,7 @@ import {
   useFonts,
   useUploadAsset,
   useDesign,
+  useAutoSaveDesign,
 } from "@/hooks/use-design-studio";
 import {
   createDesignSchema,
@@ -44,62 +30,57 @@ import {
   exportDesignSchema,
   uploadArtworkSchema,
   uploadAssetSchema,
+  type CreateDesignDto,
+  type UpdateDesignDto,
+  type ExportDesignDto,
+  type UploadArtworkDto,
+  type UploadAssetDto,
 } from "@/lib/design-studio/dto/design-studio.dto";
 import {
-  DesignResponse,
-  CanvasData,
-  CanvasElement,
+  type DesignResponse,
+  type CanvasData,
+  type CanvasElement,
+  type Font,
+  type AssetResponse,
 } from "@/lib/design-studio/types/design-studio.types";
 
-// Original template hooks
+// Template hooks
 import {
   useDesignTemplateBySlug,
   useCustomizationOptions,
   useSizeVariants,
 } from "@/hooks/use-design-templates";
 import {
-  DesignTemplate,
-  SizeVariant,
+  type DesignTemplate,
+  type SizeVariant,
 } from "@/lib/design-templates/types/design-template.types";
 
 // UI Components
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TemplateSelectionPage from "@/components/designs/template-selection";
 
+// Refactored Components
+import DesignStudioHeader from "./design-studio-header";
+import LeftSidebar from "./left-sidebar";
+import CanvasArea from "./canvas-area";
+import RightSidebar from "./right-sidebar";
+import ExportDialog from "./export-dialog";
+
+// Types
 interface DesignStudioComponentProps {
   templateSlug?: string;
   template?: DesignTemplate;
   productId?: string;
   categoryId?: string;
   showBackToTemplates?: boolean;
-  designId?: string; // For editing existing designs
+  designId?: string;
+  enableAutoSave?: boolean;
+  autoSaveInterval?: number;
   onSave?: (designData: DesignResponse) => void;
   onDownload?: (exportData: any) => void;
   onBack?: () => void;
+  onDesignLoad?: (design: DesignResponse) => void;
+  onCanvasConfigured?: (canvasId: string) => void;
 }
 
 export default function DesignStudioComponent({
@@ -109,11 +90,17 @@ export default function DesignStudioComponent({
   categoryId,
   showBackToTemplates = true,
   designId,
+  enableAutoSave = false,
+  autoSaveInterval = 5000,
   onSave,
   onDownload,
   onBack,
+  onDesignLoad,
+  onCanvasConfigured,
 }: DesignStudioComponentProps) {
   const router = useRouter();
+
+  // State
   const [selectedTemplate, setSelectedTemplate] =
     useState<DesignTemplate | null>(providedTemplate || null);
   const [selectedVariant, setSelectedVariant] = useState<SizeVariant | null>(
@@ -130,8 +117,10 @@ export default function DesignStudioComponent({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [canvasId, setCanvasId] = useState<string>("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Design Studio hooks
+  // Hooks
   const configureCanvas = useConfigureCanvas();
   const uploadArtwork = useUploadArtwork();
   const createDesign = useCreateDesign();
@@ -141,13 +130,19 @@ export default function DesignStudioComponent({
   const shareDesign = useShareDesign();
   const uploadAsset = useUploadAsset();
 
-  // Get existing design if editing
-  const { data: existingDesign, isLoading: designLoading } = useDesign(
-    designId || "",
-    !!designId
+  // Auto-save hook
+  const autoSaveDesign = useAutoSaveDesign(
+    currentDesign?.id || "",
+    enableAutoSave
   );
 
-  // Template data hooks
+  // Data hooks
+  const {
+    data: existingDesign,
+    isLoading: designLoading,
+    error: designError,
+  } = useDesign(designId || "", !!designId);
+
   const {
     data: templateFromSlug,
     isLoading: templateLoading,
@@ -158,22 +153,19 @@ export default function DesignStudioComponent({
   );
 
   const templateId = selectedTemplate?.id;
-  const { data: sizeVariants } = useSizeVariants(
-    templateId || "",
-    !!templateId
-  );
-  const { data: templatePresets } = useTemplatePresets(
-    templateId || "",
-    !!templateId
-  );
-  const { data: fonts } = useFonts();
-  const { data: customizationOptions } = useCustomizationOptions(
-    templateId || "",
-    !!templateId
-  );
+  const { data: sizeVariants, isLoading: sizeVariantsLoading } =
+    useSizeVariants(templateId || "", !!templateId);
 
-  // Forms
-  const designForm = useForm({
+  const { data: templatePresets, isLoading: templatePresetsLoading } =
+    useTemplatePresets(templateId || "", !!templateId);
+
+  const { data: fonts, isLoading: fontsLoading } = useFonts();
+
+  const { data: customizationOptions, isLoading: customizationOptionsLoading } =
+    useCustomizationOptions(templateId || "", !!templateId);
+
+  // Forms with proper typing
+  const designForm = useForm<CreateDesignDto>({
     resolver: zodResolver(createDesignSchema),
     defaultValues: {
       name: "",
@@ -187,22 +179,24 @@ export default function DesignStudioComponent({
         elements: [],
         metadata: {},
       },
-      status: "DRAFT" as const,
+      status: "DRAFT",
       isTemplate: false,
       isPublic: false,
     },
   });
 
-  const exportForm = useForm({
+  const exportForm = useForm<ExportDesignDto>({
     resolver: zodResolver(exportDesignSchema),
     defaultValues: {
-      format: "png" as const,
-      quality: "high" as const,
+      format: "png",
+      quality: "high",
       showMockup: true,
+      includeBleed: false,
+      includeCropMarks: false,
     },
   });
 
-  const artworkForm = useForm({
+  const artworkForm = useForm<UploadArtworkDto>({
     resolver: zodResolver(uploadArtworkSchema),
     defaultValues: {
       canvasId: "",
@@ -210,37 +204,75 @@ export default function DesignStudioComponent({
     },
   });
 
-  const assetForm = useForm({
+  const assetForm = useForm<UploadAssetDto>({
     resolver: zodResolver(uploadAssetSchema),
     defaultValues: {
       name: "",
-      type: "image" as const,
+      type: "image",
       description: "",
       tags: [],
     },
   });
 
-  // Load existing design data
+  // Auto-save effect
+  useEffect(() => {
+    if (!enableAutoSave || !currentDesign || !hasUnsavedChanges) return;
+
+    const autoSaveTimer = setTimeout(() => {
+      const formData = designForm.getValues();
+      const designData: UpdateDesignDto = {
+        customizations: {
+          ...formData.customizations,
+          elements: canvasElements,
+        },
+      };
+
+      autoSaveDesign(designData);
+      setHasUnsavedChanges(false);
+      setLastSavedAt(new Date());
+    }, autoSaveInterval);
+
+    return () => clearTimeout(autoSaveTimer);
+  }, [
+    enableAutoSave,
+    currentDesign,
+    hasUnsavedChanges,
+    autoSaveInterval,
+    canvasElements,
+    designForm,
+    autoSaveDesign,
+  ]);
+
+  // Track changes for auto-save
+  useEffect(() => {
+    if (currentDesign) {
+      setHasUnsavedChanges(true);
+    }
+  }, [canvasElements, currentDesign]);
+
+  // Effects - Load existing design data
   useEffect(() => {
     if (existingDesign && designId) {
       setCurrentDesign(existingDesign);
       setCanvasElements(existingDesign.customizations.elements || []);
 
       // Update form with existing design data
-      designForm.setValue("name", existingDesign.name);
-      designForm.setValue("description", existingDesign.description || "");
-      designForm.setValue("customizations", existingDesign.customizations);
-      designForm.setValue("status", existingDesign.status);
-      designForm.setValue("isTemplate", existingDesign.isTemplate);
-      designForm.setValue("isPublic", existingDesign.isPublic);
+      designForm.reset({
+        name: existingDesign.name,
+        description: existingDesign.description || "",
+        templateId: existingDesign.template?.id || "",
+        sizeVariantId: existingDesign.sizeVariant?.id || "",
+        customizations: existingDesign.customizations,
+        status: existingDesign.status,
+        isTemplate: existingDesign.isTemplate,
+        isPublic: existingDesign.isPublic,
+      });
 
-      // Set template and variant if available
-      if (existingDesign.template && existingDesign.sizeVariant) {
-        // Note: You might need to fetch template details separately
-        // if they're not fully populated in the design response
-      }
+      setLastSavedAt(new Date(existingDesign.updatedAt));
+      setHasUnsavedChanges(false);
+      onDesignLoad?.(existingDesign);
     }
-  }, [existingDesign, designId, designForm]);
+  }, [existingDesign, designId, designForm, onDesignLoad]);
 
   // Set template from slug fetch
   useEffect(() => {
@@ -250,40 +282,52 @@ export default function DesignStudioComponent({
     }
   }, [templateFromSlug, providedTemplate]);
 
-  // Set default variant and configure canvas
+  // Configure canvas when template/variant changes
   useEffect(() => {
     if (
       selectedTemplate &&
       sizeVariants &&
       sizeVariants.length > 0 &&
-      !selectedVariant
+      !selectedVariant &&
+      !designId // Don't auto-configure if loading existing design
     ) {
       const defaultVariant =
         sizeVariants.find((v) => v.isDefault) || sizeVariants[0];
       setSelectedVariant(defaultVariant);
 
-      // Update form with template data
       designForm.setValue("templateId", selectedTemplate.id);
       designForm.setValue("sizeVariantId", defaultVariant.id);
 
-      // Only set name if not editing existing design
-      if (!designId) {
+      if (!currentDesign) {
         designForm.setValue("name", `Design - ${selectedTemplate.name}`);
       }
 
-      // Configure canvas
       configureCanvas.mutate(
         {
           templateId: selectedTemplate.id,
           sizeVariantId: defaultVariant.id,
-          customizations: {},
+          customizations: currentDesign?.customizations || {},
         },
         {
-          onSuccess: (response) => {
-            if (response.success) {
-              setCanvasId(response.data.canvasId);
-              artworkForm.setValue("canvasId", response.data.canvasId);
+          onSuccess: (data) => {
+            setCanvasId(data.canvasId);
+            artworkForm.setValue("canvasId", data.canvasId);
+            onCanvasConfigured?.(data.canvasId);
+
+            // Update canvas dimensions from configuration
+            if (data.canvasSettings) {
+              designForm.setValue(
+                "customizations.width",
+                data.canvasSettings.width
+              );
+              designForm.setValue(
+                "customizations.height",
+                data.canvasSettings.height
+              );
             }
+          },
+          onError: (error) => {
+            console.error("Canvas configuration failed:", error);
           },
         }
       );
@@ -296,76 +340,24 @@ export default function DesignStudioComponent({
     configureCanvas,
     artworkForm,
     designId,
+    currentDesign,
+    onCanvasConfigured,
   ]);
 
-  const handleUploadArtwork = (file: File) => {
-    if (!canvasId) {
-      toast.error("Canvas not configured yet");
-      return;
-    }
-
-    const artworkData = artworkForm.getValues();
-    uploadArtwork.mutate(
-      {
-        file,
-        values: artworkData,
-      },
-      {
-        onSuccess: (response) => {
-          if (response.success) {
-            // Add the uploaded artwork as an image element
-            const newElement: CanvasElement = {
-              id: `artwork-${Date.now()}`,
-              type: "image",
-              x: 100,
-              y: 100,
-              width: 200,
-              height: 200,
-              mediaId: response.data.mediaId,
-            };
-            setCanvasElements((prev) => [...prev, newElement]);
-            toast.success("Artwork uploaded and added to design");
-          }
-        },
-      }
-    );
-  };
-
-  const handleUploadAsset = (file: File) => {
-    const assetData = assetForm.getValues();
-    if (!assetData.name) {
-      toast.error("Please enter an asset name");
-      return;
-    }
-
-    uploadAsset.mutate(
-      {
-        file,
-        assetData,
-      },
-      {
-        onSuccess: (response) => {
-          if (response.success) {
-            toast.success("Asset uploaded successfully");
-            // Reset form
-            assetForm.reset({
-              name: "",
-              type: "image",
-              description: "",
-              tags: [],
-            });
-          }
-        },
-      }
-    );
-  };
-
-  const handleTemplateSelect = (template: DesignTemplate) => {
+  // Event Handlers
+  const handleTemplateSelect = useCallback((template: DesignTemplate) => {
     setSelectedTemplate(template);
     setIsDesigning(true);
-  };
+  }, []);
 
-  const handleBackToTemplates = () => {
+  const handleBackToTemplates = useCallback(() => {
+    if (hasUnsavedChanges) {
+      const confirmLeave = window.confirm(
+        "You have unsaved changes. Are you sure you want to leave?"
+      );
+      if (!confirmLeave) return;
+    }
+
     if (onBack) {
       onBack();
     } else if (templateSlug) {
@@ -374,11 +366,11 @@ export default function DesignStudioComponent({
       setSelectedTemplate(null);
       setIsDesigning(false);
     }
-  };
+  }, [hasUnsavedChanges, onBack, templateSlug, router]);
 
-  const handleSaveDesign = () => {
+  const handleSaveDesign = useCallback(() => {
     const formData = designForm.getValues();
-    const designData = {
+    const designData: CreateDesignDto | UpdateDesignDto = {
       ...formData,
       customizations: {
         ...formData.customizations,
@@ -387,35 +379,37 @@ export default function DesignStudioComponent({
     };
 
     if (currentDesign) {
-      // Update existing design
       updateDesign.mutate(
+        { designId: currentDesign.id, values: designData as UpdateDesignDto },
         {
-          designId: currentDesign.id,
-          values: designData,
-        },
-        {
-          onSuccess: (response) => {
-            if (response.success) {
-              setCurrentDesign(response.data);
-              onSave?.(response.data);
-            }
+          onSuccess: (data) => {
+            setCurrentDesign(data);
+            setLastSavedAt(new Date());
+            setHasUnsavedChanges(false);
+            onSave?.(data);
           },
         }
       );
     } else {
-      // Create new design
-      createDesign.mutate(designData, {
-        onSuccess: (response) => {
-          if (response.success) {
-            setCurrentDesign(response.data);
-            onSave?.(response.data);
-          }
+      createDesign.mutate(designData as CreateDesignDto, {
+        onSuccess: (data) => {
+          setCurrentDesign(data);
+          setLastSavedAt(new Date());
+          setHasUnsavedChanges(false);
+          onSave?.(data);
         },
       });
     }
-  };
+  }, [
+    designForm,
+    canvasElements,
+    currentDesign,
+    updateDesign,
+    createDesign,
+    onSave,
+  ]);
 
-  const handleExportDesign = () => {
+  const handleExportDesign = useCallback(() => {
     if (!currentDesign) {
       toast.error("Please save your design first");
       return;
@@ -423,21 +417,16 @@ export default function DesignStudioComponent({
 
     const exportData = exportForm.getValues();
     exportDesign.mutate(
+      { designId: currentDesign.id, values: exportData },
       {
-        designId: currentDesign.id,
-        values: exportData,
-      },
-      {
-        onSuccess: (response) => {
-          if (response.success) {
-            onDownload?.(response.data);
-          }
+        onSuccess: (data) => {
+          onDownload?.(data);
         },
       }
     );
-  };
+  }, [currentDesign, exportForm, exportDesign, onDownload]);
 
-  const handleValidateDesign = () => {
+  const handleValidateDesign = useCallback(() => {
     if (!currentDesign) {
       toast.error("Please save your design first");
       return;
@@ -451,9 +440,9 @@ export default function DesignStudioComponent({
         checkAssetQuality: true,
       },
     });
-  };
+  }, [currentDesign, validateDesign]);
 
-  const handleShareDesign = () => {
+  const handleShareDesign = useCallback(() => {
     if (!currentDesign) {
       toast.error("Please save your design first");
       return;
@@ -466,9 +455,67 @@ export default function DesignStudioComponent({
         note: "Shared design from studio",
       },
     });
-  };
+  }, [currentDesign, shareDesign]);
 
-  const addTextElement = () => {
+  const handleUploadArtwork = useCallback(
+    (file: File) => {
+      if (!canvasId) {
+        toast.error("Canvas not configured yet");
+        return;
+      }
+
+      const artworkData = artworkForm.getValues();
+      uploadArtwork.mutate(
+        { file, values: artworkData },
+        {
+          onSuccess: (data) => {
+            const newElement: CanvasElement = {
+              id: `artwork-${Date.now()}`,
+              type: "image",
+              x: 100,
+              y: 100,
+              width: 200,
+              height: 200,
+              mediaId: data.mediaId,
+            };
+            setCanvasElements((prev) => [...prev, newElement]);
+            setSelectedElement(newElement);
+          },
+        }
+      );
+    },
+    [canvasId, artworkForm, uploadArtwork]
+  );
+
+  // Handle upload asset with the correct signature
+  const handleUploadAsset = useCallback(
+    (file: File) => {
+      const assetData = assetForm.getValues();
+
+      if (!assetData.name) {
+        toast.error("Please enter an asset name");
+        return;
+      }
+
+      uploadAsset.mutate(
+        { file, assetData: assetData as UploadAssetDto },
+        {
+          onSuccess: () => {
+            assetForm.reset({
+              name: "",
+              type: "image",
+              description: "",
+              tags: [],
+            });
+          },
+        }
+      );
+    },
+    [assetForm, uploadAsset]
+  );
+
+  // Element Management
+  const addTextElement = useCallback(() => {
     const newElement: CanvasElement = {
       id: `text-${Date.now()}`,
       type: "text",
@@ -485,9 +532,9 @@ export default function DesignStudioComponent({
 
     setCanvasElements((prev) => [...prev, newElement]);
     setSelectedElement(newElement);
-  };
+  }, []);
 
-  const addImageElement = () => {
+  const addImageElement = useCallback(() => {
     const newElement: CanvasElement = {
       id: `image-${Date.now()}`,
       type: "image",
@@ -500,9 +547,9 @@ export default function DesignStudioComponent({
 
     setCanvasElements((prev) => [...prev, newElement]);
     setSelectedElement(newElement);
-  };
+  }, []);
 
-  const addShapeElement = () => {
+  const addShapeElement = useCallback(() => {
     const newElement: CanvasElement = {
       id: `shape-${Date.now()}`,
       type: "shape",
@@ -516,30 +563,56 @@ export default function DesignStudioComponent({
 
     setCanvasElements((prev) => [...prev, newElement]);
     setSelectedElement(newElement);
-  };
+  }, []);
 
-  const updateElement = (
-    elementId: string,
-    updates: Partial<CanvasElement>
-  ) => {
-    setCanvasElements((prev) =>
-      prev.map((el) => (el.id === elementId ? { ...el, ...updates } : el))
-    );
+  const updateElement = useCallback(
+    (elementId: string, updates: Partial<CanvasElement>) => {
+      setCanvasElements((prev) =>
+        prev.map((el) => (el.id === elementId ? { ...el, ...updates } : el))
+      );
 
-    if (selectedElement?.id === elementId) {
-      setSelectedElement((prev) => (prev ? { ...prev, ...updates } : null));
-    }
-  };
+      if (selectedElement?.id === elementId) {
+        setSelectedElement((prev) => (prev ? { ...prev, ...updates } : null));
+      }
+    },
+    [selectedElement]
+  );
 
-  const deleteElement = (elementId: string) => {
-    setCanvasElements((prev) => prev.filter((el) => el.id !== elementId));
-    if (selectedElement?.id === elementId) {
-      setSelectedElement(null);
-    }
-  };
+  const deleteElement = useCallback(
+    (elementId: string) => {
+      setCanvasElements((prev) => prev.filter((el) => el.id !== elementId));
+      if (selectedElement?.id === elementId) {
+        setSelectedElement(null);
+      }
+    },
+    [selectedElement]
+  );
+
+  const duplicateElement = useCallback(
+    (elementId: string) => {
+      const elementToDuplicate = canvasElements.find(
+        (el) => el.id === elementId
+      );
+      if (!elementToDuplicate) return;
+
+      const duplicatedElement: CanvasElement = {
+        ...elementToDuplicate,
+        id: `${elementToDuplicate.type}-${Date.now()}`,
+        x: elementToDuplicate.x + 20,
+        y: elementToDuplicate.y + 20,
+      };
+
+      setCanvasElements((prev) => [...prev, duplicatedElement]);
+      setSelectedElement(duplicatedElement);
+    },
+    [canvasElements]
+  );
 
   // Loading state
-  if ((templateSlug && templateLoading) || (designId && designLoading)) {
+  const isLoading =
+    (templateSlug && templateLoading) || (designId && designLoading);
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -553,19 +626,26 @@ export default function DesignStudioComponent({
   }
 
   // Error state
-  if (templateSlug && templateError) {
+  if ((templateSlug && templateError) || (designId && designError)) {
+    const error = templateError || designError;
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Template Not Found
+            {templateError ? "Template Not Found" : "Design Not Found"}
           </h2>
           <p className="text-gray-600 mb-4">
-            The template you&apos;re looking for doesn&apos;t exist.
+            {templateError
+              ? "The template you're looking for doesn't exist."
+              : "The design you're looking for doesn't exist or has been deleted."}
           </p>
-          <Button onClick={() => router.push("/templates")}>
-            Browse Templates
+          <Button
+            onClick={() =>
+              router.push(templateError ? "/templates" : "/designs")
+            }
+          >
+            {templateError ? "Browse Templates" : "Browse Designs"}
           </Button>
         </div>
       </div>
@@ -588,1382 +668,89 @@ export default function DesignStudioComponent({
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center space-x-4">
-            {showBackToTemplates && (
-              <Button variant="ghost" onClick={handleBackToTemplates}>
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back to Templates
-              </Button>
-            )}
-            <div
-              className={`${showBackToTemplates ? "border-l border-gray-300 pl-4" : ""}`}
-            >
-              <h1 className="text-lg font-semibold text-gray-900">
-                {currentDesign?.name || selectedTemplate.name}
-              </h1>
-              <p className="text-sm text-gray-500">
-                {selectedTemplate.category.name} •{" "}
-                {selectedTemplate.product.name}
-                {currentDesign && (
-                  <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                    {currentDesign.status}
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsPreviewMode(!isPreviewMode)}
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              {isPreviewMode ? "Edit" : "Preview"}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleValidateDesign}
-              disabled={validateDesign.isPending}
-            >
-              {validateDesign.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <CheckCircle className="w-4 h-4 mr-2" />
-              )}
-              Validate
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShareDesign}
-              disabled={shareDesign.isPending}
-            >
-              {shareDesign.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Share2 className="w-4 h-4 mr-2" />
-              )}
-              Share
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={handleSaveDesign}
-              disabled={createDesign.isPending || updateDesign.isPending}
-            >
-              {createDesign.isPending || updateDesign.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4 mr-2" />
-              )}
-              Save
-            </Button>
-
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Export Design</DialogTitle>
-                </DialogHeader>
-                <Form {...exportForm}>
-                  <form
-                    onSubmit={exportForm.handleSubmit(handleExportDesign)}
-                    className="space-y-4"
-                  >
-                    <FormField
-                      control={exportForm.control}
-                      name="format"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Format</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="png">PNG</SelectItem>
-                              <SelectItem value="jpg">JPG</SelectItem>
-                              <SelectItem value="pdf">PDF</SelectItem>
-                              <SelectItem value="svg">SVG</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={exportForm.control}
-                      name="quality"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Quality</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="print">
-                                Print Quality
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={exportForm.control}
-                      name="width"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Width (optional)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(
-                                  e.target.value
-                                    ? Number(e.target.value)
-                                    : undefined
-                                )
-                              }
-                              placeholder="Auto"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={exportForm.control}
-                      name="height"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Height (optional)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(
-                                  e.target.value
-                                    ? Number(e.target.value)
-                                    : undefined
-                                )
-                              }
-                              placeholder="Auto"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={exportForm.control}
-                      name="dpi"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>DPI (optional)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(
-                                  e.target.value
-                                    ? Number(e.target.value)
-                                    : undefined
-                                )
-                              }
-                              placeholder="72"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={exportDesign.isPending}
-                    >
-                      {exportDesign.isPending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Exporting...
-                        </>
-                      ) : (
-                        "Export Design"
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-      </header>
+      <DesignStudioHeader
+        selectedTemplate={selectedTemplate}
+        currentDesign={currentDesign}
+        showBackToTemplates={showBackToTemplates}
+        isPreviewMode={isPreviewMode}
+        lastSavedAt={lastSavedAt}
+        hasUnsavedChanges={hasUnsavedChanges}
+        enableAutoSave={enableAutoSave}
+        onBack={handleBackToTemplates}
+        onPreviewToggle={() => setIsPreviewMode(!isPreviewMode)}
+        onValidate={handleValidateDesign}
+        onShare={handleShareDesign}
+        onSave={handleSaveDesign}
+        onExport={handleExportDesign}
+        isValidating={validateDesign.isPending}
+        isSharing={shareDesign.isPending}
+        isSaving={createDesign.isPending || updateDesign.isPending}
+        exportForm={exportForm}
+        isExporting={exportDesign.isPending}
+      />
 
       <div className="flex h-[calc(100vh-73px)]">
-        {/* Left Sidebar - Design Tools */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Palette className="w-5 h-5 mr-2" />
-              Design Tools
-            </h2>
-          </div>
+        <LeftSidebar
+          canvasElements={canvasElements}
+          selectedElement={selectedElement}
+          templatePresets={templatePresets}
+          designForm={designForm}
+          artworkForm={artworkForm}
+          assetForm={assetForm}
+          fonts={fonts}
+          sizeVariants={sizeVariants}
+          selectedVariant={selectedVariant}
+          canvasId={canvasId}
+          uploadedFiles={uploadedFiles}
+          onAddText={addTextElement}
+          onAddImage={addImageElement}
+          onAddShape={addShapeElement}
+          onSelectElement={setSelectedElement}
+          onDeleteElement={deleteElement}
+          onDuplicateElement={duplicateElement}
+          onUploadArtwork={handleUploadArtwork}
+          onUploadAsset={handleUploadAsset}
+          onSetUploadedFiles={setUploadedFiles}
+          onVariantSelect={(variant) => {
+            setSelectedVariant(variant);
+            designForm.setValue("sizeVariantId", variant.id);
+          }}
+          onCanvasElementsChange={setCanvasElements}
+          onElementUpdate={updateElement}
+          isUploadingArtwork={uploadArtwork.isPending}
+          isUploadingAsset={uploadAsset.isPending}
+          isLoadingPresets={templatePresetsLoading}
+          isLoadingFonts={fontsLoading}
+        />
 
-          <Tabs defaultValue="elements" className="flex-1">
-            <TabsList className="grid w-full grid-cols-3 mx-4 mt-4">
-              <TabsTrigger value="elements">Elements</TabsTrigger>
-              <TabsTrigger value="assets">Assets</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
+        <CanvasArea
+          selectedTemplate={selectedTemplate}
+          selectedVariant={selectedVariant}
+          currentDesign={currentDesign}
+          canvasElements={canvasElements}
+          selectedElement={selectedElement}
+          designForm={designForm}
+          isPreviewMode={isPreviewMode}
+          canvasId={canvasId}
+          onElementSelect={setSelectedElement}
+          onElementUpdate={updateElement}
+          onElementDuplicate={duplicateElement}
+          onElementDelete={deleteElement}
+        />
 
-            <TabsContent value="elements" className="p-4 space-y-4">
-              <div className="space-y-2">
-                <h3 className="font-medium text-gray-900">Add Elements</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm" onClick={addTextElement}>
-                    <Type className="w-4 h-4 mr-2" />
-                    Text
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={addImageElement}>
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Image
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={addShapeElement}>
-                    <Square className="w-4 h-4 mr-2" />
-                    Shape
-                  </Button>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Upload Artwork</DialogTitle>
-                      </DialogHeader>
-                      <Form {...artworkForm}>
-                        <form className="space-y-4">
-                          <FormField
-                            control={artworkForm.control}
-                            name="canvasId"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Canvas ID</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    placeholder="Canvas ID will be auto-filled"
-                                    readOnly
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          <div>
-                            <label className="text-sm font-medium">
-                              Select Artwork File
-                            </label>
-                            <input
-                              type="file"
-                              accept="image/*,application/pdf,.svg"
-                              className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  setUploadedFiles([file]);
-                                }
-                              }}
-                            />
-                            {uploadedFiles.length > 0 && (
-                              <p className="mt-1 text-sm text-gray-600">
-                                Selected: {uploadedFiles[0].name}
-                              </p>
-                            )}
-                          </div>
-                          <FormField
-                            control={artworkForm.control}
-                            name="position"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Position</FormLabel>
-                                <Select
-                                  onValueChange={field.onChange}
-                                  defaultValue={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="center">
-                                      Center
-                                    </SelectItem>
-                                    <SelectItem value="top-left">
-                                      Top Left
-                                    </SelectItem>
-                                    <SelectItem value="top-right">
-                                      Top Right
-                                    </SelectItem>
-                                    <SelectItem value="bottom-left">
-                                      Bottom Left
-                                    </SelectItem>
-                                    <SelectItem value="bottom-right">
-                                      Bottom Right
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </FormItem>
-                            )}
-                          />
-                          <Button
-                            type="button"
-                            className="w-full"
-                            onClick={() => {
-                              if (uploadedFiles.length > 0) {
-                                handleUploadArtwork(uploadedFiles[0]);
-                              } else {
-                                toast.error("Please select a file first");
-                              }
-                            }}
-                            disabled={
-                              !canvasId ||
-                              uploadedFiles.length === 0 ||
-                              uploadArtwork.isPending
-                            }
-                          >
-                            {uploadArtwork.isPending ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Uploading...
-                              </>
-                            ) : (
-                              "Add to Design"
-                            )}
-                          </Button>
-                        </form>
-                      </Form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-
-              {/* Elements List */}
-              <div className="space-y-2">
-                <h3 className="font-medium text-gray-900 flex items-center">
-                  <Layers className="w-4 h-4 mr-2" />
-                  Layers ({canvasElements.length})
-                </h3>
-                <div className="space-y-1">
-                  {canvasElements.map((element) => (
-                    <div
-                      key={element.id}
-                      className={`p-2 rounded border cursor-pointer transition-colors ${
-                        selectedElement?.id === element.id
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                      onClick={() => setSelectedElement(element)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium capitalize">
-                          {element.type}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteElement(element.id);
-                          }}
-                        >
-                          ×
-                        </Button>
-                      </div>
-                      {element.content && (
-                        <p className="text-xs text-gray-600 truncate">
-                          {element.content}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Template Presets */}
-              {templatePresets && (
-                <div className="space-y-2">
-                  <h3 className="font-medium text-gray-900">
-                    Template Presets
-                  </h3>
-
-                  {templatePresets.colors &&
-                    templatePresets.colors.length > 0 && (
-                      <div>
-                        <h4 className="text-sm text-gray-600 mb-2">Colors</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {templatePresets.colors.map((color, index) => (
-                            <button
-                              key={index}
-                              className="w-8 h-8 rounded border border-gray-300 hover:border-gray-400"
-                              style={{ backgroundColor: color }}
-                              onClick={() => {
-                                designForm.setValue(
-                                  "customizations.backgroundColor",
-                                  color
-                                );
-                                setCanvasElements([...canvasElements]);
-                              }}
-                              title={color}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                  {templatePresets.fonts &&
-                    templatePresets.fonts.length > 0 && (
-                      <div>
-                        <h4 className="text-sm text-gray-600 mb-2">Fonts</h4>
-                        <div className="space-y-1">
-                          {templatePresets.fonts
-                            .slice(0, 5)
-                            .map((font, index) => (
-                              <button
-                                key={index}
-                                className="block w-full text-left p-2 text-sm border border-gray-200 rounded hover:border-gray-300"
-                                style={{ fontFamily: font }}
-                                onClick={() => {
-                                  if (selectedElement?.type === "text") {
-                                    updateElement(selectedElement.id, { font });
-                                  }
-                                }}
-                              >
-                                {font}
-                              </button>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="assets" className="p-4">
-              <div className="space-y-4">
-                <h3 className="font-medium text-gray-900">Upload Assets</h3>
-                <Form {...assetForm}>
-                  <form className="space-y-4">
-                    <FormField
-                      control={assetForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Asset Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter asset name" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={assetForm.control}
-                      name="type"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Asset Type</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="image">Image</SelectItem>
-                              <SelectItem value="logo">Logo</SelectItem>
-                              <SelectItem value="background">
-                                Background
-                              </SelectItem>
-                              <SelectItem value="texture">Texture</SelectItem>
-                              <SelectItem value="icon">Icon</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-
-                    <div>
-                      <label className="text-sm font-medium">Select File</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setUploadedFiles([file]);
-                          }
-                        }}
-                      />
-                      {uploadedFiles.length > 0 && (
-                        <p className="mt-1 text-sm text-gray-600">
-                          Selected: {uploadedFiles[0].name}
-                        </p>
-                      )}
-                    </div>
-
-                    <FormField
-                      control={assetForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description (Optional)</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              {...field}
-                              placeholder="Asset description"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button
-                      type="button"
-                      className="w-full"
-                      onClick={() => {
-                        if (uploadedFiles.length > 0) {
-                          handleUploadAsset(uploadedFiles[0]);
-                        } else {
-                          toast.error("Please select a file first");
-                        }
-                      }}
-                      disabled={
-                        uploadedFiles.length === 0 ||
-                        !assetForm.getValues("name") ||
-                        uploadAsset.isPending
-                      }
-                    >
-                      {uploadAsset.isPending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        "Upload Asset"
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="settings" className="p-4">
-              <div className="space-y-4">
-                <h3 className="font-medium text-gray-900">Design Settings</h3>
-                <Form {...designForm}>
-                  <div className="space-y-4">
-                    <FormField
-                      control={designForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Design Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={designForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={designForm.control}
-                      name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Status</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="DRAFT">Draft</SelectItem>
-                              <SelectItem value="COMPLETED">
-                                Completed
-                              </SelectItem>
-                              <SelectItem value="ARCHIVED">Archived</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={designForm.control}
-                      name="isPublic"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center space-x-2">
-                          <FormControl>
-                            <input
-                              type="checkbox"
-                              checked={field.value}
-                              onChange={field.onChange}
-                              className="rounded"
-                            />
-                          </FormControl>
-                          <FormLabel className="text-sm font-normal">
-                            Make design public
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </Form>
-
-                {/* Size Variants */}
-                {sizeVariants && sizeVariants.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-gray-900">Size Options</h4>
-                    <div className="space-y-2">
-                      {sizeVariants
-                        .filter((variant) => variant.isActive)
-                        .map((variant) => (
-                          <button
-                            key={variant.id}
-                            onClick={() => {
-                              setSelectedVariant(variant);
-                              designForm.setValue("sizeVariantId", variant.id);
-                            }}
-                            className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                              selectedVariant?.id === variant.id
-                                ? "border-blue-500 bg-blue-50"
-                                : "border-gray-200 hover:border-gray-300"
-                            }`}
-                          >
-                            <div className="font-medium text-gray-900">
-                              {variant.displayName}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {variant.dimensions && (
-                                <span>
-                                  {variant.dimensions.width} ×{" "}
-                                  {variant.dimensions.height}{" "}
-                                  {variant.dimensions.unit}
-                                </span>
-                              )}
-                              {variant.price > 0 && (
-                                <span className="ml-2 font-medium">
-                                  ${variant.price.toFixed(2)}
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Main Canvas Area */}
-        <div className="flex-1 bg-gray-100 flex items-center justify-center overflow-hidden">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl w-full mx-4">
-            <div className="flex flex-col items-center space-y-4">
-              {/* Canvas */}
-              <div
-                className="border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center relative bg-white overflow-hidden"
-                style={{
-                  backgroundColor: designForm.getValues(
-                    "customizations.backgroundColor"
-                  ),
-                  width: `${designForm.getValues("customizations.width")}px`,
-                  height: `${designForm.getValues("customizations.height")}px`,
-                  maxWidth: "800px",
-                  maxHeight: "600px",
-                }}
-              >
-                {/* Render Canvas Elements */}
-                {canvasElements.map((element) => (
-                  <div
-                    key={element.id}
-                    className={`absolute cursor-pointer border-2 ${
-                      selectedElement?.id === element.id
-                        ? "border-blue-500"
-                        : "border-transparent hover:border-gray-300"
-                    }`}
-                    style={{
-                      left: element.x,
-                      top: element.y,
-                      width: element.width,
-                      height: element.height,
-                      transform: element.rotation
-                        ? `rotate(${element.rotation}deg)`
-                        : undefined,
-                    }}
-                    onClick={() => setSelectedElement(element)}
-                  >
-                    {element.type === "text" && (
-                      <div
-                        style={{
-                          fontFamily: element.font,
-                          fontSize: element.fontSize,
-                          fontWeight: element.fontWeight,
-                          color: element.color,
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {element.content}
-                      </div>
-                    )}
-
-                    {element.type === "shape" && (
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          backgroundColor: element.color,
-                          borderRadius:
-                            element.shapeType === "circle" ? "50%" : "0",
-                        }}
-                      />
-                    )}
-
-                    {element.type === "image" && element.mediaId && (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <ImageIcon className="w-8 h-8 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {canvasElements.length === 0 && (
-                  <div className="text-center text-gray-500">
-                    <Palette className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>Start creating your design</p>
-                    <p className="text-sm">
-                      Add text, images, or shapes from the toolbar
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Template Preview */}
-              <div className="text-center">
-                <img
-                  src={selectedTemplate.previewImage}
-                  alt={selectedTemplate.name}
-                  className="max-w-sm max-h-48 mx-auto rounded-lg shadow-sm mb-4"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = "none";
-                  }}
-                />
-                <p className="text-gray-600 text-lg font-medium">
-                  {selectedTemplate.name}
-                </p>
-                {selectedVariant && (
-                  <p className="text-gray-500 text-sm mt-1">
-                    Size: {selectedVariant.displayName}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Sidebar - Properties Panel */}
-        <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
-          </div>
-
-          <div className="p-4">
-            {selectedElement ? (
-              <div className="space-y-4">
-                <h3 className="font-medium text-gray-900 capitalize">
-                  {selectedElement.type} Properties
-                </h3>
-
-                {/* Common Properties */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-gray-600">
-                        X Position
-                      </label>
-                      <Input
-                        type="number"
-                        value={selectedElement.x}
-                        onChange={(e) =>
-                          updateElement(selectedElement.id, {
-                            x: Number(e.target.value),
-                          })
-                        }
-                        className="h-8"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">
-                        Y Position
-                      </label>
-                      <Input
-                        type="number"
-                        value={selectedElement.y}
-                        onChange={(e) =>
-                          updateElement(selectedElement.id, {
-                            y: Number(e.target.value),
-                          })
-                        }
-                        className="h-8"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-gray-600">Width</label>
-                      <Input
-                        type="number"
-                        value={selectedElement.width}
-                        onChange={(e) =>
-                          updateElement(selectedElement.id, {
-                            width: Number(e.target.value),
-                          })
-                        }
-                        className="h-8"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-600">Height</label>
-                      <Input
-                        type="number"
-                        value={selectedElement.height}
-                        onChange={(e) =>
-                          updateElement(selectedElement.id, {
-                            height: Number(e.target.value),
-                          })
-                        }
-                        className="h-8"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-600">
-                      Rotation (degrees)
-                    </label>
-                    <Input
-                      type="number"
-                      value={selectedElement.rotation || 0}
-                      onChange={(e) =>
-                        updateElement(selectedElement.id, {
-                          rotation: Number(e.target.value),
-                        })
-                      }
-                      className="h-8"
-                    />
-                  </div>
-                </div>
-
-                {/* Text-specific Properties */}
-                {selectedElement.type === "text" && (
-                  <div className="space-y-3 border-t pt-4">
-                    <h4 className="font-medium text-gray-900">
-                      Text Properties
-                    </h4>
-
-                    <div>
-                      <label className="text-xs text-gray-600">Content</label>
-                      <Textarea
-                        value={selectedElement.content || ""}
-                        onChange={(e) =>
-                          updateElement(selectedElement.id, {
-                            content: e.target.value,
-                          })
-                        }
-                        className="h-20"
-                        placeholder="Enter text content"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-600">
-                        Font Family
-                      </label>
-                      <Select
-                        value={selectedElement.font}
-                        onValueChange={(value) =>
-                          updateElement(selectedElement.id, { font: value })
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {fonts?.map((font) => (
-                            <SelectItem key={font.id} value={font.family}>
-                              {font.displayName}
-                            </SelectItem>
-                          )) || [
-                            <SelectItem key="arial" value="Arial">
-                              Arial
-                            </SelectItem>,
-                            <SelectItem key="helvetica" value="Helvetica">
-                              Helvetica
-                            </SelectItem>,
-                            <SelectItem key="times" value="Times New Roman">
-                              Times New Roman
-                            </SelectItem>,
-                          ]}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-gray-600">
-                          Font Size
-                        </label>
-                        <Input
-                          type="number"
-                          value={selectedElement.fontSize || 16}
-                          onChange={(e) =>
-                            updateElement(selectedElement.id, {
-                              fontSize: Number(e.target.value),
-                            })
-                          }
-                          className="h-8"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-600">
-                          Font Weight
-                        </label>
-                        <Select
-                          value={selectedElement.fontWeight}
-                          onValueChange={(value) =>
-                            updateElement(selectedElement.id, {
-                              fontWeight: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger className="h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="bold">Bold</SelectItem>
-                            <SelectItem value="lighter">Light</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-600">
-                        Text Color
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          type="color"
-                          value={selectedElement.color || "#000000"}
-                          onChange={(e) =>
-                            updateElement(selectedElement.id, {
-                              color: e.target.value,
-                            })
-                          }
-                          className="h-8 w-16"
-                        />
-                        <Input
-                          type="text"
-                          value={selectedElement.color || "#000000"}
-                          onChange={(e) =>
-                            updateElement(selectedElement.id, {
-                              color: e.target.value,
-                            })
-                          }
-                          className="h-8 flex-1"
-                          placeholder="#000000"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Shape-specific Properties */}
-                {selectedElement.type === "shape" && (
-                  <div className="space-y-3 border-t pt-4">
-                    <h4 className="font-medium text-gray-900">
-                      Shape Properties
-                    </h4>
-
-                    <div>
-                      <label className="text-xs text-gray-600">
-                        Shape Type
-                      </label>
-                      <Select
-                        value={selectedElement.shapeType}
-                        onValueChange={(value) =>
-                          updateElement(selectedElement.id, {
-                            shapeType: value,
-                          })
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rectangle">Rectangle</SelectItem>
-                          <SelectItem value="circle">Circle</SelectItem>
-                          <SelectItem value="triangle">Triangle</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-600">
-                        Fill Color
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          type="color"
-                          value={selectedElement.color || "#0066cc"}
-                          onChange={(e) =>
-                            updateElement(selectedElement.id, {
-                              color: e.target.value,
-                            })
-                          }
-                          className="h-8 w-16"
-                        />
-                        <Input
-                          type="text"
-                          value={selectedElement.color || "#0066cc"}
-                          onChange={(e) =>
-                            updateElement(selectedElement.id, {
-                              color: e.target.value,
-                            })
-                          }
-                          className="h-8 flex-1"
-                          placeholder="#0066cc"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Image-specific Properties */}
-                {selectedElement.type === "image" && (
-                  <div className="space-y-3 border-t pt-4">
-                    <h4 className="font-medium text-gray-900">
-                      Image Properties
-                    </h4>
-
-                    <div>
-                      <label className="text-xs text-gray-600">
-                        Upload Image File
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="mt-1 block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            // Upload file and update element with media ID
-                            handleUploadArtwork(file);
-                          }
-                        }}
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Upload an image file to use in this element
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-600">Media ID</label>
-                      <Input
-                        type="text"
-                        value={selectedElement.mediaId || ""}
-                        onChange={(e) =>
-                          updateElement(selectedElement.id, {
-                            mediaId: e.target.value,
-                          })
-                        }
-                        className="h-8"
-                        placeholder="Enter media ID"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Delete Element Button */}
-                <div className="border-t pt-4">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => deleteElement(selectedElement.id)}
-                    className="w-full"
-                  >
-                    Delete Element
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center text-gray-500">
-                <div className="mb-4">
-                  <Square className="w-12 h-12 mx-auto text-gray-300" />
-                </div>
-                <p className="text-sm">
-                  Select an element to edit its properties
-                </p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Click on any element in the canvas to start editing
-                </p>
-              </div>
-            )}
-
-            {/* Canvas Settings */}
-            <div className="mt-6 pt-4 border-t">
-              <h3 className="font-medium text-gray-900 mb-3">
-                Canvas Settings
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-gray-600">
-                    Background Color
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="color"
-                      value={designForm.getValues(
-                        "customizations.backgroundColor"
-                      )}
-                      onChange={(e) => {
-                        designForm.setValue(
-                          "customizations.backgroundColor",
-                          e.target.value
-                        );
-                        // Force re-render
-                        setCanvasElements([...canvasElements]);
-                      }}
-                      className="h-8 w-16"
-                    />
-                    <Input
-                      type="text"
-                      value={designForm.getValues(
-                        "customizations.backgroundColor"
-                      )}
-                      onChange={(e) => {
-                        designForm.setValue(
-                          "customizations.backgroundColor",
-                          e.target.value
-                        );
-                        setCanvasElements([...canvasElements]);
-                      }}
-                      className="h-8 flex-1"
-                      placeholder="#ffffff"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs text-gray-600">
-                      Canvas Width
-                    </label>
-                    <Input
-                      type="number"
-                      value={designForm.getValues("customizations.width")}
-                      onChange={(e) => {
-                        designForm.setValue(
-                          "customizations.width",
-                          Number(e.target.value)
-                        );
-                        setCanvasElements([...canvasElements]);
-                      }}
-                      className="h-8"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-600">
-                      Canvas Height
-                    </label>
-                    <Input
-                      type="number"
-                      value={designForm.getValues("customizations.height")}
-                      onChange={(e) => {
-                        designForm.setValue(
-                          "customizations.height",
-                          Number(e.target.value)
-                        );
-                        setCanvasElements([...canvasElements]);
-                      }}
-                      className="h-8"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Template Information */}
-            {selectedVariant && (
-              <div className="mt-6 pt-4 border-t">
-                <h3 className="font-medium text-gray-900 mb-3">
-                  Product Information
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Template:</span>
-                    <span className="font-medium">{selectedTemplate.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Size:</span>
-                    <span className="font-medium">
-                      {selectedVariant.displayName}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Base Price:</span>
-                    <span className="font-medium">
-                      ${selectedTemplate.basePrice.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Variant Price:</span>
-                    <span className="font-medium">
-                      ${selectedVariant.price.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Material:</span>
-                    <span className="font-medium">
-                      {selectedTemplate.materials.base}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Lead Time:</span>
-                    <span className="font-medium">
-                      {selectedTemplate.leadTime}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Design Status and Information */}
-            {currentDesign && (
-              <div className="mt-6 pt-4 border-t">
-                <h3 className="font-medium text-gray-900 mb-3">
-                  Design Information
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Status:</span>
-                    <span
-                      className={`px-2 py-1 text-xs rounded ${
-                        currentDesign.status === "COMPLETED"
-                          ? "bg-green-100 text-green-800"
-                          : currentDesign.status === "ARCHIVED"
-                            ? "bg-gray-100 text-gray-800"
-                            : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {currentDesign.status}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Version:</span>
-                    <span className="font-medium">
-                      v{currentDesign.version}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Created:</span>
-                    <span className="font-medium">
-                      {new Date(currentDesign.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Updated:</span>
-                    <span className="font-medium">
-                      {new Date(currentDesign.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {currentDesign.estimatedCost && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Estimated Cost:</span>
-                      <span className="font-medium">
-                        ${currentDesign.estimatedCost.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <RightSidebar
+          selectedElement={selectedElement}
+          selectedTemplate={selectedTemplate}
+          selectedVariant={selectedVariant}
+          currentDesign={currentDesign}
+          canvasElements={canvasElements}
+          designForm={designForm}
+          fonts={fonts}
+          onElementUpdate={updateElement}
+          onDeleteElement={deleteElement}
+          onUploadArtwork={handleUploadArtwork}
+          onCanvasElementsChange={setCanvasElements}
+        />
       </div>
     </div>
   );

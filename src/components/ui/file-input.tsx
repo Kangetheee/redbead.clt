@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import {
@@ -13,20 +14,14 @@ import { v4 as uuidV4 } from "uuid";
 
 import { MAX_FILE_SIZE } from "@/lib/shared/constants";
 import { cn, validateFileType } from "@/lib/utils";
+import { MediaTypeEnum } from "@/lib/uploads/enums/uploads.enum";
 
-import { useUploadToS3 } from "@/hooks/use-uploads";
+import { useUpload } from "@/hooks/use-uploads";
 import { Icons } from "../icons/icons";
 import UploadComponents from "./image-upload";
 
 const { ImageUpload, VideoUpload, AudioUpload, DocumentUpload } =
   UploadComponents;
-
-export enum MediaTypeEnum {
-  IMAGE = "IMAGE",
-  VIDEO = "VIDEO",
-  AUDIO = "AUDIO",
-  DOCUMENT = "DOCUMENT",
-}
 
 interface FileWithUrl {
   id: string;
@@ -36,13 +31,18 @@ interface FileWithUrl {
   size: number;
   type: MediaTypeEnum;
   error?: boolean | undefined;
+  uploading?: boolean;
+  progress?: number;
 }
 
 type Action =
   | { type: "ADD_FILES_TO_INPUT"; payload: FileWithUrl[] }
   | { type: "UPDATE_FILE_IN_INPUT"; payload: FileWithUrl[] }
+  | { type: "UPDATE_FILE_PROGRESS"; payload: { key: string; progress: number } }
   | { type: "CLEAR_INPUT" }
-  | { type: "REMOVE_FILE_FROM_INPUT"; payload: string };
+  | { type: "REMOVE_FILE_FROM_INPUT"; payload: string }
+  | { type: "SET_FILE_UPLOADING"; payload: { key: string; uploading: boolean } }
+  | { type: "SET_FILE_ERROR"; payload: { key: string; error: boolean } };
 
 type State = FileWithUrl[];
 
@@ -54,6 +54,7 @@ export interface InputProps
   onUploadComplete?: (
     files: { id: string; src: string; type: MediaTypeEnum }[]
   ) => void;
+  onUploadProgress?: (progress: number) => void;
 }
 
 const FileInput = forwardRef<HTMLInputElement, InputProps>(
@@ -68,12 +69,15 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
         MediaTypeEnum.DOCUMENT,
       ],
       onUploadComplete,
+      onUploadProgress,
       ...props
     },
     ref
   ) => {
-    const { uploadFile1, progress } = useUploadToS3(folderId, maxFileSize);
+    const { uploadFile, progress: globalProgress } = useUpload(maxFileSize);
+    const [isUploading, setIsUploading] = useState(false);
     const [dragActive, setDragActive] = useState<boolean>(false);
+
     const [input, dispatch] = useReducer((state: State, action: Action) => {
       switch (action.type) {
         case "ADD_FILES_TO_INPUT": {
@@ -97,8 +101,32 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
           return updatedFiles;
         }
 
+        case "UPDATE_FILE_PROGRESS": {
+          return state.map((file) =>
+            file.key === action.payload.key
+              ? { ...file, progress: action.payload.progress }
+              : file
+          );
+        }
+
         case "REMOVE_FILE_FROM_INPUT": {
           return state.filter((file) => file.id !== action.payload);
+        }
+
+        case "SET_FILE_UPLOADING": {
+          return state.map((file) =>
+            file.key === action.payload.key
+              ? { ...file, uploading: action.payload.uploading }
+              : file
+          );
+        }
+
+        case "SET_FILE_ERROR": {
+          return state.map((file) =>
+            file.key === action.payload.key
+              ? { ...file, error: action.payload.error, uploading: false }
+              : file
+          );
         }
 
         case "CLEAR_INPUT": {
@@ -112,7 +140,6 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
 
     const noInput = input.length === 0;
 
-    // Get file type based on MIME type
     const getFileType = (file: File): MediaTypeEnum => {
       const mimeType = file.type.toLowerCase();
 
@@ -120,7 +147,7 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
       if (mimeType.startsWith("video/")) return MediaTypeEnum.VIDEO;
       if (mimeType.startsWith("audio/")) return MediaTypeEnum.AUDIO;
 
-      // All other file types (including application/*, text/*, etc.) should be DOCUMENT
+      // All other file types should be DOCUMENT
       return MediaTypeEnum.DOCUMENT;
     };
 
@@ -128,12 +155,13 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
     const getAcceptString = (): string => {
       const acceptMap = {
         [MediaTypeEnum.IMAGE]:
-          "image/jpeg,image/jpg,image/png,image/gif,image/webp",
+          "image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml",
         [MediaTypeEnum.VIDEO]:
           "video/mp4,video/avi,video/mov,video/wmv,video/webm",
         [MediaTypeEnum.AUDIO]:
-          "audio/mp3,audio/wav,audio/ogg,audio/m4a,audio/flac",
-        [MediaTypeEnum.DOCUMENT]: ".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx",
+          "audio/mp3,audio/wav,audio/ogg,audio/m4a,audio/flac,audio/mpeg",
+        [MediaTypeEnum.DOCUMENT]:
+          "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx",
       };
 
       return allowedTypes.map((type) => acceptMap[type]).join(",");
@@ -148,7 +176,6 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
     // Get the appropriate upload component
     const renderUploadComponent = (file: FileWithUrl, index: number) => {
       const commonProps = {
-        key: index,
         id: file.id,
         src: file.src,
         name: file.name,
@@ -159,20 +186,20 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
             type: "REMOVE_FILE_FROM_INPUT",
             payload: id,
           }),
-        progress: progress,
+        progress: file.uploading ? file.progress || globalProgress : 100,
       };
 
       switch (file.type) {
         case MediaTypeEnum.IMAGE:
-          return <ImageUpload {...commonProps} />;
+          return <ImageUpload key={file.key} {...commonProps} />;
         case MediaTypeEnum.VIDEO:
-          return <VideoUpload {...commonProps} />;
+          return <VideoUpload key={file.key} {...commonProps} />;
         case MediaTypeEnum.AUDIO:
-          return <AudioUpload {...commonProps} />;
+          return <AudioUpload key={file.key} {...commonProps} />;
         case MediaTypeEnum.DOCUMENT:
-          return <DocumentUpload {...commonProps} />;
+          return <DocumentUpload key={file.key} {...commonProps} />;
         default:
-          return <DocumentUpload {...commonProps} />;
+          return <DocumentUpload key={file.key} {...commonProps} />;
       }
     };
 
@@ -209,82 +236,184 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
     };
 
     const updateFilesInState = (files: FileWithUrl[]) => {
-      // Filter out files with errors before calling onUploadComplete
-      const successfulFiles = files.filter(
-        (file) => !file.error && file.id && file.src
-      );
+      // Only call onUploadComplete with successfully uploaded files
+      const successfulFiles = files
+        .filter((file) => file.id && file.src && !file.error)
+        .map(({ id, src, type }) => ({ id, src, type }));
+
       if (successfulFiles.length > 0) {
-        onUploadComplete?.(
-          successfulFiles.map(({ id, src, type }) => ({ id, src, type }))
-        );
+        onUploadComplete?.(successfulFiles);
       }
+
       dispatch({ type: "UPDATE_FILE_IN_INPUT", payload: files });
+    };
+
+    // Validate file before processing
+    const validateSingleFile = (
+      file: File
+    ): { valid: boolean; error?: string; type?: MediaTypeEnum } => {
+      try {
+        // Check if file type is allowed
+        const isAllowed = isFileTypeAllowed(file);
+        if (!isAllowed) {
+          return {
+            valid: false,
+            error: `File type not allowed. Please upload ${getTypeDisplayText()} only.`,
+          };
+        }
+
+        // Get file type
+        const fileType = getFileType(file);
+
+        // Basic validation
+        if (file.size > maxFileSize) {
+          return {
+            valid: false,
+            error: `File size exceeds the maximum limit of ${(maxFileSize / 1000000).toFixed(0)}MB.`,
+          };
+        }
+
+        // Additional client-side validation
+        if (!validateFileType(file)) {
+          return {
+            valid: false,
+            error: "Invalid file format",
+          };
+        }
+
+        return { valid: true, type: fileType };
+      } catch (error) {
+        return {
+          valid: false,
+          error: "Failed to validate file",
+        };
+      }
     };
 
     // Process files (common logic for both change and drop)
     const processFiles = async (files: File[]) => {
-      // Filter valid file types
-      const validFiles = files.filter((file) => {
-        const isValid = validateFileType(file) && isFileTypeAllowed(file);
-        if (!isValid) {
-          toast.error(`Invalid file: ${file.name}`, {
-            description: `Please upload ${getTypeDisplayText()} only.`,
-          });
-        }
-        return isValid;
-      });
-
-      if (validFiles.length === 0) return;
+      if (files.length === 0) return;
 
       try {
-        // Add placeholder files to show upload progress
-        const placeholderFiles: FileWithUrl[] = validFiles.map((file) => ({
-          key: uuidV4(),
-          id: "",
-          name: file.name,
-          src: "",
-          size: file.size,
-          type: getFileType(file),
+        setIsUploading(true);
+
+        // Validate all files first
+        const validationResults = files.map((file, index) => ({
+          file,
+          index,
+          ...validateSingleFile(file),
         }));
 
-        addFilesToState(placeholderFiles);
+        // Filter out invalid files and show errors
+        const validFiles: Array<{
+          file: File;
+          type: MediaTypeEnum;
+          index: number;
+        }> = [];
 
-        // Upload files one by one
-        const uploadPromises = validFiles.map(async (file, index) => {
-          const placeholderFile = placeholderFiles[index];
-
-          try {
-            const result = await uploadFile1(file);
-
-            if (result.error) {
-              return {
-                ...placeholderFile,
-                error: true,
-              };
-            }
-
-            return {
-              ...placeholderFile,
-              id: result.id,
-              src: result.src,
-              error: false,
-            };
-          } catch (error) {
-            console.error(`Error uploading file ${file.name}:`, error);
-            return {
-              ...placeholderFile,
-              error: true,
-            };
+        validationResults.forEach((result) => {
+          if (!result.valid) {
+            toast.error(`Invalid file: ${result.file.name}`, {
+              description: result.error,
+            });
+          } else if (result.type) {
+            validFiles.push({
+              file: result.file,
+              type: result.type,
+              index: result.index,
+            });
           }
         });
 
-        const uploadedFiles = await Promise.all(uploadPromises);
-        updateFilesInState(uploadedFiles);
-      } catch (error) {
-        console.error("Error processing files:", error);
-        toast.error("Upload failed", {
-          description: "An error occurred while uploading files.",
+        if (validFiles.length === 0) {
+          setIsUploading(false);
+          return;
+        }
+
+        // Create initial file entries with uploading state
+        const initialFiles = validFiles.map(({ file, type }) => {
+          const key = uuidV4();
+          const { name, size } = file;
+
+          return {
+            key,
+            id: "",
+            name,
+            src: "",
+            size,
+            type,
+            uploading: true,
+            progress: 0,
+          };
         });
+
+        // Add files to state immediately to show uploading state
+        addFilesToState(initialFiles);
+
+        // Upload files one by one and track progress
+        const results = await Promise.all(
+          validFiles.map(async ({ file, type }, index) => {
+            // Update progress for current file
+            dispatch({
+              type: "UPDATE_FILE_PROGRESS",
+              payload: { key: initialFiles[index].key, progress: 0 },
+            });
+
+            try {
+              // Upload the file and track progress
+              const result = await uploadFile(file, folderId);
+
+              // Update progress for this file
+              if (onUploadProgress) {
+                onUploadProgress(globalProgress);
+              }
+
+              dispatch({
+                type: "UPDATE_FILE_PROGRESS",
+                payload: { key: initialFiles[index].key, progress: 100 },
+              });
+
+              return {
+                ...result,
+                type,
+              };
+            } catch (error) {
+              console.error(`Error uploading file ${file.name}:`, error);
+              return { id: null, src: null, error: true, type };
+            }
+          })
+        );
+
+        // Map results back to our file structure
+        const filesWithUrl = initialFiles.map((file, index) => {
+          const result = results[index];
+          return {
+            ...file,
+            id: result.id || "",
+            src: result.src || "",
+            error: result.error,
+            uploading: false,
+            progress: result.error ? 0 : 100,
+          };
+        });
+
+        updateFilesInState(filesWithUrl);
+      } catch (error) {
+        console.error("Error uploading files:", error);
+
+        // Update all uploading files to show error state
+        const errorFiles = input.map((file) =>
+          file.uploading
+            ? { ...file, error: true, uploading: false, progress: 0 }
+            : file
+        );
+
+        dispatch({ type: "UPDATE_FILE_IN_INPUT", payload: errorFiles });
+        toast.error("Upload failed", {
+          description: "An error occurred while uploading files",
+        });
+      } finally {
+        setIsUploading(false);
       }
     };
 
@@ -294,6 +423,8 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
       if (e.target.files && e.target.files[0]) {
         const files = Array.from(e.target.files);
         await processFiles(files);
+        // Reset the input value to allow uploading the same file again
+        e.target.value = "";
       }
     };
 
@@ -367,6 +498,22 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
                   {(maxFileSize / 1000000).toFixed(0)}MB per file
                 </p>
 
+                {/* Show global progress if uploading */}
+                {isUploading && (
+                  <div className="mt-2 w-full max-w-xs">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Uploading...</span>
+                      <span>{globalProgress}%</span>
+                    </div>
+                    <div className="mt-1 h-1 w-full bg-gray-200 rounded-full dark:bg-gray-700">
+                      <div
+                        className="h-1 bg-blue-600 rounded-full transition-all duration-300"
+                        style={{ width: `${globalProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <input
                   {...props}
                   ref={ref}
@@ -376,6 +523,7 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
                   id="dropzone-file"
                   type="file"
                   className="hidden"
+                  disabled={isUploading}
                 />
               </>
             ) : (
@@ -424,7 +572,10 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
 
                       <label
                         htmlFor="dropzone-file-present"
-                        className="group relative flex cursor-pointer justify-center border-t border-slate-600 py-4 transition hover:border-gray-500 hover:dark:bg-slate-800"
+                        className={cn(
+                          "group relative flex cursor-pointer justify-center border-t border-slate-600 py-4 transition hover:border-gray-500 hover:dark:bg-slate-800",
+                          { "pointer-events-none opacity-50": isUploading }
+                        )}
                       >
                         <Icons.Plus className="size-12 fill-slate-500 stroke-1 transition group-hover:fill-slate-400" />
                         <input
@@ -436,6 +587,7 @@ const FileInput = forwardRef<HTMLInputElement, InputProps>(
                           type="file"
                           id="dropzone-file-present"
                           className="relative z-20 hidden"
+                          disabled={isUploading}
                         />
                         <div
                           className="absolute inset-0"

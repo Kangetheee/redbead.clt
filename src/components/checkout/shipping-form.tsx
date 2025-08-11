@@ -84,6 +84,13 @@ const URGENCY_LEVELS = [
   { value: "URGENT", label: "Urgent", description: "Next business day" },
 ] as const;
 
+// Extended form schema with urgency level
+const formSchema = shippingAddressSchema.extend({
+  urgencyLevel: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("NORMAL"),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
 interface ShippingFormProps {
   sessionId: string;
   onShippingCalculated?: (options: ShippingCalculationResponse) => void;
@@ -106,26 +113,18 @@ export function ShippingForm({
 
   const calculateShippingMutation = useCalculateShipping();
 
-  const form = useForm<
-    ShippingAddressDto & { urgencyLevel: "LOW" | "NORMAL" | "HIGH" | "URGENT" }
-  >({
-    resolver: zodResolver(
-      shippingAddressSchema.extend({
-        urgencyLevel: z
-          .enum(["LOW", "NORMAL", "HIGH", "URGENT"])
-          .default("NORMAL"),
-      })
-    ),
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
+      name: defaultAddress?.name || "",
       recipientName: defaultAddress?.recipientName || "",
-      companyName: defaultAddress?.companyName || "",
       street: defaultAddress?.street || "",
-      street2: defaultAddress?.street2 || "",
       city: defaultAddress?.city || "",
       state: defaultAddress?.state || "",
       postalCode: defaultAddress?.postalCode || "",
       country: defaultAddress?.country || "",
       phone: defaultAddress?.phone || "",
+      type: defaultAddress?.type || "SHIPPING",
       urgencyLevel: "NORMAL",
     },
   });
@@ -164,17 +163,16 @@ export function ShippingForm({
     const calculationData: CalculateShippingDto = {
       sessionId,
       shippingAddress: {
+        name: values.name,
         recipientName: values.recipientName,
-        companyName: values.companyName,
         street: values.street,
-        street2: values.street2,
         city: values.city,
         state: values.state,
         postalCode: values.postalCode,
         country: values.country,
         phone: values.phone,
+        type: values.type,
       },
-      urgencyLevel: values.urgencyLevel,
     };
 
     try {
@@ -240,11 +238,7 @@ export function ShippingForm({
     }
   };
 
-  const onSubmit = (
-    values: ShippingAddressDto & {
-      urgencyLevel: "LOW" | "NORMAL" | "HIGH" | "URGENT";
-    }
-  ) => {
+  const onSubmit = (values: FormData) => {
     if (!selectedShippingOption) {
       toast.error("Please select a shipping option");
       return;
@@ -275,44 +269,31 @@ export function ShippingForm({
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="recipientName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="companyName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Company name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Home, Office, etc." {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      A name to identify this address
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
-                name="street"
+                name="recipientName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Street Address</FormLabel>
+                    <FormLabel>Recipient Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="123 Main Street" {...field} />
+                      <Input placeholder="John Doe" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -321,12 +302,12 @@ export function ShippingForm({
 
               <FormField
                 control={form.control}
-                name="street2"
+                name="street"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Apartment, suite, etc. (Optional)</FormLabel>
+                    <FormLabel>Street Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="Apt 4B" {...field} />
+                      <Input placeholder="123 Main Street, Apt 4B" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -420,6 +401,29 @@ export function ShippingForm({
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="SHIPPING">Shipping Only</SelectItem>
+                        <SelectItem value="BILLING">Billing Only</SelectItem>
+                        <SelectItem value="BOTH">Shipping & Billing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

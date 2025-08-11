@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -10,28 +10,17 @@ import { toast } from "sonner";
 import { Form } from "@/components/ui/form";
 import FormButton from "@/components/ui/form-button";
 import FormPhoneInput from "@/components/ui/form-phone-input";
-import { resetPasswordAction } from "@/lib/auth/auth.actions";
+import { forgotPasswordAction } from "@/lib/auth/auth.actions";
 import {
-  type ResetPasswordDto,
-  resetPasswordSchema,
+  type ForgotPasswordDto,
+  forgotPasswordSchema,
 } from "@/lib/auth/dto/auth.dto";
 
 export default function ForgotPasswordForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const searchParamsString = searchParams?.toString() || "";
-  const callbackUrl =
-    new URLSearchParams(searchParamsString).get("callbackUrl") || "/";
 
-  const otherParams = new URLSearchParams(searchParamsString);
-  otherParams.delete("callbackUrl");
-  otherParams.delete("msisdn");
-  const dashboardUrl = otherParams.toString()
-    ? `${callbackUrl}?${otherParams.toString()}`
-    : callbackUrl;
-
-  const form = useForm<ResetPasswordDto>({
-    resolver: zodResolver(resetPasswordSchema),
+  const form = useForm<ForgotPasswordDto>({
+    resolver: zodResolver(forgotPasswordSchema),
     defaultValues: { identifier: "" },
   });
 
@@ -42,16 +31,20 @@ export default function ForgotPasswordForm() {
     reset,
   } = form;
 
-  async function onSubmit(data: ResetPasswordDto) {
-    const result = await resetPasswordAction(data);
+  async function onSubmit(data: ForgotPasswordDto) {
+    const result = await forgotPasswordAction(data);
 
     if (!result.success) {
       toast.error(result.error);
       return;
     }
+
     reset();
-    toast.success("Please wait...");
-    router.replace(dashboardUrl);
+    toast.success(result.data.message);
+
+    // Redirect to reset password page with the phone number
+    const resetPasswordUrl = `/reset-password?identifier=${encodeURIComponent(data.identifier)}`;
+    router.push(resetPasswordUrl);
   }
 
   return (
@@ -67,7 +60,7 @@ export default function ForgotPasswordForm() {
             />
 
             <FormButton className="mt-2" isLoading={isPending}>
-              Reset Password
+              Send Reset Code
             </FormButton>
             <div className="flex justify-end">
               <Link

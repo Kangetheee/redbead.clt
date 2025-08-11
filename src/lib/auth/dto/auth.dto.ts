@@ -31,11 +31,31 @@ export const signInOtpSchema = z.object({
 });
 export type SignInOtpDto = z.infer<typeof signInOtpSchema>;
 
+export const forgotPasswordSchema = z.object({
+  identifier: z
+    .string()
+    .min(1, "Required")
+    .refine((value) => isValidPhoneNumber(value), "Invalid phone number"),
+});
+export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
+
 export const resetPasswordSchema = z.object({
   identifier: z
     .string()
     .min(1, "Required")
     .refine((value) => isValidPhoneNumber(value), "Invalid phone number"),
+  resetCode: z
+    .string()
+    .min(6, "Reset code must be 6 digits")
+    .max(6, "Reset code must be 6 digits")
+    .regex(/^\d{6}$/, "Reset code must contain only numbers"),
+  newPassword: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+      "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
+    ),
 });
 export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
 

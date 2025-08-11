@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any*/
+
 export interface CanvasElement {
   id: string;
   type: "text" | "image" | "shape" | "media";
@@ -13,7 +15,7 @@ export interface CanvasElement {
   color?: string;
   mediaId?: string;
   shapeType?: string;
-  properties?: object;
+  properties?: Record<string, any>;
 }
 
 export interface CanvasData {
@@ -21,21 +23,21 @@ export interface CanvasData {
   height: number;
   backgroundColor?: string;
   elements: CanvasElement[];
-  metadata?: object;
+  metadata?: Record<string, any>;
 }
 
 // Canvas Configuration Response
 export interface CanvasConfigResponse {
   canvasId: string;
-  template: object;
-  sizeVariant: object;
+  template: Record<string, any>;
+  sizeVariant: Record<string, any>;
   constraints: {
     maxFileSize: number;
     allowedFormats: string[];
     allowedTypes: string[];
     requiredDPI: number;
     maxColors: number;
-    printArea: object;
+    printArea: Record<string, any>;
   };
   canvasSettings: {
     width: number;
@@ -55,10 +57,10 @@ export interface ArtworkUploadResponse {
     dpi: number;
     colors: number;
     warnings: string[];
-    dimensions: object;
+    dimensions: Record<string, any>;
   };
   processedUrl: string;
-  metadata: object;
+  metadata: Record<string, any>;
 }
 
 // Design Response
@@ -68,9 +70,9 @@ export interface DesignResponse {
   description?: string;
   preview: string;
   customizations: CanvasData;
-  metadata?: object;
-  template?: object;
-  sizeVariant?: object;
+  metadata?: Record<string, any>;
+  template?: Record<string, any>;
+  sizeVariant?: Record<string, any>;
   status: "DRAFT" | "COMPLETED" | "ARCHIVED";
   version: number;
   parentDesignId?: string;
@@ -81,9 +83,10 @@ export interface DesignResponse {
   updatedAt: string;
 }
 
+// Design List Response
 export interface DesignListResponse {
   designs: DesignResponse[];
-  meta: object;
+  meta: Record<string, any>;
 }
 
 // Template Presets Response
@@ -91,26 +94,29 @@ export interface TemplatePresetsResponse {
   colors: string[];
   fonts: string[];
   sizes: string[];
-  mediaRestrictions: object;
+  mediaRestrictions: Record<string, any>;
 }
 
+// Export Design Response
 export interface ExportDesignResponse {
   url: string;
   fileSize: number;
   format: string;
-  dimensions: object;
-  metadata: object;
+  dimensions: Record<string, any>;
+  metadata: Record<string, any>;
 }
 
+// Design Validation Response
 export interface DesignValidationResponse {
   isValid: boolean;
   score: number;
   errors: string[];
   warnings: string[];
-  printReadiness: object;
-  assetQuality: object;
+  printReadiness: Record<string, any>;
+  assetQuality: Record<string, any>;
 }
 
+// Share Design Response
 export interface ShareDesignResponse {
   token: string;
   url: string;
@@ -118,7 +124,7 @@ export interface ShareDesignResponse {
   createdAt: string;
 }
 
-// Font
+// Font Response
 export interface Font {
   id: string;
   family: string;
@@ -127,7 +133,7 @@ export interface Font {
   styles: string[];
   category: string;
   previewUrl: string;
-  urls: object;
+  urls: Record<string, any>;
   isPremium: boolean;
   description?: string;
   license?: string;

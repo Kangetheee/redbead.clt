@@ -1,16 +1,23 @@
 import { Fetcher } from "../api/api.service";
-import { PaginatedData4 } from "../shared/types";
 import {
   CreateAddressDto,
   UpdateAddressDto,
   GetAddressesDto,
 } from "./dto/address.dto";
-import { AddressResponse, AddressType } from "./types/address.types";
+import {
+  AddressResponse,
+  AddressType,
+  PaginatedAddressesResponse,
+} from "./types/address.types";
 
 export class AddressService {
   constructor(private fetcher = new Fetcher()) {}
 
-  public async findAll(params?: GetAddressesDto) {
+  /**
+   * Get paginated list of addresses for the current user
+   * Uses GET /v1/addresses
+   */
+  async findAll(params?: GetAddressesDto): Promise<PaginatedAddressesResponse> {
     const queryParams = new URLSearchParams();
 
     if (params?.page) {
@@ -23,40 +30,74 @@ export class AddressService {
     const queryString = queryParams.toString();
     const url = `/v1/addresses${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<PaginatedData4<AddressResponse>>(url);
+    return this.fetcher.request<PaginatedAddressesResponse>(url, {
+      method: "GET",
+    });
   }
 
-  public async findById(addressId: string) {
-    return this.fetcher.request<AddressResponse>(`/v1/addresses/${addressId}`);
+  /**
+   * Get a specific address by ID
+   * Uses GET /v1/addresses/{id}
+   */
+  async findById(addressId: string): Promise<AddressResponse> {
+    return this.fetcher.request<AddressResponse>(`/v1/addresses/${addressId}`, {
+      method: "GET",
+    });
   }
 
-  public async findDefaultByType(type: AddressType) {
+  /**
+   * Get the default address for a specific type
+   * Uses GET /v1/addresses/default/{type}
+   */
+  async findDefaultByType(type: AddressType): Promise<AddressResponse> {
     return this.fetcher.request<AddressResponse>(
-      `/v1/addresses/default/${type}`
+      `/v1/addresses/default/${type}`,
+      {
+        method: "GET",
+      }
     );
   }
 
-  public async create(values: CreateAddressDto) {
+  /**
+   * Create a new address for the current user
+   * Uses POST /v1/addresses
+   */
+  async create(values: CreateAddressDto): Promise<AddressResponse> {
     return this.fetcher.request<AddressResponse>("/v1/addresses", {
       method: "POST",
       data: values,
     });
   }
 
-  public async update(addressId: string, values: UpdateAddressDto) {
+  /**
+   * Update an address
+   * Uses PATCH /v1/addresses/{id}
+   */
+  async update(
+    addressId: string,
+    values: UpdateAddressDto
+  ): Promise<AddressResponse> {
     return this.fetcher.request<AddressResponse>(`/v1/addresses/${addressId}`, {
       method: "PATCH",
       data: values,
     });
   }
 
-  public async delete(addressId: string) {
+  /**
+   * Delete an address
+   * Uses DELETE /v1/addresses/{id}
+   */
+  async delete(addressId: string): Promise<void> {
     return this.fetcher.request<void>(`/v1/addresses/${addressId}`, {
       method: "DELETE",
     });
   }
 
-  public async setDefault(addressId: string) {
+  /**
+   * Set an address as default for its type
+   * Uses PATCH /v1/addresses/{id}/set-default
+   */
+  async setAsDefault(addressId: string): Promise<AddressResponse> {
     return this.fetcher.request<AddressResponse>(
       `/v1/addresses/${addressId}/set-default`,
       {

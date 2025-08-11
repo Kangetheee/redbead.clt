@@ -64,6 +64,12 @@ export function QuantitySelector({
     updateQuantity(quantity);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      updateQuantity(quantity);
+    }
+  };
+
   const buttonSize =
     size === "sm" ? "h-7 w-7" : size === "md" ? "h-8 w-8" : "h-9 w-9";
   const inputSize = size === "sm" ? "h-7" : size === "md" ? "h-8" : "h-9";
@@ -85,6 +91,7 @@ export function QuantitySelector({
         value={quantity}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
+        onKeyDown={handleKeyDown}
         className={`w-16 text-center ${inputSize}`}
         min={minQuantity}
         max={maxQuantity}

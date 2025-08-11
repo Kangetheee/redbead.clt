@@ -14,10 +14,10 @@ export default function ForgotPasswordPage() {
     <Card className="p-6">
       <div className="flex flex-col space-y-2 text-left">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Reset Password
+          Forgot Password
         </h1>
         <p className="text-sm text-muted-foreground">
-          Enter your phone number below to reset your password
+          Enter your phone number below and we&apos;ll send you a reset code
         </p>
       </div>
       <Suspense fallback={<div>Loading...</div>}>

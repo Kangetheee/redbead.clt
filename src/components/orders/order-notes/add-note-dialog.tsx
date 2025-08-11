@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
@@ -20,16 +19,11 @@ import {
   Eye,
   EyeOff,
   Filter,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import {
   Dialog,
   DialogContent,
@@ -40,7 +34,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -50,18 +43,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
-import { useAddOrderNote, useOrderNotes } from "@/hooks/use-orders";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+// import { useAddOrderNote, useOrderNotes } from "@/hooks/use-orders";
 import {
   CreateOrderNoteDto,
   createOrderNoteSchema,
@@ -79,60 +71,78 @@ interface AddNoteDialogProps {
   trigger?: React.ReactNode;
 }
 
+// Note type configuration with icons and colors
+const NOTE_TYPE_CONFIG = {
+  GENERAL: { icon: MessageSquare, color: "bg-blue-100 text-blue-800" },
+  URGENCY: { icon: AlertTriangle, color: "bg-red-100 text-red-800" },
+  TIMELINE: { icon: Clock, color: "bg-yellow-100 text-yellow-800" },
+  SHIPPING: { icon: Truck, color: "bg-green-100 text-green-800" },
+  CUSTOMIZATION: { icon: Star, color: "bg-purple-100 text-purple-800" },
+  PRODUCTION: { icon: Package, color: "bg-orange-100 text-orange-800" },
+  QUALITY: { icon: AlertTriangle, color: "bg-red-100 text-red-800" },
+  DESIGN_APPROVAL: { icon: FileText, color: "bg-indigo-100 text-indigo-800" },
+} as const;
+
+// Helper function to format note type display text
+const formatNoteType = (type: string): string => {
+  return type
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
+// Helper function to format priority display text
+const formatPriority = (priority: string): string => {
+  return priority.toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
 export function AddNoteDialog({
   orderId,
   onNoteAdded,
   trigger,
 }: AddNoteDialogProps) {
   const [open, setOpen] = useState(false);
-  const addOrderNote = useAddOrderNote();
+  // const addOrderNote = useAddOrderNote();
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<CreateOrderNoteDto>({
+  const form = useForm<CreateOrderNoteDto>({
     resolver: zodResolver(createOrderNoteSchema),
     defaultValues: {
-      noteType: "GENERAL",
+      type: "GENERAL",
       priority: "NORMAL",
       isInternal: false,
     },
   });
 
-  const watchedValues = watch();
+  const {
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = form;
 
   const onSubmit = async (data: CreateOrderNoteDto) => {
-    try {
-      // Fix: Pass the correct parameters to the mutation
-      await addOrderNote.mutateAsync({
-        orderId,
-        values: data,
-      });
-      setOpen(false);
+    // try {
+    //   await addOrderNote.mutateAsync({
+    //     orderId,
+    //     values: data,
+    //   });
+    //   setOpen(false);
+    //   reset();
+    //   onNoteAdded?.();
+    // } catch (error) {
+    //   console.error("Failed to add note:", error);
+    // }
+    console.log("TO be Implemented");
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
       reset();
-      onNoteAdded?.();
-    } catch (error) {
-      console.error("Failed to add note:", error);
     }
   };
 
-  const noteTypeIcons = {
-    GENERAL: MessageSquare,
-    URGENCY: AlertTriangle,
-    TIMELINE: Clock,
-    SHIPPING: Truck,
-    CUSTOMIZATION: Star,
-    PRODUCTION: Package,
-    QUALITY: AlertTriangle,
-    DESIGN_APPROVAL: FileText,
-  };
-
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
           <Button>
@@ -150,108 +160,135 @@ export function AddNoteDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="noteType">Note Type</Label>
-              <Select
-                value={watchedValues.noteType}
-                onValueChange={(value) => setValue("noteType", value as any)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select note type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NOTE_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type
-                        .replace("_", " ")
-                        .toLowerCase()
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.noteType && (
-                <p className="text-sm text-red-500">
-                  {errors.noteType.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select
-                value={watchedValues.priority || "NORMAL"}
-                onValueChange={(value) => setValue("priority", value as any)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NOTE_PRIORITIES.map((priority) => (
-                    <SelectItem key={priority} value={priority}>
-                      {priority
-                        .toLowerCase()
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="title">Title (Optional)</Label>
-            <Input
-              id="title"
-              {...register("title")}
-              placeholder="Brief note title..."
-            />
-            {errors.title && (
-              <p className="text-sm text-red-500">{errors.title.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="content">Note Content</Label>
-            <Textarea
-              id="content"
-              {...register("content")}
-              placeholder="Enter your note here..."
-              rows={4}
-            />
-            {errors.content && (
-              <p className="text-sm text-red-500">{errors.content.message}</p>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isInternal"
-                checked={watchedValues.isInternal}
-                onCheckedChange={(checked) => setValue("isInternal", checked)}
+        <Form {...form}>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Note Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select note type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {NOTE_TYPES.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {formatNoteType(type)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <Label htmlFor="isInternal" className="text-sm">
-                Internal note (not visible to customer)
-              </Label>
-            </div>
-          </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={addOrderNote.isPending}>
-              {addOrderNote.isPending ? "Adding..." : "Add Note"}
-            </Button>
-          </DialogFooter>
-        </form>
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {NOTE_PRIORITIES.map((priority) => (
+                          <SelectItem key={priority} value={priority}>
+                            {formatPriority(priority)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Title (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Brief note title..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="content"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Note Content</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter your note here..."
+                      rows={4}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="isInternal"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Internal Note</FormLabel>
+                    <FormDescription>
+                      Internal notes are not visible to customers
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add Note"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

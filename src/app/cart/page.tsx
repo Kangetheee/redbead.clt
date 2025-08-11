@@ -43,7 +43,9 @@ export default function CartPage() {
     // You can implement navigation to edit the item here
   };
 
-  const isEmpty = !cart || cart.summary.length === 0;
+  // FIXED: Check cart properly
+  const isEmpty = !cart || !cart.items || cart.items.length === 0;
+  const hasItems = cart && cart.items && cart.items.length > 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -88,7 +90,7 @@ export default function CartPage() {
                   ? "Loading..."
                   : isEmpty
                     ? "Your cart is empty"
-                    : `${cart.meta.itemCount} item${cart.meta.itemCount !== 1 ? "s" : ""} in your cart`}
+                    : `${cart.summary.itemCount} item${cart.summary.itemCount !== 1 ? "s" : ""} in your cart`}
               </p>
             </div>
           </div>
@@ -162,7 +164,7 @@ export default function CartPage() {
         )}
 
         {/* Cart Content */}
-        {!isLoading && !error && !isEmpty && cart && (
+        {!isLoading && !error && hasItems && cart && (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
@@ -174,11 +176,12 @@ export default function CartPage() {
                   variant="outline"
                   className="bg-green-50 text-green-700 border-green-200"
                 >
-                  {cart.meta.totalQuantity} items
+                  {cart.summary.totalQuantity} items
                 </Badge>
               </div>
 
-              {cart.summary.map((item) => (
+              {/* FIXED: Map over cart.items instead of cart.summary */}
+              {cart.items.map((item) => (
                 <CartItem key={item.id} item={item} onEdit={handleEditItem} />
               ))}
             </div>
@@ -194,7 +197,8 @@ export default function CartPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CartSummary summary={cart.meta} showDetails={true} />
+                    {/* FIXED: Pass the entire cart object to CartSummary */}
+                    <CartSummary summary={cart} showDetails={true} />
                   </CardContent>
                 </Card>
 
@@ -264,7 +268,7 @@ export default function CartPage() {
       </div>
 
       {/* Recently Viewed / Recommendations Section */}
-      {!isLoading && !error && !isEmpty && (
+      {!isLoading && !error && hasItems && (
         <section className="mt-16 bg-gray-50 py-16">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">

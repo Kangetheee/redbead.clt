@@ -5,17 +5,13 @@ import { ShoppingCart, Check } from "lucide-react";
 import { useAddToCart } from "@/hooks/use-cart";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { CustomizationChoiceDto } from "@/lib/cart/dto/cart.dto";
 
 interface AddToCartButtonProps {
-  templateId: string;
-  sizeVariantId: string;
+  productId: string;
+  variantId: string;
   quantity?: number;
-  customizations?: Array<{
-    optionId: string;
-    valueId: string;
-    customValue?: string;
-  }>;
-  designId?: string;
+  customizations?: CustomizationChoiceDto[];
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
   className?: string;
@@ -25,11 +21,10 @@ interface AddToCartButtonProps {
 }
 
 export function AddToCartButton({
-  templateId,
-  sizeVariantId,
+  productId,
+  variantId,
   quantity = 1,
   customizations = [],
-  designId,
   variant = "default",
   size = "default",
   className,
@@ -43,7 +38,6 @@ export function AddToCartButton({
   const isLoading = addToCart.isPending;
   const isSuccess = addToCart.isSuccess && showSuccess;
 
-  // Reset success state after a delay
   useEffect(() => {
     if (addToCart.isSuccess && showSuccessState) {
       setShowSuccess(true);
@@ -59,11 +53,10 @@ export function AddToCartButton({
     if (disabled || isLoading) return;
 
     addToCart.mutate({
-      templateId,
-      sizeVariantId,
+      productId,
+      variantId,
       quantity,
       customizations,
-      designId,
     });
   };
 

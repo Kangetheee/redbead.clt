@@ -55,7 +55,6 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { OrderResponse, OrderNote } from "@/lib/orders/types/orders.types";
-import { useOrderNotes } from "@/hooks/use-orders";
 
 interface TimelineEvent {
   id: string;
@@ -98,6 +97,68 @@ interface OrderTimelineProps {
   maxHeight?: string;
 }
 
+// Mock notes data generator
+const generateMockNotes = (orderId: string): OrderNote[] => {
+  const baseDate = new Date();
+
+  return [
+    {
+      id: "note-1",
+      type: "GENERAL",
+      priority: "NORMAL",
+      title: "Order Processing Started",
+      content:
+        "Order has been received and is being processed. Expected completion in 3-5 business days.",
+      isInternal: false,
+      createdBy: "admin-1",
+      createdAt: new Date(
+        baseDate.getTime() - 2 * 24 * 60 * 60 * 1000
+      ).toISOString(),
+      user: {
+        id: "admin-1",
+        name: "Sarah Wilson",
+        avatar: undefined,
+      },
+    },
+    {
+      id: "note-2",
+      type: "PRODUCTION",
+      priority: "HIGH",
+      title: "Material Sourcing Update",
+      content:
+        "Special materials have been sourced for this order. Production will begin once quality check is complete.",
+      isInternal: true,
+      createdBy: "admin-2",
+      createdAt: new Date(
+        baseDate.getTime() - 1 * 24 * 60 * 60 * 1000
+      ).toISOString(),
+      user: {
+        id: "admin-2",
+        name: "Michael Chen",
+        avatar: undefined,
+      },
+    },
+    {
+      id: "note-3",
+      type: "DESIGN_APPROVAL",
+      priority: "URGENT",
+      title: "Customer Design Feedback",
+      content:
+        "Customer has requested minor color adjustments. Design team is implementing changes.",
+      isInternal: false,
+      createdBy: "design-1",
+      createdAt: new Date(
+        baseDate.getTime() - 6 * 60 * 60 * 1000
+      ).toISOString(),
+      user: {
+        id: "design-1",
+        name: "Emma Rodriguez",
+        avatar: undefined,
+      },
+    },
+  ];
+};
+
 export default function OrderTimeline({
   order,
   showEstimates = true,
@@ -107,9 +168,11 @@ export default function OrderTimeline({
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [showSystemEvents, setShowSystemEvents] = useState(false);
 
-  // Fetch notes using the hook - the select function extracts the data directly
-  const { data: notesResponse } = useOrderNotes(order.id);
-  const notes: OrderNote[] = notesResponse || [];
+  // Use mock notes instead of the hook
+  const notes: OrderNote[] = useMemo(
+    () => generateMockNotes(order.id),
+    [order.id]
+  );
 
   // Helper functions - moved before useMemo
   const getStatusIcon = (status: string) => {
@@ -133,6 +196,8 @@ export default function OrderTimeline({
       case "PAYMENT_PENDING":
         return CreditCard;
       case "PAYMENT_CONFIRMED":
+        return CheckCircle;
+      case "CONFIRMED":
         return CheckCircle;
       default:
         return Clock;
@@ -161,6 +226,8 @@ export default function OrderTimeline({
         return "text-green-500";
       case "PAYMENT_PENDING":
         return "text-orange-500";
+      case "CONFIRMED":
+        return "text-green-500";
       default:
         return "text-yellow-500";
     }
@@ -420,12 +487,12 @@ export default function OrderTimeline({
       });
     }
 
-    // Notes as events
+    // Notes as events - FIXED: Use 'type' instead of 'noteType'
     notes.forEach((note) => {
       events.push({
         id: `note_${note.id}`,
         type: "NOTE_ADDED",
-        title: note.title || `${note.noteType.replace("_", " ")} Note Added`,
+        title: note.title || `${note.type.replace("_", " ")} Note Added`,
         description: note.content,
         timestamp: note.createdAt,
         icon: MessageSquare,
@@ -444,7 +511,7 @@ export default function OrderTimeline({
             }
           : undefined,
         metadata: {
-          noteType: note.noteType,
+          noteType: note.type, // Fixed: use 'type' instead of 'noteType'
           priority: note.priority,
           isInternal: note.isInternal,
         },

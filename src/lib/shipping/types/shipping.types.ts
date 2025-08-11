@@ -13,12 +13,12 @@ export interface ShippingRateResponse {
   description: string;
   baseRate: number;
   perKgRate: number;
-  freeShippingThreshold?: number;
-  estimatedDays: string;
   minWeight?: number | null;
   maxWeight?: number | null;
   minOrderValue?: number | null;
   maxOrderValue?: number | null;
+  freeShippingThreshold?: number | null;
+  estimatedDays: string;
   sortOrder: number;
   isActive: boolean;
   zoneId: string;
@@ -27,15 +27,15 @@ export interface ShippingRateResponse {
 }
 
 export interface ShippingAddress {
+  name: string;
   recipientName: string;
-  companyName?: string;
   street: string;
-  street2?: string;
   city: string;
   state: string;
   postalCode: string;
   country: string;
   phone: string;
+  type: "SHIPPING" | "BILLING" | "BOTH";
 }
 
 export interface ShippingOptionResponse {
@@ -56,15 +56,26 @@ export interface ShippingOptionResponse {
 export interface ShippingCalculationRequest {
   sessionId: string;
   shippingAddress: ShippingAddress;
-  urgencyLevel: "LOW" | "NORMAL" | "HIGH" | "URGENT";
 }
 
-export interface ShippingZoneFilters {
-  page?: number;
-  limit?: number;
+// API-specific pagination response structure
+export interface PaginatedShippingResponse<T> {
+  data: T[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    lastPage: number;
+  };
+  links: {
+    first: string;
+    last: string;
+    prev?: string;
+    next?: string;
+  };
 }
 
-export interface ShippingRateFilters {
-  page?: number;
-  limit?: number;
-}
+export type PaginatedZonesResponse =
+  PaginatedShippingResponse<ShippingZoneResponse>;
+export type PaginatedRatesResponse =
+  PaginatedShippingResponse<ShippingRateResponse>;

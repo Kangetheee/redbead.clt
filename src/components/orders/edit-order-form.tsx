@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -40,6 +40,15 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 import { useOrder, useUpdateOrder } from "@/hooks/use-orders";
 import {
@@ -48,7 +57,11 @@ import {
   ORDER_STATUS,
   URGENCY_LEVELS,
 } from "@/lib/orders/dto/orders.dto";
-import { OrderResponse } from "@/lib/orders/types/orders.types";
+import {
+  OrderResponse,
+  OrderItem,
+  isOrderItem,
+} from "@/lib/orders/types/orders.types";
 
 interface EditOrderFormProps {
   orderId: string;
@@ -56,26 +69,97 @@ interface EditOrderFormProps {
   onCancel?: () => void;
 }
 
+// Helper function to format date for input
+const formatDateForInput = (dateString?: string): string => {
+  if (!dateString) return "";
+  try {
+    return new Date(dateString).toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+};
+
+// Helper function to get status badge configuration
+const getStatusConfig = (status: string) => {
+  const statusConfigs: Record<string, { color: string; label: string }> = {
+    PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
+    CONFIRMED: { color: "bg-blue-100 text-blue-800", label: "Confirmed" },
+    DESIGN_PENDING: {
+      color: "bg-blue-100 text-blue-800",
+      label: "Design Pending",
+    },
+    DESIGN_APPROVED: {
+      color: "bg-green-100 text-green-800",
+      label: "Design Approved",
+    },
+    DESIGN_REJECTED: {
+      color: "bg-red-100 text-red-800",
+      label: "Design Rejected",
+    },
+    PAYMENT_PENDING: {
+      color: "bg-orange-100 text-orange-800",
+      label: "Payment Pending",
+    },
+    PAYMENT_CONFIRMED: {
+      color: "bg-green-100 text-green-800",
+      label: "Payment Confirmed",
+    },
+    PROCESSING: {
+      color: "bg-purple-100 text-purple-800",
+      label: "Processing",
+    },
+    PRODUCTION: {
+      color: "bg-purple-100 text-purple-800",
+      label: "In Production",
+    },
+    SHIPPED: { color: "bg-blue-100 text-blue-800", label: "Shipped" },
+    DELIVERED: { color: "bg-green-100 text-green-800", label: "Delivered" },
+    CANCELLED: { color: "bg-red-100 text-red-800", label: "Cancelled" },
+    REFUNDED: { color: "bg-gray-100 text-gray-800", label: "Refunded" },
+  };
+
+  return (
+    statusConfigs[status] || {
+      color: "bg-gray-100 text-gray-800",
+      label: status,
+    }
+  );
+};
+
+// Helper function to format order items properly
+const formatOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
+  if (!Array.isArray(orderItems)) return [];
+
+  return orderItems.map((item, index) => {
+    if (typeof item === "string") {
+      return {
+        id: item,
+        templateId: "Unknown",
+        sizeVariantId: "Unknown",
+        quantity: 1,
+      };
+    }
+    return item;
+  });
+};
+
 export default function EditOrderForm({
   orderId,
   onSuccess,
   onCancel,
 }: EditOrderFormProps) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Fetch order data
-  const { data: order, isLoading: orderLoading } = useOrder(orderId);
+  const {
+    data: order,
+    isLoading: orderLoading,
+    error: orderError,
+  } = useOrder(orderId);
   const updateOrder = useUpdateOrder();
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    reset,
-    formState: { errors, isDirty },
-  } = useForm<UpdateOrderDto>({
+  const form = useForm<UpdateOrderDto>({
     resolver: zodResolver(updateOrderSchema),
     defaultValues: {
       urgencyLevel: "NORMAL",
@@ -83,44 +167,36 @@ export default function EditOrderForm({
     },
   });
 
-  const watchedValues = watch();
+  const {
+    handleSubmit,
+    reset,
+    formState: { errors, isDirty, isSubmitting },
+  } = form;
 
   // Initialize form with order data
   useEffect(() => {
-    if (order) {
-      reset({
-        status: order.status as any,
+    if (order && !isInitialized) {
+      const formData: Partial<UpdateOrderDto> = {
+        status: order.status,
         trackingNumber: order.trackingNumber || "",
         trackingUrl: order.trackingUrl || "",
-        expectedDelivery: order.expectedDelivery
-          ? new Date(order.expectedDelivery).toISOString().split("T")[0]
-          : "",
+        expectedDelivery: formatDateForInput(order.expectedDelivery),
         notes: order.notes || "",
-        urgencyLevel: (order.urgencyLevel as any) || "NORMAL",
+        urgencyLevel: order.urgencyLevel || "NORMAL",
         expectedProductionDays: order.expectedProductionDays || 5,
         specialInstructions: order.specialInstructions || "",
-        designStartDate: order.designStartDate
-          ? new Date(order.designStartDate).toISOString().split("T")[0]
-          : "",
-        designCompletionDate: order.designCompletionDate
-          ? new Date(order.designCompletionDate).toISOString().split("T")[0]
-          : "",
-        productionStartDate: order.productionStartDate
-          ? new Date(order.productionStartDate).toISOString().split("T")[0]
-          : "",
-        productionEndDate: order.productionEndDate
-          ? new Date(order.productionEndDate).toISOString().split("T")[0]
-          : "",
-        shippingDate: order.shippingDate
-          ? new Date(order.shippingDate).toISOString().split("T")[0]
-          : "",
-        actualDeliveryDate: order.actualDeliveryDate
-          ? new Date(order.actualDeliveryDate).toISOString().split("T")[0]
-          : "",
-      });
-      setIsLoading(false);
+        designStartDate: formatDateForInput(order.designStartDate),
+        designCompletionDate: formatDateForInput(order.designCompletionDate),
+        productionStartDate: formatDateForInput(order.productionStartDate),
+        productionEndDate: formatDateForInput(order.productionEndDate),
+        shippingDate: formatDateForInput(order.shippingDate),
+        actualDeliveryDate: formatDateForInput(order.actualDeliveryDate),
+      };
+
+      reset(formData);
+      setIsInitialized(true);
     }
-  }, [order, reset]);
+  }, [order, reset, isInitialized]);
 
   const onSubmit = async (data: UpdateOrderDto) => {
     try {
@@ -131,47 +207,48 @@ export default function EditOrderForm({
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
-      DESIGN_PENDING: {
-        color: "bg-blue-100 text-blue-800",
-        label: "Design Pending",
-      },
-      DESIGN_APPROVED: {
-        color: "bg-green-100 text-green-800",
-        label: "Design Approved",
-      },
-      DESIGN_REJECTED: {
-        color: "bg-red-100 text-red-800",
-        label: "Design Rejected",
-      },
-      PAYMENT_PENDING: {
-        color: "bg-orange-100 text-orange-800",
-        label: "Payment Pending",
-      },
-      PAYMENT_CONFIRMED: {
-        color: "bg-green-100 text-green-800",
-        label: "Payment Confirmed",
-      },
-      PROCESSING: {
-        color: "bg-purple-100 text-purple-800",
-        label: "Processing",
-      },
-      PRODUCTION: {
-        color: "bg-purple-100 text-purple-800",
-        label: "In Production",
-      },
-      SHIPPED: { color: "bg-blue-100 text-blue-800", label: "Shipped" },
-      DELIVERED: { color: "bg-green-100 text-green-800", label: "Delivered" },
-      CANCELLED: { color: "bg-red-100 text-red-800", label: "Cancelled" },
-      REFUNDED: { color: "bg-gray-100 text-gray-800", label: "Refunded" },
-    }[status] || { color: "bg-gray-100 text-gray-800", label: status };
-
-    return <Badge className={statusConfig.color}>{statusConfig.label}</Badge>;
+  const renderStatusBadge = (status: string) => {
+    const config = getStatusConfig(status);
+    return <Badge className={config.color}>{config.label}</Badge>;
   };
 
-  if (orderLoading || isLoading || !order) {
+  const renderOrderItem = (item: OrderItem, index: number) => (
+    <div
+      key={item.id || index}
+      className="flex items-center justify-between p-3 border rounded-lg"
+    >
+      <div className="space-y-1">
+        <p className="font-medium">
+          {item.template?.name || `Template ID: ${item.templateId}`}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Size: {item.sizeVariant?.displayName || item.sizeVariantId}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Quantity: {item.quantity}
+        </p>
+        {item.customizations && item.customizations.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Customizations:{" "}
+            {item.customizations.map((c, i) => (
+              <span key={i}>
+                {c.customValue || c.valueId}
+                {i < item.customizations!.length - 1 && ", "}
+              </span>
+            ))}
+          </p>
+        )}
+        {item.status && (
+          <Badge variant="outline" className="text-xs">
+            {item.status.replace(/_/g, " ")}
+          </Badge>
+        )}
+      </div>
+      <Badge variant="outline">Item {index + 1}</Badge>
+    </div>
+  );
+
+  if (orderLoading) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
@@ -181,6 +258,21 @@ export default function EditOrderForm({
       </div>
     );
   }
+
+  if (orderError || !order) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load order details. Please try again.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const formattedOrderItems = formatOrderItems(order.orderItems);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -197,7 +289,7 @@ export default function EditOrderForm({
             <span className="text-sm text-muted-foreground">
               Current Status:
             </span>
-            {getStatusBadge(order.status)}
+            {renderStatusBadge(order.status)}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -225,7 +317,9 @@ export default function EditOrderForm({
               <Label className="text-xs font-medium text-muted-foreground">
                 CUSTOMER
               </Label>
-              <p className="font-medium">{order.customerId}</p>
+              <p className="font-medium">
+                {order.customerId || "Guest Customer"}
+              </p>
             </div>
             <div>
               <Label className="text-xs font-medium text-muted-foreground">
@@ -233,7 +327,7 @@ export default function EditOrderForm({
               </Label>
               <p className="font-medium">${order.totalAmount.toFixed(2)}</p>
               <p className="text-sm text-muted-foreground">
-                {order.orderItems.length} items
+                {formattedOrderItems.length} items
               </p>
             </div>
             <div>
@@ -251,305 +345,371 @@ export default function EditOrderForm({
         </CardContent>
       </Card>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Order Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Order Status & Tracking
-            </CardTitle>
-            <CardDescription>
-              Update order status and shipping information
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="status">Order Status</Label>
-                <Select
-                  value={watchedValues.status}
-                  onValueChange={(value) => setValue("status", value as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ORDER_STATUS.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <Form {...form}>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Order Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Order Status & Tracking
+              </CardTitle>
+              <CardDescription>
+                Update order status and shipping information
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Order Status</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {ORDER_STATUS.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.replace(/_/g, " ")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="space-y-2">
-                <Label htmlFor="expectedDelivery">Expected Delivery</Label>
-                <Input
-                  type="date"
-                  id="expectedDelivery"
-                  {...register("expectedDelivery")}
+                <FormField
+                  control={form.control}
+                  name="expectedDelivery"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expected Delivery</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="trackingNumber">Tracking Number</Label>
-                <Input
-                  id="trackingNumber"
-                  {...register("trackingNumber")}
-                  placeholder="Enter tracking number"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="trackingNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tracking Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter tracking number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="trackingUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tracking URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="url"
+                          placeholder="https://tracking-url.com"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Order Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Order Details
+              </CardTitle>
+              <CardDescription>
+                Update order specifications and requirements
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="urgencyLevel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Urgency Level</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select urgency" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {URGENCY_LEVELS.map((level) => (
+                            <SelectItem key={level} value={level}>
+                              {level.charAt(0) + level.slice(1).toLowerCase()}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="expectedProductionDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expected Production Days</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="5"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(
+                              parseInt(e.target.value) || undefined
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="trackingUrl">Tracking URL</Label>
-                <Input
-                  type="url"
-                  id="trackingUrl"
-                  {...register("trackingUrl")}
-                  placeholder="https://tracking-url.com"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Order Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Order Details
-            </CardTitle>
-            <CardDescription>
-              Update order specifications and requirements
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="urgencyLevel">Urgency Level</Label>
-                <Select
-                  value={watchedValues.urgencyLevel}
-                  onValueChange={(value) =>
-                    setValue("urgencyLevel", value as any)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select urgency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {URGENCY_LEVELS.map((level) => (
-                      <SelectItem key={level} value={level}>
-                        {level.charAt(0) + level.slice(1).toLowerCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="expectedProductionDays">
-                  Expected Production Days
-                </Label>
-                <Input
-                  type="number"
-                  min="1"
-                  id="expectedProductionDays"
-                  {...register("expectedProductionDays", {
-                    valueAsNumber: true,
-                  })}
-                  placeholder="5"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="specialInstructions">Special Instructions</Label>
-              <Textarea
-                id="specialInstructions"
-                {...register("specialInstructions")}
-                placeholder="Any special requirements or notes..."
-                rows={3}
+              <FormField
+                control={form.control}
+                name="specialInstructions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Special Instructions</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Any special requirements or notes..."
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Internal Notes</Label>
-              <Textarea
-                id="notes"
-                {...register("notes")}
-                placeholder="Internal notes about this order..."
-                rows={3}
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Internal Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Internal notes about this order..."
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
+            </CardContent>
+          </Card>
+
+          {/* Timeline Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Timeline Management
+              </CardTitle>
+              <CardDescription>
+                Set and track important dates for this order
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="designStartDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Design Start Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="designCompletionDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Design Completion Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="productionStartDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Production Start Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="productionEndDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Production End Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="shippingDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Shipping Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="actualDeliveryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Actual Delivery Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Order Items (Read-only) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Order Items
+              </CardTitle>
+              <CardDescription>Items in this order (read-only)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {formattedOrderItems.length > 0 ? (
+                  formattedOrderItems.map((item, index) =>
+                    renderOrderItem(item, index)
+                  )
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">
+                    No items found in this order
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              {isDirty ? "You have unsaved changes" : "No changes made"}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Timeline Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Timeline Management
-            </CardTitle>
-            <CardDescription>
-              Set and track important dates for this order
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="designStartDate">Design Start Date</Label>
-                <Input
-                  type="date"
-                  id="designStartDate"
-                  {...register("designStartDate")}
-                />
-              </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => reset()}
+                disabled={!isDirty || isSubmitting}
+              >
+                Reset Changes
+              </Button>
 
-              <div className="space-y-2">
-                <Label htmlFor="designCompletionDate">
-                  Design Completion Date
-                </Label>
-                <Input
-                  type="date"
-                  id="designCompletionDate"
-                  {...register("designCompletionDate")}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="productionStartDate">
-                  Production Start Date
-                </Label>
-                <Input
-                  type="date"
-                  id="productionStartDate"
-                  {...register("productionStartDate")}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="productionEndDate">Production End Date</Label>
-                <Input
-                  type="date"
-                  id="productionEndDate"
-                  {...register("productionEndDate")}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="shippingDate">Shipping Date</Label>
-                <Input
-                  type="date"
-                  id="shippingDate"
-                  {...register("shippingDate")}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="actualDeliveryDate">Actual Delivery Date</Label>
-                <Input
-                  type="date"
-                  id="actualDeliveryDate"
-                  {...register("actualDeliveryDate")}
-                />
-              </div>
+              <Button type="submit" disabled={!isDirty || isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Order Items (Read-only) */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Order Items
-            </CardTitle>
-            <CardDescription>Items in this order (read-only)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {order.orderItems.map((item, index) => (
-                <div
-                  key={item.id || index}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">
-                      Template ID: {item.templateId}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Size Variant: {item.sizeVariantId}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Quantity: {item.quantity}
-                    </p>
-                    {item.customizations && item.customizations.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Customizations:{" "}
-                        {item.customizations.map((c, i) => (
-                          <span key={i}>
-                            {c.customValue || c.valueId}
-                            {i < item.customizations!.length - 1 && ", "}
-                          </span>
-                        ))}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant="outline">Item {index + 1}</Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {isDirty ? "You have unsaved changes" : "No changes made"}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => reset()}
-              disabled={!isDirty || updateOrder.isPending}
-            >
-              Reset Changes
-            </Button>
-
-            <Button type="submit" disabled={!isDirty || updateOrder.isPending}>
-              {updateOrder.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Form Errors */}
-        {Object.keys(errors).length > 0 && (
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Please fix the errors above before saving.
-            </AlertDescription>
-          </Alert>
-        )}
-      </form>
+          {/* Form Errors */}
+          {Object.keys(errors).length > 0 && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Please fix the errors above before saving.
+              </AlertDescription>
+            </Alert>
+          )}
+        </form>
+      </Form>
     </div>
   );
 }

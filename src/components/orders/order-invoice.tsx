@@ -3,7 +3,6 @@
 
 import React, { useRef, useMemo } from "react";
 import { format } from "date-fns";
-import { ColumnDef } from "@tanstack/react-table";
 import {
   Download,
   Printer,
@@ -32,12 +31,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { DataTable } from "@/components/ui/data-table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import {
   OrderResponse,
-  OrderAddress,
   OrderItem,
+  OrderPayment,
+  isOrderItem,
 } from "@/lib/orders/types/orders.types";
 import { AddressResponse } from "@/lib/address/types/address.types";
 
@@ -52,13 +59,28 @@ interface InvoiceComponentProps {
 
 interface CompanyInfo {
   name: string;
-  address: OrderAddress;
+  address: CompanyAddress;
   phone?: string;
   email?: string;
   website?: string;
   logo?: string;
   taxId?: string;
   registrationNumber?: string;
+}
+
+interface CompanyAddress {
+  street: string;
+  street2?: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+}
+
+interface PaymentStatusConfig {
+  label: string;
+  color: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const DEFAULT_COMPANY_INFO: CompanyInfo = {
@@ -77,7 +99,7 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
   registrationNumber: "CPR/2020/123456",
 };
 
-const PAYMENT_STATUS_CONFIG = {
+const PAYMENT_STATUS_CONFIG: Record<string, PaymentStatusConfig> = {
   SUCCESS: {
     label: "Paid",
     color: "bg-green-100 text-green-800 border-green-200",
@@ -100,7 +122,98 @@ const PAYMENT_STATUS_CONFIG = {
   },
 };
 
-export default function OrderInvoices({
+// Helper function to format currency
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amount);
+};
+
+// Helper function to safely extract order items
+const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
+  if (!Array.isArray(orderItems)) return [];
+
+  return orderItems.map((item, index) => {
+    if (typeof item === "string") {
+      return {
+        id: item,
+        templateId: `unknown-${index}`,
+        sizeVariantId: "unknown",
+        quantity: 1,
+      };
+    }
+    return item;
+  });
+};
+
+// Helper function to get template name
+const getTemplateName = (item: OrderItem): string => {
+  return item.template?.name || `Template ${item.templateId}`;
+};
+
+// Helper function to format company address
+const formatCompanyAddress = (address: CompanyAddress): string => {
+  const parts = [
+    address.street,
+    address.street2,
+    address.city,
+    address.state,
+    address.country,
+    address.postalCode,
+  ].filter(Boolean);
+
+  return parts.join(", ");
+};
+
+// Helper function to format customer address
+const formatCustomerAddress = (address: AddressResponse): string => {
+  if (!address) return "";
+
+  // Use formattedAddress if available
+  if (address.formattedAddress) {
+    return address.formattedAddress;
+  }
+
+  // Construct from parts
+  const parts = [
+    address.street,
+    address.street2,
+    address.city,
+    address.state,
+    address.country,
+    address.postalCode,
+  ].filter(Boolean);
+
+  return parts.join(", ");
+};
+
+// Helper function to format customer info for billing section
+const formatCustomerInfo = (address: AddressResponse): string[] => {
+  const parts = [];
+
+  if (address.recipientName) {
+    parts.push(address.recipientName);
+  }
+
+  if (address.companyName) {
+    parts.push(address.companyName);
+  }
+
+  parts.push(formatCustomerAddress(address));
+
+  if (address.phone) {
+    parts.push(`Phone: ${address.phone}`);
+  }
+
+  if (address.email) {
+    parts.push(`Email: ${address.email}`);
+  }
+
+  return parts;
+};
+
+export default function OrderInvoice({
   order,
   companyInfo = DEFAULT_COMPANY_INFO,
   showActions = true,
@@ -110,152 +223,18 @@ export default function OrderInvoices({
 }: InvoiceComponentProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
 
-  // Define columns for order items table
-  const orderItemColumns: ColumnDef<OrderItem>[] = useMemo(
-    () => [
-      {
-        accessorKey: "id",
-        header: "Item",
-        cell: ({ row, table }) => {
-          const index = table
-            .getSortedRowModel()
-            .rows.findIndex((r) => r.id === row.id);
-          const item = row.original;
-
-          return (
-            <div>
-              <div className="font-medium">Item #{index + 1}</div>
-              {item.customizations && item.customizations.length > 0 && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  {item.customizations.length} customization(s)
-                </div>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "templateId",
-        header: "Template",
-        cell: ({ row }) => {
-          const item = row.original;
-          return (
-            <div>
-              <div className="font-medium">
-                {item.template?.name || item.templateId}
-              </div>
-              {item.template?.slug && (
-                <div className="text-xs text-muted-foreground">
-                  {item.template.slug}
-                </div>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "sizeVariantId",
-        header: "Size",
-        cell: ({ row }) => {
-          const item = row.original;
-          return (
-            <div>
-              <div>{item.sizeVariant?.displayName || item.sizeVariantId}</div>
-              {item.sizeVariant?.dimensions && (
-                <div className="text-xs text-muted-foreground">
-                  {item.sizeVariant.dimensions.width}&quot; ×{" "}
-                  {item.sizeVariant.dimensions.height}&quot;
-                </div>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "quantity",
-        header: "Qty",
-        cell: ({ row }) => (
-          <div className="text-right">{row.getValue("quantity")}</div>
-        ),
-      },
-      {
-        id: "unitPrice",
-        header: "Unit Price",
-        cell: ({ row }) => {
-          const item = row.original;
-          const unitPrice = item.sizeVariant?.price || 0;
-          return <div className="text-right">${unitPrice.toFixed(2)}</div>;
-        },
-      },
-      {
-        id: "total",
-        header: "Total",
-        cell: ({ row }) => {
-          const item = row.original;
-          const unitPrice = item.sizeVariant?.price || 0;
-          const total = unitPrice * item.quantity;
-          return (
-            <div className="text-right font-medium">${total.toFixed(2)}</div>
-          );
-        },
-      },
-    ],
-    []
+  // Extract order items safely
+  const orderItems = useMemo(
+    () => extractOrderItems(order.orderItems),
+    [order.orderItems]
   );
 
-  // Updated formatAddress function to handle both OrderAddress and AddressResponse
-  const formatAddress = (address: OrderAddress | AddressResponse) => {
-    if (!address) return "";
-
-    // Handle AddressResponse (from API) - use formattedAddress if available
-    if ("formattedAddress" in address && address.formattedAddress) {
-      return address.formattedAddress;
-    }
-
-    // Handle both OrderAddress and AddressResponse by filtering null/undefined values
-    const parts = [
-      address.street,
-      "street2" in address ? address.street2 : undefined, // Only AddressResponse has street2
-      address.city,
-      address.state,
-      address.country,
-      address.postalCode,
-    ].filter(Boolean);
-
-    return parts.join(", ");
-  };
-
-  // Format customer info for billing section
-  const formatCustomerInfo = (address: AddressResponse) => {
-    const parts = [];
-
-    if (address.recipientName) {
-      parts.push(address.recipientName);
-    }
-
-    if (address.companyName) {
-      parts.push(address.companyName);
-    }
-
-    parts.push(formatAddress(address));
-
-    if (address.phone) {
-      parts.push(`Phone: ${address.phone}`);
-    }
-
-    if (address.email) {
-      parts.push(`Email: ${address.email}`);
-    }
-
-    return parts;
-  };
-
-  const getPaymentStatus = () => {
+  // Get payment status configuration
+  const getPaymentStatus = (): PaymentStatusConfig => {
     if (order.payment?.status) {
       return (
-        PAYMENT_STATUS_CONFIG[
-          order.payment.status as keyof typeof PAYMENT_STATUS_CONFIG
-        ] || PAYMENT_STATUS_CONFIG.PENDING
+        PAYMENT_STATUS_CONFIG[order.payment.status] ||
+        PAYMENT_STATUS_CONFIG.PENDING
       );
     }
 
@@ -360,7 +339,7 @@ export default function OrderInvoices({
                 <div className="text-sm text-muted-foreground mt-2 space-y-1">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-3 w-3" />
-                    <span>{formatAddress(companyInfo.address)}</span>
+                    <span>{formatCompanyAddress(companyInfo.address)}</span>
                   </div>
                   {companyInfo.phone && (
                     <div className="flex items-center gap-2">
@@ -432,13 +411,14 @@ export default function OrderInvoices({
                 ) : (
                   <>
                     <div className="font-medium">
-                      Customer ID: {order.customerId}
+                      {order.customerId
+                        ? `Customer ID: ${order.customerId}`
+                        : "Guest Customer"}
                     </div>
-                    {formatCustomerInfo(order.shippingAddress).map(
-                      (line, index) => (
-                        <div key={index}>{line}</div>
-                      )
-                    )}
+                    {order.shippingAddress &&
+                      formatCustomerInfo(order.shippingAddress).map(
+                        (line, index) => <div key={index}>{line}</div>
+                      )}
                   </>
                 )}
               </div>
@@ -450,15 +430,21 @@ export default function OrderInvoices({
                 Ship To
               </h3>
               <div className="space-y-1 text-sm">
-                {formatCustomerInfo(order.shippingAddress).map(
-                  (line, index) => (
-                    <div
-                      key={index}
-                      className={index === 0 ? "font-medium" : ""}
-                    >
-                      {line}
-                    </div>
+                {order.shippingAddress ? (
+                  formatCustomerInfo(order.shippingAddress).map(
+                    (line, index) => (
+                      <div
+                        key={index}
+                        className={index === 0 ? "font-medium" : ""}
+                      >
+                        {line}
+                      </div>
+                    )
                   )
+                ) : (
+                  <div className="text-muted-foreground">
+                    No shipping address provided
+                  </div>
                 )}
                 {order.specialInstructions && (
                   <div className="text-muted-foreground italic mt-2">
@@ -477,17 +463,89 @@ export default function OrderInvoices({
             </h3>
 
             <div className="border rounded-lg overflow-hidden">
-              <DataTable
-                columns={orderItemColumns}
-                data={order.orderItems}
-                hideHeader={false}
-                paginate={false}
-                showViewOptions={false}
-                allowSearch={false}
-                filterByDate={false}
-                isFetching={false}
-                skeletonCount={0}
-              />
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Template</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Unit Price</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderItems.length > 0 ? (
+                    orderItems.map((item, index) => {
+                      const unitPrice = item.sizeVariant?.price || 0;
+                      const total = unitPrice * item.quantity;
+
+                      return (
+                        <TableRow key={item.id || index}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                Item #{index + 1}
+                              </div>
+                              {item.customizations &&
+                                item.customizations.length > 0 && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {item.customizations.length}{" "}
+                                    customization(s)
+                                  </div>
+                                )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {getTemplateName(item)}
+                              </div>
+                              {item.template?.slug && (
+                                <div className="text-xs text-muted-foreground">
+                                  {item.template.slug}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div>
+                                {item.sizeVariant?.displayName ||
+                                  item.sizeVariantId}
+                              </div>
+                              {item.sizeVariant?.dimensions && (
+                                <div className="text-xs text-muted-foreground">
+                                  {item.sizeVariant.dimensions.width}&quot; ×{" "}
+                                  {item.sizeVariant.dimensions.height}&quot;
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.quantity}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(unitPrice)}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(total)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No items found in this order
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </div>
 
@@ -496,26 +554,26 @@ export default function OrderInvoices({
             <div className="w-full max-w-md space-y-3">
               <div className="flex justify-between">
                 <span>Subtotal:</span>
-                <span>${order.subtotalAmount.toFixed(2)}</span>
+                <span>{formatCurrency(order.subtotalAmount)}</span>
               </div>
 
               {order.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Discount:</span>
-                  <span>-${order.discountAmount.toFixed(2)}</span>
+                  <span>-{formatCurrency(order.discountAmount)}</span>
                 </div>
               )}
 
               <div className="flex justify-between">
-                <span>Tax (16%):</span>
-                <span>${order.taxAmount.toFixed(2)}</span>
+                <span>Tax:</span>
+                <span>{formatCurrency(order.taxAmount)}</span>
               </div>
 
               <div className="flex justify-between">
                 <span>Shipping:</span>
                 <span>
                   {order.shippingAmount > 0
-                    ? `$${order.shippingAmount.toFixed(2)}`
+                    ? formatCurrency(order.shippingAmount)
                     : "Free"}
                 </span>
               </div>
@@ -524,7 +582,7 @@ export default function OrderInvoices({
 
               <div className="flex justify-between text-lg font-bold">
                 <span>Total:</span>
-                <span>${order.totalAmount.toFixed(2)}</span>
+                <span>{formatCurrency(order.totalAmount)}</span>
               </div>
             </div>
           </div>
@@ -556,8 +614,8 @@ export default function OrderInvoices({
                 </div>
                 {order.payment?.amount && (
                   <div>
-                    <span className="font-medium">Amount Paid:</span> $
-                    {order.payment.amount.toFixed(2)}
+                    <span className="font-medium">Amount Paid:</span>{" "}
+                    {formatCurrency(order.payment.amount)}
                   </div>
                 )}
               </div>
@@ -579,7 +637,7 @@ export default function OrderInvoices({
                     {format(new Date(order.expectedDelivery), "MMM dd, yyyy")}
                   </div>
                 )}
-                {order.urgencyLevel !== "NORMAL" && (
+                {order.urgencyLevel && order.urgencyLevel !== "NORMAL" && (
                   <div>
                     <span className="font-medium">Priority:</span>
                     <Badge variant="outline" className="ml-2">

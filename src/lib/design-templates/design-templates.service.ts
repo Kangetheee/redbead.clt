@@ -1,317 +1,313 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Fetcher } from "../api/api.service";
-import { PaginatedData } from "../shared/types";
 import {
-  GetTemplatesDto,
   CreateTemplateDto,
   UpdateTemplateDto,
+  GetTemplatesDto,
+  GetTemplatesByProductDto,
+  DuplicateTemplateDto,
   CreateSizeVariantDto,
   UpdateSizeVariantDto,
+  CreateColorPresetDto,
+  UpdateColorPresetDto,
+  CreateFontPresetDto,
+  UpdateFontPresetDto,
+  CreateMediaRestrictionDto,
+  UpdateMediaRestrictionDto,
   CalculatePriceDto,
-  DuplicateTemplateDto,
-  GetTemplatesByProductDto,
   GetTemplateAnalyticsDto,
 } from "./dto/design-template.dto";
 import {
-  DesignTemplate,
-  TemplatesListResponse,
-  SizeVariant,
-  CustomizationOption,
-  PriceCalculationResult,
-  TemplatePerformanceAnalytics,
+  SizeVariantResponseDto,
+  ColorPresetResponseDto,
+  FontPresetResponseDto,
+  MediaRestrictionResponseDto,
+  PriceCalculationResponseDto,
+  TemplateResponse,
 } from "./types/design-template.types";
+import { PaginatedData2 } from "../shared/types";
 
 export class DesignTemplatesService {
   constructor(private fetcher = new Fetcher()) {}
 
-  /**
-   * Get paginated list of design templates with optional filtering
-   * GET /v1/templates
-   */
-  public async findAll(
-    params?: GetTemplatesDto
-  ): Promise<PaginatedData<DesignTemplate>> {
-    const queryParams = new URLSearchParams();
-
-    if (params?.page) {
-      queryParams.append("page", params.page.toString());
-    }
-    if (params?.limit) {
-      queryParams.append("limit", params.limit.toString());
-    }
-    if (params?.search) {
-      queryParams.append("search", params.search);
-    }
-    if (params?.productId) {
-      queryParams.append("productId", params.productId);
-    }
-    if (params?.categoryId) {
-      queryParams.append("categoryId", params.categoryId);
-    }
-    if (params?.isActive !== undefined) {
-      queryParams.append("isActive", params.isActive.toString());
-    }
-    if (params?.isFeatured !== undefined) {
-      queryParams.append("isFeatured", params.isFeatured.toString());
-    }
-
-    const queryString = queryParams.toString();
-    const url = `/v1/templates${queryString ? `?${queryString}` : ""}`;
-
-    const apiResponse = await this.fetcher.request<TemplatesListResponse>(
-      url,
-      {},
-      { auth: false }
-    );
-
-    return {
-      items: apiResponse.items,
-      meta: {
-        totalItems: apiResponse.meta.totalItems,
-        itemsPerPage: apiResponse.meta.itemsPerPage,
-        currentPage: apiResponse.meta.currentPage,
-        totalPages: apiResponse.meta.totalPages,
-      },
-    };
+  // Template CRUD Operations
+  async createTemplate(values: CreateTemplateDto) {
+    return this.fetcher.request<TemplateResponse>("/v1/templates", {
+      method: "POST",
+      data: values,
+    });
   }
 
-  /**
-   * Get design template by ID
-   * GET /v1/templates/{id}
-   */
-  public async findById(templateId: string): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>(
-      `/v1/templates/${templateId}`,
-      {},
+  async getTemplates(params: GetTemplatesDto) {
+    const query = new URLSearchParams();
+    if (params.pageIndex !== undefined)
+      query.append("pageIndex", params.pageIndex.toString());
+    if (params.pageSize !== undefined)
+      query.append("pageSize", params.pageSize.toString());
+    if (params.search) query.append("search", params.search);
+    if (params.productId) query.append("productId", params.productId);
+    if (params.categoryId) query.append("categoryId", params.categoryId);
+    if (params.isActive !== undefined)
+      query.append("isActive", params.isActive.toString());
+
+    return this.fetcher.request<PaginatedData2<TemplateResponse>>(
+      `/v1/templates?${query.toString()}`,
+      { method: "GET" },
       { auth: false }
     );
   }
 
-  /**
-   * Get design template by slug
-   * GET /v1/templates/slug/{slug}
-   */
-  public async findBySlug(slug: string): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>(
-      `/v1/templates/slug/${slug}`,
-      {},
-      { auth: false }
-    );
-  }
-
-  /**
-   * Get all available templates for a specific product type
-   * GET /v1/templates/by-product/{productId}
-   */
-  public async findByProduct(
+  async getTemplatesByProduct(
     productId: string,
     params?: GetTemplatesByProductDto
-  ): Promise<DesignTemplate[]> {
-    const queryParams = new URLSearchParams();
+  ) {
+    const query = new URLSearchParams();
+    if (params?.isActive !== undefined)
+      query.append("isActive", params.isActive.toString());
 
-    if (params?.isActive !== undefined) {
-      queryParams.append("isActive", params.isActive.toString());
-    }
-
-    const queryString = queryParams.toString();
-    const url = `/v1/templates/by-product/${productId}${queryString ? `?${queryString}` : ""}`;
-
-    return this.fetcher.request<DesignTemplate[]>(url, {}, { auth: false });
+    return this.fetcher.request<PaginatedData2<TemplateResponse>>(
+      `/v1/templates/by-product/${productId}?${query.toString()}`,
+      { method: "GET" },
+      { auth: false }
+    );
   }
 
-  /**
-   * Create a new design template
-   * POST /v1/templates
-   */
-  public async create(values: CreateTemplateDto): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>(
-      "/v1/templates",
+  async getTemplateById(id: string) {
+    return this.fetcher.request<TemplateResponse>(
+      `/v1/templates/${id}`,
       {
-        method: "POST",
-        data: values,
+        method: "GET",
       },
       { auth: false }
     );
   }
 
-  /**
-   * Update design template information and settings
-   * PATCH /v1/templates/{id}
-   */
-  public async update(
-    templateId: string,
-    values: UpdateTemplateDto
-  ): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>(
-      `/v1/templates/${templateId}`,
-      {
-        method: "PATCH",
-        data: values,
-      },
+  async getTemplateBySlug(slug: string) {
+    return this.fetcher.request<TemplateResponse>(
+      `/v1/templates/slug/${slug}`,
+      { method: "GET" },
       { auth: false }
     );
   }
 
-  /**
-   * Delete design template (must not be used by any orders or designs)
-   * DELETE /v1/templates/{id}
-   */
-  public async delete(templateId: string): Promise<void> {
-    return this.fetcher.request<void>(
-      `/v1/templates/${templateId}`,
-      {
-        method: "DELETE",
-      },
-      { auth: false }
-    );
+  async updateTemplate(id: string, values: UpdateTemplateDto) {
+    return this.fetcher.request<TemplateResponse>(`/v1/templates/${id}`, {
+      method: "PATCH",
+      data: values,
+    });
   }
 
-  /**
-   * Create a copy of an existing template
-   * POST /v1/templates/{templateId}/duplicate
-   */
-  public async duplicate(
-    templateId: string,
-    values: DuplicateTemplateDto
-  ): Promise<DesignTemplate> {
-    return this.fetcher.request<DesignTemplate>(
+  async deleteTemplate(id: string) {
+    return this.fetcher.request<void>(`/v1/templates/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async duplicateTemplate(templateId: string, values: DuplicateTemplateDto) {
+    return this.fetcher.request<TemplateResponse>(
       `/v1/templates/${templateId}/duplicate`,
       {
         method: "POST",
         data: values,
-      },
-      { auth: false }
+      }
     );
   }
 
-  // Size Variant Methods
-
-  /**
-   * Get all size variants for a template
-   * GET /v1/templates/{templateId}/variants
-   */
-  public async getSizeVariants(templateId: string): Promise<SizeVariant[]> {
-    return this.fetcher.request<SizeVariant[]>(
-      `/v1/templates/${templateId}/variants`,
-      {},
-      { auth: false }
-    );
-  }
-
-  /**
-   * Create a new size variant for a template
-   * POST /v1/templates/{templateId}/variants
-   */
-  public async createSizeVariant(
-    templateId: string,
-    values: CreateSizeVariantDto
-  ): Promise<SizeVariant> {
-    return this.fetcher.request<SizeVariant>(
-      `/v1/templates/${templateId}/variants`,
+  // Size Variant Operations
+  async createSizeVariant(templateId: string, values: CreateSizeVariantDto) {
+    return this.fetcher.request<SizeVariantResponseDto>(
+      `/v1/templates/${templateId}/size-variants`,
       {
         method: "POST",
         data: values,
-      },
+      }
+    );
+  }
+
+  async getSizeVariants(templateId: string) {
+    return this.fetcher.request<SizeVariantResponseDto[]>(
+      `/v1/templates/${templateId}/size-variants`,
+      { method: "GET" },
       { auth: false }
     );
   }
 
-  /**
-   * Update a template size variant
-   * PATCH /v1/templates/{templateId}/variants/{variantId}
-   */
-  public async updateSizeVariant(
+  async updateSizeVariant(
     templateId: string,
     variantId: string,
     values: UpdateSizeVariantDto
-  ): Promise<SizeVariant> {
-    return this.fetcher.request<SizeVariant>(
-      `/v1/templates/${templateId}/variants/${variantId}`,
+  ) {
+    return this.fetcher.request<SizeVariantResponseDto>(
+      `/v1/templates/${templateId}/size-variants/${variantId}`,
       {
         method: "PATCH",
         data: values,
-      },
-      { auth: false }
+      }
     );
   }
 
-  /**
-   * Delete a template size variant
-   * DELETE /v1/templates/{templateId}/variants/{variantId}
-   */
-  public async deleteSizeVariant(
-    templateId: string,
-    variantId: string
-  ): Promise<void> {
+  async deleteSizeVariant(templateId: string, variantId: string) {
     return this.fetcher.request<void>(
-      `/v1/templates/${templateId}/variants/${variantId}`,
+      `/v1/templates/${templateId}/size-variants/${variantId}`,
+      { method: "DELETE" }
+    );
+  }
+
+  // Color Preset Operations
+  async createColorPreset(templateId: string, values: CreateColorPresetDto) {
+    return this.fetcher.request<ColorPresetResponseDto>(
+      `/v1/templates/${templateId}/color-presets`,
       {
-        method: "DELETE",
-      },
+        method: "POST",
+        data: values,
+      }
+    );
+  }
+
+  async getColorPresets(templateId: string) {
+    return this.fetcher.request<ColorPresetResponseDto[]>(
+      `/v1/templates/${templateId}/color-presets`,
+      { method: "GET" },
       { auth: false }
     );
   }
 
-  // Customization and Pricing Methods
-
-  /**
-   * Get available customization options for a template
-   * GET /v1/templates/{templateId}/customizations/options
-   */
-  public async getCustomizationOptions(
-    templateId: string
-  ): Promise<CustomizationOption[]> {
-    return this.fetcher.request<CustomizationOption[]>(
-      `/v1/templates/${templateId}/customizations/options`,
-      {},
-      { auth: false }
-    );
-  }
-
-  /**
-   * Calculate total price with customizations and quantity
-   * POST /v1/templates/{templateId}/calculate-price
-   */
-  public async calculatePrice(
+  async updateColorPreset(
     templateId: string,
-    values: CalculatePriceDto
-  ): Promise<PriceCalculationResult> {
-    return this.fetcher.request<PriceCalculationResult>(
+    presetId: string,
+    values: UpdateColorPresetDto
+  ) {
+    return this.fetcher.request<ColorPresetResponseDto>(
+      `/v1/templates/${templateId}/color-presets/${presetId}`,
+      {
+        method: "PATCH",
+        data: values,
+      }
+    );
+  }
+
+  async deleteColorPreset(templateId: string, presetId: string) {
+    return this.fetcher.request<void>(
+      `/v1/templates/${templateId}/color-presets/${presetId}`,
+      { method: "DELETE" }
+    );
+  }
+
+  // Font Preset Operations
+  async createFontPreset(templateId: string, values: CreateFontPresetDto) {
+    return this.fetcher.request<FontPresetResponseDto>(
+      `/v1/templates/${templateId}/font-presets`,
+      {
+        method: "POST",
+        data: values,
+      }
+    );
+  }
+
+  async getFontPresets(templateId: string) {
+    return this.fetcher.request<FontPresetResponseDto[]>(
+      `/v1/templates/${templateId}/font-presets`,
+      { method: "GET" },
+      { auth: false }
+    );
+  }
+
+  async updateFontPreset(
+    templateId: string,
+    presetId: string,
+    values: UpdateFontPresetDto
+  ) {
+    return this.fetcher.request<FontPresetResponseDto>(
+      `/v1/templates/${templateId}/font-presets/${presetId}`,
+      {
+        method: "PATCH",
+        data: values,
+      }
+    );
+  }
+
+  async deleteFontPreset(templateId: string, presetId: string) {
+    return this.fetcher.request<void>(
+      `/v1/templates/${templateId}/font-presets/${presetId}`,
+      { method: "DELETE" }
+    );
+  }
+
+  // Media Restriction Operations
+  async createMediaRestriction(
+    templateId: string,
+    values: CreateMediaRestrictionDto
+  ) {
+    return this.fetcher.request<MediaRestrictionResponseDto>(
+      `/v1/templates/${templateId}/media-restrictions`,
+      {
+        method: "POST",
+        data: values,
+      }
+    );
+  }
+
+  async getMediaRestrictions(templateId: string) {
+    return this.fetcher.request<MediaRestrictionResponseDto[]>(
+      `/v1/templates/${templateId}/media-restrictions`,
+      { method: "GET" },
+      { auth: false }
+    );
+  }
+
+  async updateMediaRestriction(
+    templateId: string,
+    restrictionId: string,
+    values: UpdateMediaRestrictionDto
+  ) {
+    return this.fetcher.request<MediaRestrictionResponseDto>(
+      `/v1/templates/${templateId}/media-restrictions/${restrictionId}`,
+      {
+        method: "PATCH",
+        data: values,
+      }
+    );
+  }
+
+  async deleteMediaRestriction(templateId: string, restrictionId: string) {
+    return this.fetcher.request<void>(
+      `/v1/templates/${templateId}/media-restrictions/${restrictionId}`,
+      { method: "DELETE" }
+    );
+  }
+
+  // Price Calculation
+  async calculatePrice(templateId: string, values: CalculatePriceDto) {
+    return this.fetcher.request<PriceCalculationResponseDto>(
       `/v1/templates/${templateId}/calculate-price`,
       {
         method: "POST",
         data: values,
-      },
+      }
+    );
+  }
+
+  // Analytics (if endpoints exist)
+  async getTemplateAnalytics(params?: GetTemplateAnalyticsDto) {
+    const query = new URLSearchParams();
+    if (params?.startDate) query.append("startDate", params.startDate);
+    if (params?.endDate) query.append("endDate", params.endDate);
+    if (params?.templateIds) {
+      params.templateIds.forEach((id) => query.append("templateIds", id));
+    }
+
+    return this.fetcher.request<any>(
+      `/v1/templates/analytics/performance?${query.toString()}`,
+      { method: "GET" },
       { auth: false }
     );
   }
 
-  // Analytics Methods
-
-  /**
-   * Get performance analytics for templates
-   * GET /v1/templates/analytics/performance
-   */
-  public async getAnalytics(
-    params?: GetTemplateAnalyticsDto
-  ): Promise<TemplatePerformanceAnalytics> {
-    const queryParams = new URLSearchParams();
-
-    if (params?.includeAnalytics !== undefined) {
-      queryParams.append(
-        "includeAnalytics",
-        params.includeAnalytics.toString()
-      );
-    }
-    if (params?.dateRange) {
-      queryParams.append("dateRange", params.dateRange.toString());
-    }
-
-    const queryString = queryParams.toString();
-    const url = `/v1/templates/analytics/performance${queryString ? `?${queryString}` : ""}`;
-
-    return this.fetcher.request<TemplatePerformanceAnalytics>(
-      url,
-      {},
+  // Customization Options (if endpoint exists)
+  async getCustomizationOptions(templateId: string) {
+    return this.fetcher.request<any>(
+      `/v1/templates/${templateId}/customizations/options`,
+      { method: "GET" },
       { auth: false }
     );
   }

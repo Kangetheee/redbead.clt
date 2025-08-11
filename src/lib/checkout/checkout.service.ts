@@ -6,6 +6,7 @@ import {
   ValidateCheckoutDto,
   CompleteCheckoutDto,
   GuestCompleteCheckoutDto,
+  ListCheckoutSessionsDto,
 } from "./dto/checkout.dto";
 import {
   CheckoutSession,
@@ -13,6 +14,7 @@ import {
   CheckoutValidation,
   CheckoutResponse,
   OrderConfirmation,
+  CheckoutSessionsListResponse,
 } from "./types/checkout.types";
 
 export class CheckoutService {
@@ -113,6 +115,30 @@ export class CheckoutService {
   ): Promise<OrderConfirmation> {
     return this.fetcher.request<OrderConfirmation>(
       `/v1/checkout/confirmation/${orderId}`
+    );
+  }
+
+  public async listCheckoutSessions(
+    params: ListCheckoutSessionsDto
+  ): Promise<CheckoutSessionsListResponse> {
+    // Build query string for the parameters
+    const queryParams = new URLSearchParams();
+    queryParams.append("pageIndex", params.pageIndex.toString());
+    queryParams.append("pageSize", params.pageSize.toString());
+
+    if (params.customerEmail) {
+      queryParams.append("customerEmail", params.customerEmail);
+    }
+
+    if (params.status) {
+      queryParams.append("status", params.status);
+    }
+
+    return this.fetcher.request<CheckoutSessionsListResponse>(
+      `/v1/checkout/sessions?${queryParams.toString()}`,
+      {
+        method: "GET",
+      }
     );
   }
 }

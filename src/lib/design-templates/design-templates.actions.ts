@@ -1,201 +1,160 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
-import { getErrorMessage } from "../get-error-message";
-import { ActionResponse, PaginatedData } from "../shared/types";
+import { getErrorMessage } from "@/lib/get-error-message";
+import { ActionResponse, PaginatedData2 } from "@/lib/shared/types";
+import { DesignTemplatesService } from "./design-templates.service";
 import {
-  GetTemplatesDto,
   CreateTemplateDto,
   UpdateTemplateDto,
+  GetTemplatesDto,
+  GetTemplatesByProductDto,
+  DuplicateTemplateDto,
   CreateSizeVariantDto,
   UpdateSizeVariantDto,
+  CreateColorPresetDto,
+  UpdateColorPresetDto,
+  CreateFontPresetDto,
+  UpdateFontPresetDto,
+  CreateMediaRestrictionDto,
+  UpdateMediaRestrictionDto,
   CalculatePriceDto,
-  DuplicateTemplateDto,
-  GetTemplatesByProductDto,
   GetTemplateAnalyticsDto,
 } from "./dto/design-template.dto";
 import {
-  DesignTemplate,
-  SizeVariant,
-  CustomizationOption,
-  PriceCalculationResult,
-  TemplatePerformanceAnalytics,
+  SizeVariantResponseDto,
+  ColorPresetResponseDto,
+  FontPresetResponseDto,
+  MediaRestrictionResponseDto,
+  PriceCalculationResponseDto,
+  TemplateResponse,
 } from "./types/design-template.types";
-import { DesignTemplatesService } from "./design-templates.service";
 
-const designTemplatesService = new DesignTemplatesService();
+const templatesService = new DesignTemplatesService();
 
-// Template CRUD actions
+// Template CRUD Actions
+export async function createTemplateAction(
+  values: CreateTemplateDto
+): Promise<ActionResponse<TemplateResponse>> {
+  try {
+    const res = await templatesService.createTemplate(values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
 
-/**
- * Get paginated list of design templates with optional filtering
- * GET /v1/templates
- */
 export async function getTemplatesAction(
-  params?: GetTemplatesDto
-): Promise<ActionResponse<PaginatedData<DesignTemplate>>> {
+  params: GetTemplatesDto = {}
+): Promise<ActionResponse<PaginatedData2<TemplateResponse>>> {
   try {
-    const res = await designTemplatesService.findAll(params);
+    const res = await templatesService.getTemplates(params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-/**
- * Get design template by ID
- * GET /v1/templates/{id}
- */
-export async function getTemplateAction(
-  templateId: string
-): Promise<ActionResponse<DesignTemplate>> {
-  try {
-    const res = await designTemplatesService.findById(templateId);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-/**
- * Get design template by slug
- * GET /v1/templates/slug/{slug}
- */
-export async function getTemplateBySlugAction(
-  slug: string
-): Promise<ActionResponse<DesignTemplate>> {
-  try {
-    const res = await designTemplatesService.findBySlug(slug);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-/**
- * Get all available templates for a specific product type
- * GET /v1/templates/by-product/{productId}
- */
 export async function getTemplatesByProductAction(
   productId: string,
   params?: GetTemplatesByProductDto
-): Promise<ActionResponse<DesignTemplate[]>> {
+): Promise<ActionResponse<PaginatedData2<TemplateResponse>>> {
   try {
-    const res = await designTemplatesService.findByProduct(productId, params);
+    const res = await templatesService.getTemplatesByProduct(productId, params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-/**
- * Create a new design template
- * POST /v1/templates
- */
-export async function createTemplateAction(
-  values: CreateTemplateDto
-): Promise<ActionResponse<DesignTemplate>> {
+export async function getTemplateAction(
+  id: string
+): Promise<ActionResponse<TemplateResponse>> {
   try {
-    const res = await designTemplatesService.create(values);
+    const res = await templatesService.getTemplateById(id);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-/**
- * Update design template information and settings
- * PATCH /v1/templates/{id}
- */
+export async function getTemplateBySlugAction(
+  slug: string
+): Promise<ActionResponse<TemplateResponse>> {
+  try {
+    const res = await templatesService.getTemplateBySlug(slug);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
 export async function updateTemplateAction(
-  templateId: string,
+  id: string,
   values: UpdateTemplateDto
-): Promise<ActionResponse<DesignTemplate>> {
+): Promise<ActionResponse<TemplateResponse>> {
   try {
-    const res = await designTemplatesService.update(templateId, values);
+    const res = await templatesService.updateTemplate(id, values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-/**
- * Delete design template (must not be used by any orders or designs)
- * DELETE /v1/templates/{id}
- */
 export async function deleteTemplateAction(
-  templateId: string
+  id: string
 ): Promise<ActionResponse<void>> {
   try {
-    await designTemplatesService.delete(templateId);
+    await templatesService.deleteTemplate(id);
     return { success: true, data: undefined };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-/**
- * Create a copy of an existing template
- * POST /v1/templates/{templateId}/duplicate
- */
 export async function duplicateTemplateAction(
   templateId: string,
   values: DuplicateTemplateDto
-): Promise<ActionResponse<DesignTemplate>> {
+): Promise<ActionResponse<TemplateResponse>> {
   try {
-    const res = await designTemplatesService.duplicate(templateId, values);
+    const res = await templatesService.duplicateTemplate(templateId, values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-// Size Variant actions
-
-/**
- * Get all size variants for a template
- * GET /v1/templates/{templateId}/variants
- */
-export async function getSizeVariantsAction(
-  templateId: string
-): Promise<ActionResponse<SizeVariant[]>> {
-  try {
-    const res = await designTemplatesService.getSizeVariants(templateId);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-/**
- * Create a new size variant for a template
- * POST /v1/templates/{templateId}/variants
- */
+// Size Variant Actions
 export async function createSizeVariantAction(
   templateId: string,
   values: CreateSizeVariantDto
-): Promise<ActionResponse<SizeVariant>> {
+): Promise<ActionResponse<SizeVariantResponseDto>> {
   try {
-    const res = await designTemplatesService.createSizeVariant(
-      templateId,
-      values
-    );
+    const res = await templatesService.createSizeVariant(templateId, values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-/**
- * Update a template size variant
- * PATCH /v1/templates/{templateId}/variants/{variantId}
- */
+export async function getSizeVariantsAction(
+  templateId: string
+): Promise<ActionResponse<SizeVariantResponseDto[]>> {
+  try {
+    const res = await templatesService.getSizeVariants(templateId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
 export async function updateSizeVariantAction(
   templateId: string,
   variantId: string,
   values: UpdateSizeVariantDto
-): Promise<ActionResponse<SizeVariant>> {
+): Promise<ActionResponse<SizeVariantResponseDto>> {
   try {
-    const res = await designTemplatesService.updateSizeVariant(
+    const res = await templatesService.updateSizeVariant(
       templateId,
       variantId,
       values
@@ -206,67 +165,211 @@ export async function updateSizeVariantAction(
   }
 }
 
-/**
- * Delete a template size variant
- * DELETE /v1/templates/{templateId}/variants/{variantId}
- */
 export async function deleteSizeVariantAction(
   templateId: string,
   variantId: string
 ): Promise<ActionResponse<void>> {
   try {
-    await designTemplatesService.deleteSizeVariant(templateId, variantId);
+    await templatesService.deleteSizeVariant(templateId, variantId);
     return { success: true, data: undefined };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-// Customization and Pricing actions
-
-/**
- * Get available customization options for a template
- * GET /v1/templates/{templateId}/customizations/options
- */
-export async function getCustomizationOptionsAction(
-  templateId: string
-): Promise<ActionResponse<CustomizationOption[]>> {
+// Color Preset Actions
+export async function createColorPresetAction(
+  templateId: string,
+  values: CreateColorPresetDto
+): Promise<ActionResponse<ColorPresetResponseDto>> {
   try {
-    const res =
-      await designTemplatesService.getCustomizationOptions(templateId);
+    const res = await templatesService.createColorPreset(templateId, values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-/**
- * Calculate total price with customizations and quantity
- * POST /v1/templates/{templateId}/calculate-price
- */
+export async function getColorPresetsAction(
+  templateId: string
+): Promise<ActionResponse<ColorPresetResponseDto[]>> {
+  try {
+    const res = await templatesService.getColorPresets(templateId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function updateColorPresetAction(
+  templateId: string,
+  presetId: string,
+  values: UpdateColorPresetDto
+): Promise<ActionResponse<ColorPresetResponseDto>> {
+  try {
+    const res = await templatesService.updateColorPreset(
+      templateId,
+      presetId,
+      values
+    );
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function deleteColorPresetAction(
+  templateId: string,
+  presetId: string
+): Promise<ActionResponse<void>> {
+  try {
+    await templatesService.deleteColorPreset(templateId, presetId);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Font Preset Actions
+export async function createFontPresetAction(
+  templateId: string,
+  values: CreateFontPresetDto
+): Promise<ActionResponse<FontPresetResponseDto>> {
+  try {
+    const res = await templatesService.createFontPreset(templateId, values);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function getFontPresetsAction(
+  templateId: string
+): Promise<ActionResponse<FontPresetResponseDto[]>> {
+  try {
+    const res = await templatesService.getFontPresets(templateId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function updateFontPresetAction(
+  templateId: string,
+  presetId: string,
+  values: UpdateFontPresetDto
+): Promise<ActionResponse<FontPresetResponseDto>> {
+  try {
+    const res = await templatesService.updateFontPreset(
+      templateId,
+      presetId,
+      values
+    );
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function deleteFontPresetAction(
+  templateId: string,
+  presetId: string
+): Promise<ActionResponse<void>> {
+  try {
+    await templatesService.deleteFontPreset(templateId, presetId);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Media Restriction Actions
+export async function createMediaRestrictionAction(
+  templateId: string,
+  values: CreateMediaRestrictionDto
+): Promise<ActionResponse<MediaRestrictionResponseDto>> {
+  try {
+    const res = await templatesService.createMediaRestriction(
+      templateId,
+      values
+    );
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function getMediaRestrictionsAction(
+  templateId: string
+): Promise<ActionResponse<MediaRestrictionResponseDto[]>> {
+  try {
+    const res = await templatesService.getMediaRestrictions(templateId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function updateMediaRestrictionAction(
+  templateId: string,
+  restrictionId: string,
+  values: UpdateMediaRestrictionDto
+): Promise<ActionResponse<MediaRestrictionResponseDto>> {
+  try {
+    const res = await templatesService.updateMediaRestriction(
+      templateId,
+      restrictionId,
+      values
+    );
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function deleteMediaRestrictionAction(
+  templateId: string,
+  restrictionId: string
+): Promise<ActionResponse<void>> {
+  try {
+    await templatesService.deleteMediaRestriction(templateId, restrictionId);
+    return { success: true, data: undefined };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Price Calculation Action
 export async function calculatePriceAction(
   templateId: string,
   values: CalculatePriceDto
-): Promise<ActionResponse<PriceCalculationResult>> {
+): Promise<ActionResponse<PriceCalculationResponseDto>> {
   try {
-    const res = await designTemplatesService.calculatePrice(templateId, values);
+    const res = await templatesService.calculatePrice(templateId, values);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-// Analytics actions
-
-/**
- * Get performance analytics for templates
- * GET /v1/templates/analytics/performance
- */
+// Analytics Actions
 export async function getTemplateAnalyticsAction(
   params?: GetTemplateAnalyticsDto
-): Promise<ActionResponse<TemplatePerformanceAnalytics>> {
+): Promise<ActionResponse<any>> {
   try {
-    const res = await designTemplatesService.getAnalytics(params);
+    const res = await templatesService.getTemplateAnalytics(params);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Customization Options Action
+export async function getCustomizationOptionsAction(
+  templateId: string
+): Promise<ActionResponse<any>> {
+  try {
+    const res = await templatesService.getCustomizationOptions(templateId);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };

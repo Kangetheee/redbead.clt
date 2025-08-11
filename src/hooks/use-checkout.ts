@@ -11,6 +11,7 @@ import {
   completeGuestCheckoutAction,
   getCheckoutSessionAction,
   getOrderConfirmationAction,
+  listCheckoutSessionsAction,
 } from "@/lib/checkout/checkout.actions";
 import {
   InitCheckoutDto,
@@ -19,11 +20,13 @@ import {
   ValidateCheckoutDto,
   CompleteCheckoutDto,
   GuestCompleteCheckoutDto,
+  ListCheckoutSessionsDto,
 } from "@/lib/checkout/dto/checkout.dto";
 
-// Query Keys
 export const checkoutKeys = {
   all: ["checkout"] as const,
+  sessions: (filters?: Partial<ListCheckoutSessionsDto>) =>
+    [...checkoutKeys.all, "sessions", filters] as const,
   session: (sessionId: string) =>
     [...checkoutKeys.all, "session", sessionId] as const,
   confirmation: (orderId: string) =>
@@ -63,6 +66,22 @@ export function useOrderConfirmation(orderId: string, enabled = true) {
       return result.data;
     },
     enabled: enabled && !!orderId,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useCheckoutSessions(
+  params: ListCheckoutSessionsDto = { pageIndex: 0, pageSize: 10 }
+) {
+  return useQuery({
+    queryKey: checkoutKeys.sessions(params),
+    queryFn: async () => {
+      const result = await listCheckoutSessionsAction(params);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
     refetchOnWindowFocus: false,
   });
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCart, useCartItemCount } from "@/hooks/use-cart";
+import { useCartItemCount, useCartTotalQuantity } from "@/hooks/use-cart";
 import { cn } from "@/lib/utils";
 
 interface CartFloatingButtonProps {
@@ -19,10 +19,8 @@ export function CartFloatingButton({
   showOnEmpty = false,
 }: CartFloatingButtonProps) {
   const router = useRouter();
-  const { data: cart } = useCart();
   const itemCount = useCartItemCount();
-
-  const totalQuantity = cart?.meta.totalQuantity || 0;
+  const totalQuantity = useCartTotalQuantity();
 
   // Don't show if cart is empty and showOnEmpty is false
   if (!showOnEmpty && itemCount === 0) {
@@ -45,7 +43,7 @@ export function CartFloatingButton({
       <Button
         onClick={handleClick}
         size="lg"
-        className="relative h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+        className="relative h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow bg-green-600 hover:bg-green-700"
       >
         <ShoppingCart className="h-6 w-6" />
 

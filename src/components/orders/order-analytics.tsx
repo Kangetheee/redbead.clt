@@ -56,7 +56,11 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useOrders } from "@/hooks/use-orders";
-import { OrderResponse, OrderListItem } from "@/lib/orders/types/orders.types";
+import {
+  OrderResponse,
+  OrderItem,
+  isOrderItem,
+} from "@/lib/orders/types/orders.types";
 import { GetOrdersDto, ORDER_STATUS } from "@/lib/orders/dto/orders.dto";
 
 type DateRangeType = "7d" | "30d" | "90d" | "1y";
@@ -67,6 +71,42 @@ interface OrderAnalyticsProps {
   showFilters?: boolean;
 }
 
+interface AnalyticsData {
+  totalOrders: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+  completionRate: number;
+  cancellationRate: number;
+  pendingOrders: number;
+  ordersTrend: number;
+  revenueTrend: number;
+  statusCounts: Record<string, number>;
+  dailyData: Array<{
+    date: string;
+    orders: number;
+    revenue: number;
+    avgOrderValue: number;
+  }>;
+  topTemplates: Array<{
+    name: string;
+    count: number;
+    revenue: number;
+  }>;
+}
+
+interface StatusChartDataItem {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface DailyDataItem {
+  date: string;
+  orders: number;
+  revenue: number;
+  avgOrderValue: number;
+}
+
 const DATE_RANGE_OPTIONS: Array<{ value: DateRangeType; label: string }> = [
   { value: "7d", label: "Last 7 days" },
   { value: "30d", label: "Last 30 days" },
@@ -74,8 +114,9 @@ const DATE_RANGE_OPTIONS: Array<{ value: DateRangeType; label: string }> = [
   { value: "1y", label: "Last year" },
 ];
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   PENDING: "#f59e0b",
+  CONFIRMED: "#3b82f6",
   DESIGN_PENDING: "#3b82f6",
   DESIGN_APPROVED: "#10b981",
   DESIGN_REJECTED: "#ef4444",
@@ -87,7 +128,29 @@ const STATUS_COLORS = {
   DELIVERED: "#10b981",
   CANCELLED: "#ef4444",
   REFUNDED: "#6b7280",
-} as const;
+};
+
+// Helper function to safely extract order items
+const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
+  if (!Array.isArray(orderItems)) return [];
+
+  return orderItems.map((item, index) => {
+    if (typeof item === "string") {
+      return {
+        id: item,
+        templateId: `unknown-${index}`,
+        sizeVariantId: "unknown",
+        quantity: 1,
+      };
+    }
+    return item;
+  });
+};
+
+// Helper function to format template name
+const getTemplateName = (item: OrderItem): string => {
+  return item.template?.name || `Template ${item.templateId}`;
+};
 
 export default function OrderAnalytics({
   dateRange = "30d",
@@ -129,20 +192,19 @@ export default function OrderAnalytics({
   );
 
   // Fetch orders data using the hook
-  const { data: ordersData, isLoading, refetch } = useOrders(filters);
+  const { data: ordersData, isLoading, error, refetch } = useOrders(filters);
 
-  const orders: OrderListItem[] = ordersData?.success
-    ? ordersData.data.data || []
-    : [];
+  // Extract orders from the paginated response
+  const orders: OrderResponse[] = ordersData?.items || [];
 
   // Calculate analytics
-  const analytics = useMemo(() => {
+  const analytics: AnalyticsData | null = useMemo(() => {
     if (!orders.length) return null;
 
     // Basic metrics
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce(
-      (sum, order) => sum + order.totalAmount,
+      (sum, order) => sum + (order.totalAmount || 0),
       0
     );
     const averageOrderValue = totalRevenue / totalOrders;
@@ -150,24 +212,15 @@ export default function OrderAnalytics({
     // Status distribution
     const statusCounts = orders.reduce(
       (acc, order) => {
-        acc[order.status] = (acc[order.status] || 0) + 1;
+        const status = order.status || "UNKNOWN";
+        acc[status] = (acc[status] || 0) + 1;
         return acc;
       },
       {} as Record<string, number>
     );
 
-    // // Urgency distribution
-    // const urgencyCounts = orders.reduce(
-    //   (acc, order) => {
-    //     const urgency = order.urgencyLevel || "NORMAL";
-    //     acc[urgency] = (acc[urgency] || 0) + 1;
-    //     return acc;
-    //   },
-    //   {} as Record<string, number>
-    // );
-
     // Daily data for charts
-    const dailyData = [];
+    const dailyData: DailyDataItem[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const date = subDays(new Date(), i);
       const dateStr = format(date, "yyyy-MM-dd");
@@ -175,31 +228,33 @@ export default function OrderAnalytics({
         (order) => format(new Date(order.createdAt), "yyyy-MM-dd") === dateStr
       );
 
+      const dayRevenue = dayOrders.reduce(
+        (sum, order) => sum + (order.totalAmount || 0),
+        0
+      );
+
       dailyData.push({
         date: format(date, "MMM dd"),
         orders: dayOrders.length,
-        revenue: dayOrders.reduce((sum, order) => sum + order.totalAmount, 0),
-        avgOrderValue:
-          dayOrders.length > 0
-            ? dayOrders.reduce((sum, order) => sum + order.totalAmount, 0) /
-              dayOrders.length
-            : 0,
+        revenue: dayRevenue,
+        avgOrderValue: dayOrders.length > 0 ? dayRevenue / dayOrders.length : 0,
       });
     }
 
     // Top templates (from order items)
     const templateCounts = orders.reduce(
       (acc, order) => {
-        order.orderItems.forEach((item) => {
-          const templateName =
-            item.template?.name || `Template ${item.templateId}`;
+        const orderItems = extractOrderItems(order.orderItems);
+        const itemCount = orderItems.length || 1; // Prevent division by zero
+
+        orderItems.forEach((item) => {
+          const templateName = getTemplateName(item);
           if (!acc[templateName]) {
             acc[templateName] = { name: templateName, count: 0, revenue: 0 };
           }
-          acc[templateName].count += item.quantity;
+          acc[templateName].count += item.quantity || 1;
           // Calculate revenue per template - simplified calculation
-          acc[templateName].revenue +=
-            order.totalAmount / order.orderItems.length;
+          acc[templateName].revenue += (order.totalAmount || 0) / itemCount;
         });
         return acc;
       },
@@ -214,12 +269,14 @@ export default function OrderAnalytics({
     const completedOrders = orders.filter(
       (order) => order.status === "DELIVERED"
     ).length;
-    const completionRate = (completedOrders / totalOrders) * 100;
+    const completionRate =
+      totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
 
     const cancelledOrders = orders.filter(
       (order) => order.status === "CANCELLED"
     ).length;
-    const cancellationRate = (cancelledOrders / totalOrders) * 100;
+    const cancellationRate =
+      totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
 
     const pendingOrders = orders.filter((order) =>
       ["PENDING", "DESIGN_PENDING", "PAYMENT_PENDING", "PROCESSING"].includes(
@@ -227,9 +284,10 @@ export default function OrderAnalytics({
       )
     ).length;
 
-    // Calculate trends (compare with previous period) - mock data for now
-    const previousPeriodOrders = orders.length * 0.8; // Mock data
-    const previousPeriodRevenue = totalRevenue * 0.85; // Mock data
+    // Calculate trends (compare with previous period) - simplified calculation
+    // In a real implementation, you'd fetch previous period data
+    const previousPeriodOrders = Math.max(1, orders.length * 0.8); // Mock data
+    const previousPeriodRevenue = Math.max(1, totalRevenue * 0.85); // Mock data
 
     const ordersTrend =
       ((totalOrders - previousPeriodOrders) / previousPeriodOrders) * 100;
@@ -246,27 +304,19 @@ export default function OrderAnalytics({
       ordersTrend,
       revenueTrend,
       statusCounts,
-      // urgencyCounts,
       dailyData,
       topTemplates,
     };
   }, [orders, days]);
 
   // Prepare chart data
-  const statusChartData = analytics
+  const statusChartData: StatusChartDataItem[] = analytics
     ? Object.entries(analytics.statusCounts).map(([status, count]) => ({
         name: status.replace(/_/g, " "),
         value: count,
-        color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || "#6b7280",
+        color: STATUS_COLORS[status] || "#6b7280",
       }))
     : [];
-
-  // const urgencyChartData = analytics
-  //   ? Object.entries(analytics.urgencyCounts).map(([urgency, count]) => ({
-  //       name: urgency,
-  //       value: count,
-  //     }))
-  //   : [];
 
   // Handler functions with proper typing
   const handleDateRangeChange = (value: string) => {
@@ -275,6 +325,15 @@ export default function OrderAnalytics({
 
   const handleMetricChange = (value: string) => {
     setSelectedMetric(value as MetricType);
+  };
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  const handleExport = () => {
+    // Placeholder for export functionality
+    console.log("Export analytics data");
   };
 
   if (isLoading) {
@@ -296,6 +355,17 @@ export default function OrderAnalytics({
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert>
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load analytics data. Please try again.
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -339,10 +409,10 @@ export default function OrderAnalytics({
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
             </Button>
           </div>
@@ -508,21 +578,21 @@ export default function OrderAnalytics({
           </CardContent>
         </Card>
 
-        {/* Urgency Distribution */}
+        {/* Placeholder for Additional Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Order Urgency Levels</CardTitle>
+            <CardTitle>Order Volume by Day</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={urgencyChartData}>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={analytics.dailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
+                <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="value" fill="#8b5cf6" />
+                <Bar dataKey="orders" fill="#8b5cf6" />
               </BarChart>
-            </ResponsiveContainer> */}
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
@@ -539,25 +609,32 @@ export default function OrderAnalytics({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analytics.topTemplates.map((template, index) => (
-                <div
-                  key={template.name}
-                  className="flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                      <span className="text-sm font-medium">{index + 1}</span>
+              {analytics.topTemplates.length > 0 ? (
+                analytics.topTemplates.map((template, index) => (
+                  <div
+                    key={template.name}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                        <span className="text-sm font-medium">{index + 1}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">{template.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {template.count} units • $
+                          {template.revenue.toFixed(2)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{template.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {template.count} units • ${template.revenue.toFixed(2)}
-                      </p>
-                    </div>
+                    <Badge variant="outline">{template.count}</Badge>
                   </div>
-                  <Badge variant="outline">{template.count}</Badge>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">
+                  No template data available
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

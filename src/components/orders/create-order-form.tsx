@@ -52,7 +52,7 @@ import { toast } from "sonner";
 
 import { useCreateOrder } from "@/hooks/use-orders";
 import { useAddresses } from "@/hooks/use-address";
-import { useCalculateShipping } from "@/hooks/use-shipping";
+import { calculateShippingAction } from "@/lib/shipping/shipping.actions";
 import {
   useDesignTemplates,
   useSizeVariants,
@@ -80,9 +80,12 @@ export default function CreateOrderForm({
   const [templateSearch, setTemplateSearch] = useState("");
   const [selectedShippingOption, setSelectedShippingOption] =
     useState<ShippingOptionResponse | null>(null);
+  const [shippingOptions, setShippingOptions] = useState<
+    ShippingOptionResponse[]
+  >([]);
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
 
   const createOrder = useCreateOrder();
-  const calculateShipping = useCalculateShipping();
 
   // Fetch templates with search
   const {
@@ -92,10 +95,9 @@ export default function CreateOrderForm({
   } = useDesignTemplates({
     search: templateSearch || undefined,
     isActive: true,
-    limit: 50,
   });
 
-  // Fetch addresses - using proper hook
+  // Fetch addresses
   const {
     data: addressesData,
     isLoading: addressesLoading,
@@ -135,14 +137,14 @@ export default function CreateOrderForm({
 
   const watchedValues = watch();
 
-  // Get templates from response - fix data access
+  // Get templates from response
   const templates = templatesData?.success
     ? templatesData.data?.items || []
     : [];
 
-  // Get addresses from response - using proper AddressResponse structure
+  // Get addresses from response
   const addresses: AddressResponse[] = addressesData?.success
-    ? addressesData.data?.data || []
+    ? addressesData.data?.items || []
     : [];
 
   // Map order urgency levels to shipping urgency levels
@@ -165,38 +167,52 @@ export default function CreateOrderForm({
 
   // Calculate shipping when shipping address changes
   useEffect(() => {
-    const shippingAddressId = watchedValues.shippingAddressId;
-    if (shippingAddressId) {
+    const calculateShipping = async () => {
+      const shippingAddressId = watchedValues.shippingAddressId;
+      if (!shippingAddressId) return;
+
       const selectedAddress = addresses.find(
         (addr) => addr.id === shippingAddressId
       );
-      if (selectedAddress) {
-        // Calculate shipping options
-        calculateShipping.mutate({
-          sessionId: `order-${Date.now()}`, // Generate session ID
+      if (!selectedAddress) return;
+
+      setIsCalculatingShipping(true);
+      try {
+        const response = await calculateShippingAction({
+          sessionId: `order-${Date.now()}`,
           shippingAddress: {
+            name: selectedAddress.name || "Shipping Address",
             recipientName: selectedAddress.recipientName,
-            companyName: selectedAddress.companyName || undefined,
             street: selectedAddress.street,
-            street2: selectedAddress.street2 || undefined,
             city: selectedAddress.city,
-            state: selectedAddress.state || selectedAddress.city, // Fallback to city if no state
+            state: selectedAddress.state || selectedAddress.city,
             postalCode: selectedAddress.postalCode,
-            country: selectedAddress.country.toUpperCase(), // Ensure uppercase for country code
+            country: selectedAddress.country.toUpperCase(),
             phone: selectedAddress.phone || "",
+            type: "SHIPPING" as const,
           },
-          urgencyLevel: mapOrderUrgencyToShipping(
-            watchedValues.urgencyLevel || "NORMAL"
-          ),
+          // urgencyLevel: mapOrderUrgencyToShipping(
+          //   watchedValues.urgencyLevel || "NORMAL"
+          // ),
         });
+
+        if (response.success) {
+          setShippingOptions(response.data || []);
+        } else {
+          toast.error("Failed to calculate shipping options");
+          setShippingOptions([]);
+        }
+      } catch (error) {
+        console.error("Shipping calculation error:", error);
+        toast.error("Failed to calculate shipping options");
+        setShippingOptions([]);
+      } finally {
+        setIsCalculatingShipping(false);
       }
-    }
-  }, [
-    watchedValues.shippingAddressId,
-    watchedValues.urgencyLevel,
-    addresses,
-    calculateShipping,
-  ]);
+    };
+
+    calculateShipping();
+  }, [watchedValues.shippingAddressId, watchedValues.urgencyLevel, addresses]);
 
   const onSubmit = async (data: CreateOrderDto) => {
     try {
@@ -213,16 +229,21 @@ export default function CreateOrderForm({
 
       if (invalidItems.length > 0) {
         toast.error("Please complete all item details");
-        setStep(1); // Go back to items step
+        setStep(1);
+        return;
+      }
+
+      // Ensure shipping address is selected
+      if (!data.shippingAddressId) {
+        toast.error("Please select a shipping address");
+        setStep(3);
         return;
       }
 
       const result = await createOrder.mutateAsync(data);
-      if (result.success && result.data) {
-        toast.success("Order created successfully!");
-        onSuccess?.(result.data.id);
-        router.push(`/orders/${result.data.id}`);
-      }
+      toast.success("Order created successfully!");
+      onSuccess?.(result.id);
+      router.push(`/orders/${result.id}`);
     } catch (error: any) {
       console.error("Failed to create order:", error);
       toast.error(error?.message || "Failed to create order");
@@ -244,10 +265,9 @@ export default function CreateOrderForm({
     }
   };
 
-  // Template selection handler - simplified
   const handleTemplateSelect = (index: number, templateId: string) => {
     setValue(`items.${index}.templateId`, templateId);
-    setValue(`items.${index}.sizeVariantId`, ""); // Reset size variant when template changes
+    setValue(`items.${index}.sizeVariantId`, "");
   };
 
   const getStepIcon = (stepNumber: number) => {
@@ -272,7 +292,7 @@ export default function CreateOrderForm({
           (item) => item.templateId && item.sizeVariantId && item.quantity > 0
         );
       case 2:
-        return true; // Customer info is optional for now
+        return true; // Customer info is optional
       case 3:
         return !!watchedValues.shippingAddressId;
       case 4:
@@ -305,7 +325,6 @@ export default function CreateOrderForm({
     },
   ];
 
-  // Format address for display - using AddressResponse structure
   const formatAddress = (address: AddressResponse) => {
     const parts = [
       address.street,
@@ -319,12 +338,10 @@ export default function CreateOrderForm({
     return parts.join(", ");
   };
 
-  // Get template by ID for display
   const getTemplateById = (templateId: string) => {
     return templates.find((t) => t.id === templateId);
   };
 
-  // Calculate estimated total including shipping
   const calculateEstimatedTotal = () => {
     const validItems =
       watchedValues.items?.filter(
@@ -335,7 +352,6 @@ export default function CreateOrderForm({
     validItems.forEach((item) => {
       const template = getTemplateById(item.templateId);
       if (template) {
-        // Use template base price - size variant pricing would need separate lookup
         subtotal += template.basePrice * item.quantity;
       }
     });
@@ -348,12 +364,6 @@ export default function CreateOrderForm({
   };
 
   const { subtotal, tax, shipping, total } = calculateEstimatedTotal();
-
-  // Get shipping options from calculation result
-  const shippingOptions: ShippingOptionResponse[] = calculateShipping.data
-    ?.success
-    ? calculateShipping.data.data || []
-    : [];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -667,7 +677,7 @@ export default function CreateOrderForm({
                   value={watchedValues.shippingAddressId}
                   onValueChange={(value) => {
                     setValue("shippingAddressId", value);
-                    setSelectedShippingOption(null); // Reset shipping option when address changes
+                    setSelectedShippingOption(null);
                   }}
                   disabled={addressesLoading}
                 >
@@ -723,34 +733,19 @@ export default function CreateOrderForm({
                     Shipping address is required
                   </p>
                 )}
-                {addressesError && (
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      Failed to load addresses. Please try again.
-                    </AlertDescription>
-                  </Alert>
-                )}
               </div>
 
               {/* Shipping Options */}
               {watchedValues.shippingAddressId && (
                 <div className="space-y-2">
                   <Label>Shipping Options</Label>
-                  {calculateShipping.isPending ? (
+                  {isCalculatingShipping ? (
                     <div className="flex items-center gap-2 p-3 border rounded-lg">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span className="text-sm text-muted-foreground">
                         Calculating shipping options...
                       </span>
                     </div>
-                  ) : calculateShipping.error ? (
-                    <Alert>
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertDescription>
-                        Failed to calculate shipping options. Please try again.
-                      </AlertDescription>
-                    </Alert>
                   ) : shippingOptions.length > 0 ? (
                     <div className="space-y-2">
                       {shippingOptions.map((option) => (
@@ -829,44 +824,24 @@ export default function CreateOrderForm({
                   disabled={addressesLoading}
                 >
                   <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        addressesLoading
-                          ? "Loading addresses..."
-                          : "Same as shipping address"
-                      }
-                    />
+                    <SelectValue placeholder="Same as shipping address" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="same-as-shipping">
                       Same as shipping address
                     </SelectItem>
-                    {addressesLoading ? (
-                      <SelectItem value="loading" disabled>
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Loading addresses...
+                    {addresses.map((address) => (
+                      <SelectItem key={address.id} value={address.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {address.name || address.recipientName}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {address.formattedAddress || formatAddress(address)}
+                          </span>
                         </div>
                       </SelectItem>
-                    ) : addresses.length > 0 ? (
-                      addresses.map((address) => (
-                        <SelectItem key={address.id} value={address.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {address.name || address.recipientName}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {address.formattedAddress ||
-                                formatAddress(address)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-addresses" disabled>
-                        No addresses found
-                      </SelectItem>
-                    )}
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -954,13 +929,6 @@ export default function CreateOrderForm({
                       <span>{selectedShippingOption.estimatedDays}</span>
                     </div>
                   )}
-                  {watchedValues.urgencyLevel &&
-                    watchedValues.urgencyLevel !== "NORMAL" && (
-                      <div className="flex justify-between text-sm text-orange-600">
-                        <span>Urgency Fee ({watchedValues.urgencyLevel}):</span>
-                        <span>Included in shipping</span>
-                      </div>
-                    )}
                   <Separator />
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total:</span>
@@ -1022,12 +990,6 @@ export default function CreateOrderForm({
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               Please fix the errors above before proceeding.
-              <details className="mt-2">
-                <summary className="cursor-pointer">View errors</summary>
-                <pre className="text-xs mt-2">
-                  {JSON.stringify(errors, null, 2)}
-                </pre>
-              </details>
             </AlertDescription>
           </Alert>
         )}
@@ -1036,7 +998,7 @@ export default function CreateOrderForm({
   );
 }
 
-// Separate component for order item form to use size variants hook
+// Separate component for order item form
 interface OrderItemFormProps {
   index: number;
   currentItem: any;
@@ -1064,7 +1026,6 @@ function OrderItemForm({
   setValue,
   errors,
 }: OrderItemFormProps) {
-  // Use the size variants hook for the selected template
   const {
     data: sizeVariantsData,
     isLoading: sizeVariantsLoading,
@@ -1244,7 +1205,6 @@ function OrderItemForm({
         />
       </div>
 
-      {/* Template Details */}
       {selectedTemplate && (
         <div className="mt-4 p-3 bg-muted/50 rounded-lg">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

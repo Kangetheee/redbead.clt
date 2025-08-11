@@ -1,7 +1,7 @@
 "use server";
 
-import { getErrorMessage } from "../get-error-message";
-import { ActionResponse } from "../shared/types";
+import { getErrorMessage } from "@/lib/get-error-message";
+import { ActionResponse } from "@/lib/shared/types";
 import {
   ConfigureCanvasDto,
   UploadArtworkDto,
@@ -33,7 +33,7 @@ const designStudioService = new DesignStudioService();
 
 /**
  * Configure design canvas
- * POST /v1/design-studio/configure
+ * Uses POST /v1/design-studio/configure
  */
 export async function configureCanvasAction(
   values: ConfigureCanvasDto
@@ -48,7 +48,7 @@ export async function configureCanvasAction(
 
 /**
  * Upload artwork file
- * POST /v1/design-studio/upload-artwork
+ * Uses POST /v1/design-studio/upload-artwork
  */
 export async function uploadArtworkAction(
   file: File,
@@ -64,7 +64,7 @@ export async function uploadArtworkAction(
 
 /**
  * Create new design
- * POST /v1/design-studio/designs
+ * Uses POST /v1/design-studio/designs
  */
 export async function createDesignAction(
   values: CreateDesignDto
@@ -79,7 +79,7 @@ export async function createDesignAction(
 
 /**
  * Get user designs
- * GET /v1/design-studio/designs
+ * Uses GET /v1/design-studio/designs
  */
 export async function getUserDesignsAction(
   params?: GetDesignsDto
@@ -94,7 +94,7 @@ export async function getUserDesignsAction(
 
 /**
  * Get design details
- * GET /v1/design-studio/designs/{id}
+ * Uses GET /v1/design-studio/designs/{id}
  */
 export async function getDesignAction(
   designId: string
@@ -109,7 +109,7 @@ export async function getDesignAction(
 
 /**
  * Update design
- * PATCH /v1/design-studio/designs/{id}
+ * Uses PATCH /v1/design-studio/designs/{id}
  */
 export async function updateDesignAction(
   designId: string,
@@ -125,7 +125,7 @@ export async function updateDesignAction(
 
 /**
  * Delete design
- * DELETE /v1/design-studio/designs/{id}
+ * Uses DELETE /v1/design-studio/designs/{id}
  */
 export async function deleteDesignAction(
   designId: string
@@ -140,7 +140,7 @@ export async function deleteDesignAction(
 
 /**
  * Get template presets
- * GET /v1/design-studio/templates/{templateId}/presets
+ * Uses GET /v1/design-studio/templates/{templateId}/presets
  */
 export async function getTemplatePresetsAction(
   templateId: string
@@ -155,7 +155,7 @@ export async function getTemplatePresetsAction(
 
 /**
  * Export design
- * POST /v1/design-studio/designs/{id}/export
+ * Uses POST /v1/design-studio/designs/{id}/export
  */
 export async function exportDesignAction(
   designId: string,
@@ -171,7 +171,7 @@ export async function exportDesignAction(
 
 /**
  * Validate design
- * POST /v1/design-studio/designs/{id}/validate
+ * Uses POST /v1/design-studio/designs/{id}/validate
  */
 export async function validateDesignAction(
   designId: string,
@@ -187,7 +187,7 @@ export async function validateDesignAction(
 
 /**
  * Share design
- * POST /v1/design-studio/designs/{id}/share
+ * Uses POST /v1/design-studio/designs/{id}/share
  */
 export async function shareDesignAction(
   designId: string,
@@ -203,7 +203,7 @@ export async function shareDesignAction(
 
 /**
  * View shared design
- * GET /v1/design-studio/shared/{token}
+ * Uses GET /v1/design-studio/shared/{token}
  */
 export async function getSharedDesignAction(
   token: string
@@ -218,7 +218,7 @@ export async function getSharedDesignAction(
 
 /**
  * Get available fonts
- * GET /v1/design-studio/fonts
+ * Uses GET /v1/design-studio/fonts
  */
 export async function getFontsAction(
   params?: GetFontsDto
@@ -233,7 +233,7 @@ export async function getFontsAction(
 
 /**
  * Upload asset
- * POST /v1/design-studio/assets
+ * Uses POST /v1/design-studio/assets
  */
 export async function uploadAssetAction(
   file: File,
@@ -249,7 +249,7 @@ export async function uploadAssetAction(
 
 /**
  * Get user assets
- * GET /v1/design-studio/assets
+ * Uses GET /v1/design-studio/assets
  */
 export async function getUserAssetsAction(
   params?: GetUserAssetsDto

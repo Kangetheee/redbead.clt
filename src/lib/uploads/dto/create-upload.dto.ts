@@ -10,16 +10,24 @@ export const mediaFileSchema = z.object({
 
 export type MediaFileType = z.infer<typeof mediaFileSchema>;
 
-export const createUploadSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+// For multipart/form-data uploads (direct file upload)
+export const fileUploadSchema = z.object({
+  file: z.instanceof(File, { message: "File is required" }),
   type: z.nativeEnum(MediaTypeEnum),
-  size: z.number().min(1, "Size is required"),
-  folderId: z
-    .string({ required_error: "Folder is required" })
-    .min(1, "Folder is required"),
-  checksum: z
-    .string({ required_error: "Checksum is required" })
-    .min(1, "Checksum is required"),
+  name: z.string().optional(),
+  folderId: z.string().uuid({ message: "Valid folder ID is required" }),
+});
+
+export type FileUploadDto = z.infer<typeof fileUploadSchema>;
+
+// For JSON uploads (metadata only)
+export const createUploadSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  type: z.nativeEnum(MediaTypeEnum),
+  folderId: z.string().uuid({ message: "Valid folder ID is required" }),
+  originalName: z.string().optional(),
+  mimeType: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 export type CreateUploadDto = z.infer<typeof createUploadSchema>;

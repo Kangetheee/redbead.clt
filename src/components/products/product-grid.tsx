@@ -5,12 +5,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Grid3X3, List, LayoutGrid, Grid2X2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ProductTypeResponse } from "@/lib/products/types/products.types";
+import { ProductResponse } from "@/lib/products/types/products.types";
 import { ProductCard } from "./product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductGridProps {
-  products: ProductTypeResponse[];
+  products: ProductResponse[];
   loading?: boolean;
   viewMode?: "grid" | "list";
   allowViewToggle?: boolean;
@@ -40,8 +40,8 @@ export function ProductGrid({
   loading = false,
   viewMode: initialViewMode = "grid",
   allowViewToggle = false,
-  gridCols = { sm: 1, md: 2, lg: 3, xl: 4, "2xl": 5 }, // Increased default columns
-  cardSize = "md",
+  gridCols = { sm: 2, md: 3, lg: 5, xl: 5, "2xl": 5 },
+  cardSize = "sm",
   showAddToCart = true,
   showTemplateList = true,
   showDescription = true,
@@ -62,9 +62,9 @@ export function ProductGrid({
 
     // Responsive gap based on density
     if (gridDensity === "compact") {
-      classes.push("gap-3 md:gap-4");
+      classes.push("gap-2 md:gap-3");
     } else {
-      classes.push("gap-4 md:gap-6");
+      classes.push("gap-4 md:gap-4");
     }
 
     // Enhanced responsive columns
@@ -84,9 +84,9 @@ export function ProductGrid({
   const getCardSize = () => {
     if (viewMode === "list") return "sm";
     if (gridDensity === "compact") {
-      return cardSize === "lg" ? "md" : "sm";
+      return "sm";
     }
-    return cardSize;
+    return cardSize === "lg" ? "md" : "sm";
   };
 
   // Loading state with themed skeleton

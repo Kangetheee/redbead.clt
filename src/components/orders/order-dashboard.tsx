@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useMemo } from "react";
@@ -72,9 +73,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useOrders } from "@/hooks/use-orders";
 import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
-import { OrderListItem } from "@/lib/orders/types/orders.types";
+import { OrderResponse } from "@/lib/orders/types/orders.types";
 import OrderAnalytics from "./order-analytics";
-import BulkOperations from "./bulk-operations";
 import OrderExport from "./order-export";
 
 interface QuickStat {
@@ -113,6 +113,21 @@ interface RecentActivity {
   };
 }
 
+interface TopCustomer {
+  id: string;
+  name: string;
+  orders: number;
+  revenue: number;
+  avatar: string;
+}
+
+interface PerformanceMetrics {
+  fulfillmentRate: number;
+  cancellationRate: number;
+  processingEfficiency: number;
+  onTimeDelivery: number;
+}
+
 // Component for advanced order search (placeholder)
 function AdvancedOrderSearch({
   onFiltersChange,
@@ -135,6 +150,59 @@ function AdvancedOrderSearch({
   );
 }
 
+// Helper function to get status badge configuration
+const getStatusConfig = (status: string) => {
+  const statusConfigs: Record<string, { color: string; label: string }> = {
+    PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
+    CONFIRMED: { color: "bg-blue-100 text-blue-800", label: "Confirmed" },
+    DESIGN_PENDING: {
+      color: "bg-blue-100 text-blue-800",
+      label: "Design Pending",
+    },
+    DESIGN_APPROVED: {
+      color: "bg-green-100 text-green-800",
+      label: "Design Approved",
+    },
+    DESIGN_REJECTED: {
+      color: "bg-red-100 text-red-800",
+      label: "Design Rejected",
+    },
+    PAYMENT_PENDING: {
+      color: "bg-orange-100 text-orange-800",
+      label: "Payment Pending",
+    },
+    PAYMENT_CONFIRMED: {
+      color: "bg-green-100 text-green-800",
+      label: "Payment Confirmed",
+    },
+    PROCESSING: {
+      color: "bg-purple-100 text-purple-800",
+      label: "Processing",
+    },
+    PRODUCTION: {
+      color: "bg-purple-100 text-purple-800",
+      label: "In Production",
+    },
+    SHIPPED: { color: "bg-blue-100 text-blue-800", label: "Shipped" },
+    DELIVERED: { color: "bg-green-100 text-green-800", label: "Delivered" },
+    CANCELLED: { color: "bg-red-100 text-red-800", label: "Cancelled" },
+    REFUNDED: { color: "bg-gray-100 text-gray-800", label: "Refunded" },
+  };
+
+  return (
+    statusConfigs[status] || {
+      color: "bg-gray-100 text-gray-800",
+      label: status,
+    }
+  );
+};
+
+// Helper function to safely extract order items count
+const getOrderItemsCount = (orderItems: any[]): number => {
+  if (!Array.isArray(orderItems)) return 0;
+  return orderItems.length;
+};
+
 export default function OrdersDashboard() {
   const router = useRouter();
   const [selectedDateRange, setSelectedDateRange] = useState("7d");
@@ -145,11 +213,11 @@ export default function OrdersDashboard() {
   });
 
   // Fetch orders data using the hook
-  const { data: ordersData, isLoading, refetch } = useOrders(filters);
-  const orders: OrderListItem[] = ordersData?.success
-    ? ordersData.data?.data || []
-    : [];
-  const pagination = ordersData?.success ? ordersData.data?.meta : null;
+  const { data: ordersData, isLoading, error, refetch } = useOrders(filters);
+
+  // Extract orders and pagination from the correct structure
+  const orders: OrderResponse[] = ordersData?.items || [];
+  const pagination = ordersData?.meta || null;
 
   // Calculate quick stats
   const quickStats: QuickStat[] = useMemo(() => {
@@ -157,10 +225,10 @@ export default function OrdersDashboard() {
 
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce(
-      (sum, order) => sum + order.totalAmount,
+      (sum, order) => sum + (order.totalAmount || 0),
       0
     );
-    const avgOrderValue = totalRevenue / totalOrders;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     const pendingOrders = orders.filter((order) =>
       ["PENDING", "DESIGN_PENDING", "PAYMENT_PENDING"].includes(order.status)
@@ -170,8 +238,14 @@ export default function OrdersDashboard() {
       (order) => order.status === "DELIVERED"
     ).length;
 
-    // Note: urgencyLevel is not available in OrderListItem, so we'll skip rush orders for now
-    const rushOrders = 0; // orders.filter((order) => ["RUSH", "EMERGENCY"].includes(order.urgencyLevel || "")).length;
+    const rushOrders = orders.filter((order) =>
+      ["RUSH", "EMERGENCY"].includes(order.urgencyLevel || "")
+    ).length;
+
+    const designApprovalNeeded = orders.filter(
+      (order) =>
+        order.designApprovalRequired && order.designApprovalStatus === "PENDING"
+    ).length;
 
     return [
       {
@@ -227,10 +301,7 @@ export default function OrdersDashboard() {
       {
         id: "design_approval",
         label: "Need Approval",
-        value: orders.filter(
-          (o) =>
-            o.designApprovalRequired && o.designApprovalStatus === "PENDING"
-        ).length,
+        value: designApprovalNeeded,
         icon: Zap,
         color: "text-red-500",
       },
@@ -289,7 +360,7 @@ export default function OrdersDashboard() {
   ];
 
   // Performance metrics
-  const performanceMetrics = useMemo(() => {
+  const performanceMetrics: PerformanceMetrics | null = useMemo(() => {
     const totalOrders = orders.length;
     if (totalOrders === 0) return null;
 
@@ -312,7 +383,7 @@ export default function OrdersDashboard() {
   }, [orders]);
 
   // Top customers (mock data)
-  const topCustomers = [
+  const topCustomers: TopCustomer[] = [
     {
       id: "1",
       name: "Acme Corporation",
@@ -382,22 +453,12 @@ export default function OrdersDashboard() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
-      DESIGN_PENDING: {
-        color: "bg-blue-100 text-blue-800",
-        label: "Design Pending",
-      },
-      PROCESSING: {
-        color: "bg-purple-100 text-purple-800",
-        label: "Processing",
-      },
-      SHIPPED: { color: "bg-blue-100 text-blue-800", label: "Shipped" },
-      DELIVERED: { color: "bg-green-100 text-green-800", label: "Delivered" },
-      CANCELLED: { color: "bg-red-100 text-red-800", label: "Cancelled" },
-    }[status] || { color: "bg-gray-100 text-gray-800", label: status };
+    const config = getStatusConfig(status);
+    return <Badge className={config.color}>{config.label}</Badge>;
+  };
 
-    return <Badge className={statusConfig.color}>{statusConfig.label}</Badge>;
+  const handleRefresh = () => {
+    refetch();
   };
 
   if (isLoading) {
@@ -428,6 +489,19 @@ export default function OrdersDashboard() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load dashboard data. Please try again.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -442,7 +516,7 @@ export default function OrdersDashboard() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
           </Button>
@@ -636,65 +710,83 @@ export default function OrdersDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order</TableHead>
-                    <TableHead>Template</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.slice(0, 5).map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">
-                        <Link
-                          href={`/orders/${order.id}`}
-                          className="hover:underline"
-                        >
-                          {order.orderNumber}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">
-                          {order.templateId || "No template"}
-                        </span>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
-                      <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
-                      <TableCell>
-                        {format(new Date(order.createdAt), "MMM dd")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/orders/${order.id}`}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/orders/${order.id}/edit`}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+              {orders.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold">
+                    No orders found
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Create your first order to get started
+                  </p>
+                  <Button asChild className="mt-4">
+                    <Link href="/orders/create">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Order
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Template</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.slice(0, 5).map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-medium">
+                          <Link
+                            href={`/orders/${order.id}`}
+                            className="hover:underline"
+                          >
+                            {order.orderNumber}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {order.templateId || "No template"}
+                          </span>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(order.status)}</TableCell>
+                        <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {format(new Date(order.createdAt), "MMM dd")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/orders/${order.id}`}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/orders/${order.id}/edit`}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </Link>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -736,7 +828,7 @@ export default function OrdersDashboard() {
                     Try adjusting your filters or create a new order
                   </p>
                   <Button asChild className="mt-4">
-                    <Link href="/orders/new">
+                    <Link href="/orders/create">
                       <Plus className="mr-2 h-4 w-4" />
                       Create Order
                     </Link>
@@ -772,7 +864,9 @@ export default function OrdersDashboard() {
                             {order.templateId || "No template"}
                           </span>
                         </TableCell>
-                        <TableCell>{order.orderItems.length} items</TableCell>
+                        <TableCell>
+                          {getOrderItemsCount(order.orderItems)} items
+                        </TableCell>
                         <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
                         <TableCell>
                           {format(new Date(order.createdAt), "MMM dd, yyyy")}
@@ -814,24 +908,31 @@ export default function OrdersDashboard() {
           <OrderAnalytics />
         </TabsContent>
 
-        {/* Bulk Actions Tab */}
+        {/* Bulk Actions Tab - Placeholder
         <TabsContent value="bulk">
-          <BulkOperations
-            orders={orders}
-            selectedOrders={selectedOrders}
-            onSelectionChange={setSelectedOrders}
-            onOrdersUpdated={refetch}
-          />
-        </TabsContent>
+          <Card>
+            <CardHeader>
+              <CardTitle>Bulk Operations</CardTitle>
+              <CardDescription>
+                Perform actions on multiple orders at once
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Bulk operations will be implemented here.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent> */}
 
-        {/* Reports Tab */}
+        {/* Reports Tab
         <TabsContent value="reports">
           <OrderExport
             orders={orders}
             filters={filters}
             onExport={(data) => console.log("Exported:", data)}
           />
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   );

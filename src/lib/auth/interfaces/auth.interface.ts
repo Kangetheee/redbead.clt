@@ -21,6 +21,10 @@ export type RefreshTokenResponse = Session & {
   refreshToken: string;
 };
 
+export type ForgotPasswordResponse = {
+  message: string;
+};
+
 export type ResetPasswordResponse = {
   message: string;
 };
@@ -40,14 +44,6 @@ export type ConfirmPhoneResponse = {
   expiresIn: number;
 };
 
-export type Customer = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company?: string;
-};
-
 export type User = {
   id: string;
   role: string;
@@ -61,5 +57,4 @@ export type SignUpResponse = {
   accessToken: string;
   refreshToken: string;
   user: User;
-  customer: Customer;
 };
