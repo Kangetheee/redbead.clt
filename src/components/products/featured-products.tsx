@@ -4,14 +4,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, Star, AlertCircle, ShoppingCart } from "lucide-react";
+import {
+  CheckCircle,
+  Star,
+  AlertCircle,
+  ShoppingCart,
+  Clock,
+  Package,
+} from "lucide-react";
 import { useFeaturedProducts } from "@/hooks/use-products";
-import { ProductResponse } from "@/lib/products/types/products.types";
+import {
+  ProductResponse,
+  ProductMetadata,
+} from "@/lib/products/types/products.types";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { useEffect } from "react";
+import { cn, formatCurrency } from "@/lib/utils";
 import { ViewDetailsButton } from "@/components/products/view-details";
 
 interface FeaturedProductsSectionProps {
@@ -29,17 +38,6 @@ export function FeaturedProductsSection({
     error,
     isError,
   } = useFeaturedProducts(limit);
-
-  // Debug logging
-  useEffect(() => {
-    console.log("Featured Products Debug:", {
-      data: featuredProducts,
-      isLoading,
-      error,
-      isError,
-      limit,
-    });
-  }, [featuredProducts, isLoading, error, isError, limit]);
 
   if (isLoading) {
     return (
@@ -86,25 +84,10 @@ export function FeaturedProductsSection({
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 max-w-md mx-auto">
           <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
           <p className="text-destructive mb-4">
-            Unable to load featured products. Please try again later.
+            {error
+              ? `Error: ${error.message}`
+              : "Unable to load featured products. Please try again later."}
           </p>
-          <details className="text-left">
-            <summary className="cursor-pointer text-sm text-muted-foreground mb-2 hover:text-foreground">
-              Debug Info (Click to expand)
-            </summary>
-            <pre className="text-xs bg-muted p-2 rounded overflow-auto text-muted-foreground">
-              {JSON.stringify(
-                {
-                  error: error?.message || "Unknown error",
-                  isError,
-                  endpoint: `/v1/product/featured?limit=${limit}`,
-                  timestamp: new Date().toISOString(),
-                },
-                null,
-                2
-              )}
-            </pre>
-          </details>
           <Button
             onClick={() => window.location.reload()}
             className="mt-4"
@@ -127,9 +110,6 @@ export function FeaturedProductsSection({
           <p className="text-yellow-700 dark:text-yellow-300">
             No featured products available at the moment.
           </p>
-          <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
-            Data received: {JSON.stringify(featuredProducts)}
-          </p>
         </div>
       </div>
     );
@@ -149,6 +129,67 @@ export function FeaturedProductsSection({
     return product.isActive && defaultVariant && defaultVariant.stock > 0;
   };
 
+  // Helper function to format product metadata
+  const formatMetadata = (metadata: ProductMetadata | undefined) => {
+    if (!metadata) return null;
+
+    const items = [];
+
+    if (metadata.type) {
+      items.push(metadata.type.toLowerCase().replace(/_/g, " "));
+    }
+
+    if (metadata.material) {
+      items.push(metadata.material.toLowerCase());
+    }
+
+    return items.length > 0 ? items.join(" • ") : null;
+  };
+
+  // Helper function to format dimensions
+  const formatDimensions = (metadata: ProductMetadata | undefined) => {
+    if (!metadata?.dimensions) return null;
+
+    const { width, height, length, unit } = metadata.dimensions;
+
+    if (length) {
+      return `${width}×${height}×${length}${unit}`;
+    }
+
+    return `${width}×${height}${unit}`;
+  };
+
+  // Helper function to get lead time display
+  const getLeadTime = (metadata: ProductMetadata | undefined) => {
+    if (!metadata) return null;
+
+    return (
+      metadata.leadTime ||
+      (metadata.productionDays
+        ? `${metadata.productionDays} production days`
+        : null)
+    );
+  };
+
+  // Helper function to validate and format image URL
+  const getValidImageUrl = (
+    imageUrl?: string | null,
+    fallback = "/placeholder-product.jpg"
+  ) => {
+    if (!imageUrl) return fallback;
+
+    if (imageUrl.startsWith("/") && !imageUrl.startsWith("//")) {
+      // Check if URL contains 'images/' path that might be causing issues
+      if (imageUrl.includes("/images/")) {
+        // Make sure we use the correct public URL path instead of server file system path
+        const pathParts = imageUrl.split("/images/");
+        return `/images/${pathParts[pathParts.length - 1]}`;
+      }
+      return imageUrl;
+    }
+    return imageUrl;
+  };
+
   return (
     <div className={cn("space-y-8", className)}>
       {/* Section Header */}
@@ -165,7 +206,18 @@ export function FeaturedProductsSection({
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {featuredProducts.map((product: ProductResponse) => {
           const defaultVariant = getDefaultVariant(product);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const isAddToCartEnabled = canAddToCart(product);
+          const metadataDisplay = formatMetadata(product.metadata);
+          const dimensionsDisplay = formatDimensions(product.metadata);
+          const leadTimeDisplay = getLeadTime(product.metadata);
+
+          // Get image URL with proper error handling
+          const imageUrl = product.thumbnailImage
+            ? getValidImageUrl(product.thumbnailImage)
+            : product.images && product.images.length > 0
+              ? getValidImageUrl(product.images[0])
+              : "/placeholder-product.jpg";
 
           return (
             <Card
@@ -174,16 +226,20 @@ export function FeaturedProductsSection({
             >
               {/* Product Image */}
               <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-muted/50 to-muted">
-                <Image
-                  src={
-                    product.thumbnailImage ||
-                    product.images?.[0] ||
-                    "/placeholder-product.jpg"
-                  }
-                  alt={product.name}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+                {/* Use error handling for image loading */}
+                <div className="relative w-full h-full">
+                  <Image
+                    src={imageUrl}
+                    alt={product.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      // If image fails to load, replace with placeholder
+                      (e.target as HTMLImageElement).src =
+                        "/placeholder-product.jpg";
+                    }}
+                  />
+                </div>
 
                 {/* Featured Badge */}
                 {product.isFeatured && (
@@ -228,15 +284,13 @@ export function FeaturedProductsSection({
                 {/* Product Title and Price */}
                 <div>
                   <h3 className="font-semibold text-foreground mb-1 line-clamp-2 group-hover:text-primary transition-colors">
-                    <Link href={`/products/${product.slug}`}>
-                      {product.name}
-                    </Link>
+                    <Link href={`/products/${product.id}`}>{product.name}</Link>
                   </h3>
 
                   {/* Base Price */}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-primary">
-                      KES {product.basePrice.toLocaleString()}
+                      {formatCurrency(product.basePrice)}
                     </span>
                     {product.variants && product.variants.length > 0 && (
                       <span className="text-xs text-muted-foreground">
@@ -246,22 +300,26 @@ export function FeaturedProductsSection({
                     )}
                   </div>
 
-                  {/* Metadata info (type, material, etc.) */}
-                  {product.metadata && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                      {product.metadata.type && (
-                        <>
-                          <span className="capitalize">
-                            {product.metadata.type}
-                          </span>
-                          {product.metadata.material && <span>•</span>}
-                        </>
-                      )}
-                      {product.metadata.material && (
-                        <span className="capitalize">
-                          {product.metadata.material}
-                        </span>
-                      )}
+                  {/* Metadata Display */}
+                  {metadataDisplay && (
+                    <div className="text-xs text-muted-foreground mt-1 capitalize">
+                      {metadataDisplay}
+                    </div>
+                  )}
+
+                  {/* Dimensions Display */}
+                  {dimensionsDisplay && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                      <Package className="h-3 w-3" />
+                      <span>{dimensionsDisplay}</span>
+                    </div>
+                  )}
+
+                  {/* Lead Time Display */}
+                  {leadTimeDisplay && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                      <Clock className="h-3 w-3" />
+                      <span>{leadTimeDisplay}</span>
                     </div>
                   )}
                 </div>
@@ -290,7 +348,7 @@ export function FeaturedProductsSection({
                             </span>
                             {template.basePrice > 0 && (
                               <span className="ml-auto font-medium text-green-600 dark:text-green-400">
-                                +KES {template.basePrice.toLocaleString()}
+                                +{formatCurrency(template.basePrice)}
                               </span>
                             )}
                           </li>
@@ -325,9 +383,9 @@ export function FeaturedProductsSection({
                           {variant.price !== product.basePrice && (
                             <span className="ml-1 text-primary">
                               +
-                              {(
+                              {formatCurrency(
                                 variant.price - product.basePrice
-                              ).toLocaleString()}
+                              )}
                             </span>
                           )}
                           {variant.stock === 0 && (
@@ -383,12 +441,12 @@ export function FeaturedProductsSection({
                   {defaultVariant && (
                     <AddToCartButton
                       productId={product.id}
-                      variantId={defaultVariant.id}
+                      variantId={defaultVariant?.id || product.id}
                       quantity={1}
                       variant="default"
                       size="sm"
                       className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-                      disabled={!isAddToCartEnabled}
+                      disabled={!product.isActive || defaultVariant.stock === 0}
                       showSuccessState={true}
                     >
                       <ShoppingCart className="w-3 h-3 mr-1" />
@@ -402,6 +460,7 @@ export function FeaturedProductsSection({
 
                   {/* View Details Button */}
                   <ViewDetailsButton
+                    productId={product.id}
                     productSlug={product.slug}
                     variant="outline"
                     size="sm"

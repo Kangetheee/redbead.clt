@@ -5,12 +5,12 @@ export interface ProductResponse {
   slug: string;
   description: string;
   images: string[];
-  thumbnailImage?: string;
+  thumbnailImage?: string | null;
   basePrice: number;
   categoryId: string;
   isActive: boolean;
   isFeatured: boolean;
-  metadata?: Record<string, any>;
+  metadata?: ProductMetadata;
   createdAt: string;
   updatedAt: string;
   category?: {
@@ -21,6 +21,20 @@ export interface ProductResponse {
   variants?: ProductVariant[];
   customizations?: ProductCustomization[];
   designTemplates?: ProductDesignTemplate[];
+}
+
+export interface ProductMetadata {
+  type?: string;
+  leadTime?: string;
+  material?: string;
+  dimensions?: {
+    unit: string;
+    width: number;
+    height: number;
+    length?: number;
+  };
+  productionDays?: number;
+  [key: string]: any; // Allow for additional dynamic properties
 }
 
 export interface ProductVariant {

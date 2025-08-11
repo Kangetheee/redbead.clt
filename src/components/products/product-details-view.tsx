@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Package,
 } from "lucide-react";
 import { ProductResponse } from "@/lib/products/types/products.types";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
@@ -72,6 +73,22 @@ export function ProductDetailsView({
   // Get product metadata for type and material
   const productType = product.metadata?.type || "Product";
   const productMaterial = product.metadata?.material || "Standard";
+
+  // Helper function to get the default variant for a product
+  const getDefaultVariant = () => {
+    if (!product.variants || product.variants.length === 0) {
+      return null;
+    }
+    return product.variants.find((v) => v.isDefault) || product.variants[0];
+  };
+
+  // Helper function to check if product can be added to cart
+  const canAddToCart = () => {
+    const defaultVariant = getDefaultVariant();
+    return product.isActive && defaultVariant && defaultVariant.stock > 0;
+  };
+
+  const defaultVariant = getDefaultVariant();
 
   return (
     <div className="min-h-screen bg-background">
@@ -163,6 +180,9 @@ export function ProductDetailsView({
             <Badge variant="secondary">{productType}</Badge>
             <Badge variant="secondary">{productMaterial}</Badge>
             {!product.isActive && <Badge variant="destructive">Inactive</Badge>}
+            {defaultVariant && defaultVariant.stock === 0 && (
+              <Badge variant="destructive">Out of Stock</Badge>
+            )}
           </div>
 
           <h1 className="text-2xl font-bold text-foreground">{product.name}</h1>
@@ -257,7 +277,7 @@ export function ProductDetailsView({
                     )}
                   >
                     <img
-                      src={image}
+                      src={image || ""}
                       alt={`${product.name} ${index + 1}`}
                       width={64}
                       height={64}
@@ -293,6 +313,9 @@ export function ProductDetailsView({
                 {!product.isActive && (
                   <Badge variant="destructive">Inactive</Badge>
                 )}
+                {defaultVariant && defaultVariant.stock === 0 && (
+                  <Badge variant="destructive">Out of Stock</Badge>
+                )}
               </div>
 
               <h1 className="text-3xl font-bold text-foreground">
@@ -318,6 +341,83 @@ export function ProductDetailsView({
             </div>
 
             <Separator className="hidden lg:block" />
+
+            {/* Product Variants Section */}
+            {product.variants && product.variants.length > 0 && (
+              <Card className="border-border bg-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-foreground text-lg">
+                    <Package className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    Available Variants ({product.variants.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {product.variants.slice(0, 3).map((variant) => (
+                    <div
+                      key={variant.id}
+                      className={cn(
+                        "flex items-center justify-between p-3 border rounded-lg transition-colors",
+                        variant.isDefault
+                          ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30"
+                          : "border-border hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium text-foreground text-sm">
+                            {variant.name}
+                          </h4>
+                          {variant.isDefault && (
+                            <Badge variant="secondary">Default</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                            KES {variant.price.toLocaleString()}
+                            {variant.price !== product.basePrice && (
+                              <span className="text-muted-foreground ml-1">
+                                (+
+                                {(
+                                  variant.price - product.basePrice
+                                ).toLocaleString()}
+                                )
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Stock:{" "}
+                            {variant.stock > 0 ? variant.stock : "Out of stock"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <AddToCartButton
+                        productId={product.id}
+                        variantId={variant.id}
+                        quantity={1}
+                        variant="default"
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                        disabled={!product.isActive || variant.stock === 0}
+                        showSuccessState={true}
+                      >
+                        <ShoppingCart className="w-3 h-3 mr-1" />
+                        {!product.isActive
+                          ? "Inactive"
+                          : variant.stock === 0
+                            ? "Out of Stock"
+                            : "Add to Cart"}
+                      </AddToCartButton>
+                    </div>
+                  ))}
+                  {product.variants.length > 3 && (
+                    <p className="text-sm text-muted-foreground text-center pt-2">
+                      +{product.variants.length - 3} more variants available
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Design Templates */}
             {templates.length > 0 && (
@@ -377,87 +477,41 @@ export function ProductDetailsView({
               </Card>
             )}
 
-            {/* Add to Cart Section */}
-            <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-foreground text-lg">
-                  <ShoppingCart className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  Order This Product
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {templates.length > 0 ? (
-                  <>
-                    <div className="text-sm text-muted-foreground">
-                      Choose from {templates.length} available template
-                      {templates.length !== 1 ? "s" : ""} and customize your
-                      order
-                    </div>
-
-                    {/* Template Selection for Add to Cart */}
-                    <div className="space-y-2">
-                      {templates.slice(0, 2).map((template) => (
-                        <div
-                          key={template.id}
-                          className="flex items-center justify-between p-3 bg-background border border-green-200 dark:border-green-800 rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            {template.thumbnail && (
-                              <div className="w-8 h-8 rounded overflow-hidden bg-muted">
-                                <Image
-                                  src={template.thumbnail}
-                                  alt={template.name}
-                                  width={32}
-                                  height={32}
-                                  className="object-cover w-full h-full"
-                                />
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium text-foreground text-sm">
-                                {template.name}
-                              </p>
-                              <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                KES {template.basePrice.toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-
-                          <AddToCartButton
-                            productId={template.id}
-                            variantId="default-size"
-                            quantity={1}
-                            variant="default"
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-                            showSuccessState={true}
-                          >
-                            <ShoppingCart className="w-3 h-3 mr-1" />
-                            Add
-                          </AddToCartButton>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Contact us for custom pricing and options for this
-                      product.
-                    </p>
-                    <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Request Quote
-                    </Button>
+            {/* Quick Add to Cart Section - For products without variants */}
+            {(!product.variants || product.variants.length === 0) && (
+              <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-foreground text-lg">
+                    <ShoppingCart className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    Order This Product
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-muted-foreground">
+                    Add this product to your cart and customize during checkout
                   </div>
-                )}
 
-                <div className="text-xs text-muted-foreground bg-background p-3 rounded border border-green-200 dark:border-green-800">
-                  💡 Each template can be customized with your logo, text, and
-                  preferred colors during the ordering process.
-                </div>
-              </CardContent>
-            </Card>
+                  <AddToCartButton
+                    productId={product.id}
+                    variantId="default"
+                    quantity={1}
+                    variant="default"
+                    size="lg"
+                    className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                    disabled={!product.isActive}
+                    showSuccessState={true}
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    {!product.isActive ? "Product Inactive" : "Add to Cart"}
+                  </AddToCartButton>
+
+                  <div className="text-xs text-muted-foreground bg-background p-3 rounded border border-green-200 dark:border-green-800">
+                    💡 This product can be customized with your logo, text, and
+                    preferred colors during the ordering process.
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Product Features */}
             <Card className="border-border bg-card">
@@ -524,13 +578,37 @@ export function ProductDetailsView({
               >
                 <Link href="/contact">Get Quote</Link>
               </Button>
-              <Button
-                variant="outline"
-                className="flex-1 border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
-                asChild
-              >
-                <Link href="/contact">Order Sample</Link>
-              </Button>
+
+              {/* Order Sample with Add to Cart functionality */}
+              {defaultVariant ? (
+                <AddToCartButton
+                  productId={product.id}
+                  variantId={defaultVariant.id}
+                  quantity={1}
+                  variant="outline"
+                  className="flex-1 border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
+                  disabled={!product.isActive || defaultVariant.stock === 0}
+                  showSuccessState={true}
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  {!product.isActive
+                    ? "Inactive"
+                    : defaultVariant.stock === 0
+                      ? "Out of Stock"
+                      : "Order Sample"}
+                </AddToCartButton>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="flex-1 border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
+                  asChild
+                >
+                  <Link href="/contact">
+                    <Package className="w-4 h-4 mr-2" />
+                    Order Sample
+                  </Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -591,6 +669,25 @@ export function ProductDetailsView({
                       {product.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
+                  {defaultVariant && (
+                    <div className="flex justify-between">
+                      <span className="font-medium text-foreground">
+                        Stock:
+                      </span>
+                      <span
+                        className={cn(
+                          "text-sm",
+                          defaultVariant.stock > 0
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-destructive"
+                        )}
+                      >
+                        {defaultVariant.stock > 0
+                          ? `${defaultVariant.stock} available`
+                          : "Out of stock"}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

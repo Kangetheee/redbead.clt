@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Star, ShoppingCart, Eye, Plus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, formatAmount } from "@/lib/utils";
 import { ProductResponse } from "@/lib/products/types/products.types";
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 
 interface ProductCardProps {
   product: ProductResponse;
@@ -87,6 +88,42 @@ export function ProductCard({
     return text.substring(0, maxLength).trim() + "...";
   };
 
+  // Check if product can be added to cart
+  const canAddToCart = () => {
+    // Product must be active
+    if (!product.isActive) return false;
+
+    // Check if product has variants and at least one is in stock
+    if (product.variants && product.variants.length > 0) {
+      return product.variants.some((variant) => variant.stock > 0);
+    }
+
+    // If no variants, assume product is available
+    return true;
+  };
+
+  // Get default variant for add to cart
+  const getDefaultVariant = () => {
+    if (!product.variants || product.variants.length === 0) {
+      // Return null - we'll handle this case differently
+      return null;
+    }
+
+    // Find default variant or use first available variant
+    return (
+      product.variants.find((v) => v.isDefault) ||
+      product.variants.find((v) => v.stock > 0) ||
+      product.variants[0]
+    );
+  };
+
+  // Check if product needs customization (has templates or complex variants)
+  const needsCustomization = () => {
+    return (
+      templates.length > 0 || (product.variants && product.variants.length > 1)
+    );
+  };
+
   // Render View Details button
   const renderViewDetailsButton = (variant: "overlay" | "primary" | "list") => {
     const buttonProps = {
@@ -105,7 +142,7 @@ export function ProductCard({
 
     return (
       <Button {...buttonProps} asChild>
-        <Link href={`/products/${product.slug}`}>
+        <Link href={`/products/${product.id}`}>
           {variant === "overlay" && <Eye className="w-3 h-3 mr-1" />}
           {variant === "list" ? "View" : "View Details"}
         </Link>
@@ -113,9 +150,12 @@ export function ProductCard({
     );
   };
 
-  // Render Add to Cart button (placeholder since we don't have size variants)
   const renderAddToCartButton = (variant: "overlay" | "primary" | "list") => {
-    if (!showAddToCart || templates.length === 0) return null;
+    if (!showAddToCart) return null;
+
+    const isAvailable = canAddToCart();
+    const defaultVariant = getDefaultVariant();
+    const requiresCustomization = needsCustomization();
 
     const buttonProps = {
       variant:
@@ -131,14 +171,83 @@ export function ProductCard({
       ),
     };
 
-    // For now, navigate to product page for customization since we don't have size variants
-    return (
-      <Button {...buttonProps} asChild>
-        <Link href={`/products/${product.slug}`}>
+    // If product is not available, show disabled state
+    if (!isAvailable) {
+      return (
+        <Button {...buttonProps} disabled>
           <ShoppingCart className="w-3 h-3 mr-1" />
-          {variant === "list" ? "Add" : "Add to Cart"}
-        </Link>
-      </Button>
+          {variant === "list" ? "N/A" : "Not Available"}
+        </Button>
+      );
+    }
+
+    // If product requires customization (multiple variants, templates, etc.),
+    // redirect to product page for detailed selection
+    if (requiresCustomization) {
+      return (
+        <Button {...buttonProps} asChild>
+          <Link href={`/products/${product.id}`}>
+            <Plus className="w-3 h-3 mr-1" />
+            {variant === "list" ? "Select" : "Customize & Add"}
+          </Link>
+        </Button>
+      );
+    }
+
+    // For simple products with a single variant or no variants, use AddToCartButton directly
+    if (defaultVariant) {
+      return (
+        <AddToCartButton
+          productId={product.id}
+          variantId={defaultVariant.id}
+          quantity={1}
+          variant={variant === "overlay" ? "default" : "default"}
+          size={variant === "list" ? "sm" : config.buttonSize}
+          className={cn(
+            variant === "overlay" &&
+              "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700",
+            variant === "primary" &&
+              "bg-green-600 hover:bg-green-700 text-white w-full dark:bg-green-600 dark:hover:bg-green-700",
+            variant === "list" &&
+              "flex-1 bg-green-600 hover:bg-green-700 text-xs dark:bg-green-600 dark:hover:bg-green-700"
+          )}
+          disabled={!isAvailable || defaultVariant.stock === 0}
+          showSuccessState={true}
+        >
+          <ShoppingCart className="w-3 h-3 mr-1" />
+          {defaultVariant.stock === 0
+            ? variant === "list"
+              ? "OOS"
+              : "Out of Stock"
+            : variant === "list"
+              ? "Add"
+              : "Add to Cart"}
+        </AddToCartButton>
+      );
+    }
+
+    // For products without variants, create a simple add to cart with product ID
+    return (
+      <AddToCartButton
+        productId={product.id}
+        variantId="default"
+        quantity={1}
+        variant={variant === "overlay" ? "default" : "default"}
+        size={variant === "list" ? "sm" : config.buttonSize}
+        className={cn(
+          variant === "overlay" &&
+            "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700",
+          variant === "primary" &&
+            "bg-green-600 hover:bg-green-700 text-white w-full dark:bg-green-600 dark:hover:bg-green-700",
+          variant === "list" &&
+            "flex-1 bg-green-600 hover:bg-green-700 text-xs dark:bg-green-600 dark:hover:bg-green-700"
+        )}
+        disabled={!isAvailable}
+        showSuccessState={true}
+      >
+        <ShoppingCart className="w-3 h-3 mr-1" />
+        {variant === "list" ? "Add" : "Add to Cart"}
+      </AddToCartButton>
     );
   };
 
@@ -185,7 +294,7 @@ export function ProductCard({
             {/* Header */}
             <div>
               <h3 className="text-sm font-medium text-foreground line-clamp-1 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                <Link href={`/products/${product.slug}`}>{product.name}</Link>
+                <Link href={`/products/${product.id}`}>{product.name}</Link>
               </h3>
 
               {/* Meta info - compact */}
@@ -213,7 +322,7 @@ export function ProductCard({
 
               {/* Price */}
               <div className="text-sm font-medium text-primary">
-                KES {product.basePrice.toLocaleString()}
+                {formatAmount(product.basePrice)}
               </div>
             </div>
 
@@ -223,7 +332,7 @@ export function ProductCard({
                 {templates.length} template{templates.length !== 1 ? "s" : ""}
                 {templates[0] && (
                   <span className="text-green-600 dark:text-green-400 font-medium ml-2">
-                    from +KES {templates[0].basePrice.toLocaleString()}
+                    from +{formatAmount(templates[0].basePrice)}
                   </span>
                 )}
               </div>
@@ -317,10 +426,7 @@ export function ProductCard({
               "text-foreground mb-1 line-clamp-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors"
             )}
           >
-            <Link
-              href={`/products/${product.slug}`}
-              className="hover:underline"
-            >
+            <Link href={`/products/${product.id}`} className="hover:underline">
               {product.name}
             </Link>
           </h3>
@@ -328,7 +434,7 @@ export function ProductCard({
           {/* Price */}
           <div className="flex items-center justify-between mb-1">
             <span className="text-lg font-bold text-primary">
-              KES {product.basePrice.toLocaleString()}
+              {formatAmount(product.basePrice)}
             </span>
             {product.variants && product.variants.length > 0 && (
               <span className="text-xs text-muted-foreground">
@@ -384,7 +490,7 @@ export function ProductCard({
                     </span>
                     {template.basePrice > 0 && (
                       <span className="font-medium text-green-600 dark:text-green-400 ml-1 text-xs">
-                        +KES {template.basePrice.toLocaleString()}
+                        +{formatAmount(template.basePrice)}
                       </span>
                     )}
                   </li>
@@ -428,20 +534,14 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Primary Action - Mobile only */}
-        <div className="pt-2 md:hidden space-y-2">
+        {/* Primary Action Buttons */}
+        <div className="pt-2 space-y-2">
+          {/* Add to Cart Button - now always shows when enabled */}
           {renderAddToCartButton("primary")}
 
-          {/* Secondary action for mobile */}
+          {/* View Details Button - secondary action */}
           {renderViewDetailsButton("primary")}
         </div>
-
-        {/* Desktop primary action - Only show if no templates for add to cart */}
-        {(!showAddToCart || templates.length === 0) && (
-          <div className="pt-2 hidden md:block">
-            {renderViewDetailsButton("primary")}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

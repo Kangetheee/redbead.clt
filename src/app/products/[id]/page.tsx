@@ -1,19 +1,19 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getProductBySlugAction } from "@/lib/products/products.actions";
+import { getProductAction } from "@/lib/products/products.actions";
 import { ProductDetailsView } from "@/components/products/product-details-view";
 
 interface ProductDetailsPageProps {
   params: Promise<{
-    slug: string;
+    id: string;
   }>;
 }
 
 export async function generateMetadata({
   params,
 }: ProductDetailsPageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const result = await getProductBySlugAction(slug);
+  const { id } = await params;
+  const result = await getProductAction(id);
 
   if (!result.success || !result.data) {
     return {
@@ -49,9 +49,9 @@ export async function generateMetadata({
 export default async function ProductDetailsPage({
   params,
 }: ProductDetailsPageProps) {
-  const { slug } = await params;
+  const { id } = await params;
 
-  const result = await getProductBySlugAction(slug);
+  const result = await getProductAction(id);
 
   if (!result.success || !result.data) {
     notFound();

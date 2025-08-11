@@ -28,9 +28,9 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "via.placeholder.com",
+        hostname: "wristbandskenya.com",
         port: "",
-        pathname: "/**",
+        pathname: "/wp-content/uploads/**",
       },
       {
         protocol: "https",
