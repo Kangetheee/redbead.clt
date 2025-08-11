@@ -58,7 +58,7 @@ export class ProductService {
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/products${queryString ? `?${queryString}` : ""}`;
+    const url = `/v1/product${queryString ? `?${queryString}` : ""}`;
 
     return this.fetcher.request<PaginatedData<ProductResponse>>(
       url,
@@ -71,7 +71,7 @@ export class ProductService {
    * Create a new product
    */
   public async create(values: CreateProductDto): Promise<ProductResponse> {
-    return this.fetcher.request<ProductResponse>("/v1/products", {
+    return this.fetcher.request<ProductResponse>("/v1/product", {
       method: "POST",
       data: values,
     });
@@ -92,7 +92,7 @@ export class ProductService {
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/products/search?${queryString}`;
+    const url = `/v1/product/search?${queryString}`;
 
     return this.fetcher.request<ProductResponse[]>(url, {}, { auth: false });
   }
@@ -107,7 +107,7 @@ export class ProductService {
     }
 
     const queryString = queryParams.toString();
-    const url = `/v1/products/featured${queryString ? `?${queryString}` : ""}`;
+    const url = `/v1/product/featured${queryString ? `?${queryString}` : ""}`;
 
     return this.fetcher.request<ProductResponse[]>(url, {}, { auth: false });
   }
@@ -117,7 +117,7 @@ export class ProductService {
    */
   public async findBySlug(slug: string): Promise<ProductResponse> {
     return this.fetcher.request<ProductResponse>(
-      `/v1/products/by-slug/${slug}`,
+      `/v1/product/by-slug/${slug}`,
       {},
       { auth: false } // Public endpoint
     );
@@ -131,7 +131,7 @@ export class ProductService {
     params: CalculatePriceDto
   ): Promise<ProductPriceCalculation> {
     return this.fetcher.request<ProductPriceCalculation>(
-      `/v1/products/${productId}/calculate-price`,
+      `/v1/product/${productId}/calculate-price`,
       {
         method: "POST",
         data: params,
@@ -158,7 +158,7 @@ export class ProductService {
     productId: string,
     values: UpdateProductDto
   ): Promise<ProductResponse> {
-    return this.fetcher.request<ProductResponse>(`/v1/products/${productId}`, {
+    return this.fetcher.request<ProductResponse>(`/v1/product/${productId}`, {
       method: "PATCH",
       data: values,
     }); // Requires authentication (default auth: true)
@@ -168,7 +168,7 @@ export class ProductService {
    * Permanently delete a product (Admin only)
    */
   public async delete(productId: string): Promise<void> {
-    return this.fetcher.request<void>(`/v1/products/${productId}`, {
+    return this.fetcher.request<void>(`/v1/product/${productId}`, {
       method: "DELETE",
     }); // Requires authentication (default auth: true)
   }
@@ -178,7 +178,7 @@ export class ProductService {
    */
   public async toggleFeatured(productId: string): Promise<ProductResponse> {
     return this.fetcher.request<ProductResponse>(
-      `/v1/products/${productId}/toggle-featured`,
+      `/v1/product/${productId}/toggle-featured`,
       {
         method: "PATCH",
       }

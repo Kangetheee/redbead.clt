@@ -10,7 +10,7 @@ import { ProductResponse } from "@/lib/products/types/products.types";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useEffect } from "react";
 import { ViewDetailsButton } from "@/components/products/view-details";
 
@@ -127,9 +127,9 @@ export function FeaturedProductsSection({
           <p className="text-yellow-700 dark:text-yellow-300">
             No featured products available at the moment.
           </p>
-          <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+          {/* <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
             Data received: {JSON.stringify(featuredProducts)}
-          </p>
+          </p> */}
         </div>
       </div>
     );
@@ -236,7 +236,7 @@ export function FeaturedProductsSection({
                   {/* Base Price */}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-primary">
-                      KES {product.basePrice.toLocaleString()}
+                      {formatCurrency(product.basePrice)}
                     </span>
                     {product.variants && product.variants.length > 0 && (
                       <span className="text-xs text-muted-foreground">
