@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { MediaTypeEnum } from "../enums/uploads.enum";
 
 export type UploadFolder = {
@@ -20,17 +21,25 @@ export type Media = {
   src: string;
   type: MediaTypeEnum;
   size: number;
+  originalName?: string;
+  mimeType?: string;
+  metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
   uploadedBy: { id: string; name: string };
 };
 
 export type Upload = {
+  id: string;
   name: string;
   type: MediaTypeEnum;
   src?: string;
-  folder: string;
+  folderId: string;
+  folder?: string;
   size: number;
+  originalName?: string;
+  mimeType?: string;
+  metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
   uploadedBy: {
@@ -41,4 +50,23 @@ export type Upload = {
 
 export type UploadDetail = {
   id: string;
+  name: string;
+  type: MediaTypeEnum;
+  src: string;
+  folderId: string;
+  size: number;
+  originalName?: string;
+  mimeType?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+  uploadedBy: {
+    id: string;
+    name: string;
+  };
+};
+
+export type UploadResponse = {
+  id: string;
+  src: string;
 };

@@ -10,32 +10,141 @@ import {
   getPaymentDetailsAction,
   initiateRefundAction,
   handleSqroolCallbackAction,
+  listPaymentsAction,
+  createPaymentAction,
+  getPaymentSummaryAction,
+  getPaymentByIdAction,
 } from "@/lib/payments/payments.actions";
 import {
   InitiatePaymentDto,
   RefundRequestDto,
   SqroolCallbackDto,
+  ListPaymentsDto,
+  CreatePaymentDto,
 } from "@/lib/payments/dto/payments.dto";
 
 export const paymentsKeys = {
   all: ["payments"] as const,
+  lists: () => [...paymentsKeys.all, "list"] as const,
+  list: (filters?: Partial<ListPaymentsDto>) =>
+    [...paymentsKeys.lists(), { filters }] as const,
+  summary: (orderId?: string) =>
+    [...paymentsKeys.all, "summary", orderId || "all"] as const,
   methods: () => [...paymentsKeys.all, "methods"] as const,
+  details: (id: string) => [...paymentsKeys.all, "details", id] as const,
+  byOrder: (orderId: string) =>
+    [...paymentsKeys.all, "byOrder", orderId] as const,
   status: (orderId: string) =>
     [...paymentsKeys.all, "status", orderId] as const,
-  details: (orderId: string) =>
-    [...paymentsKeys.all, "details", orderId] as const,
 };
 
+/**
+ * Hook to get list of payments with pagination and filtering
+ */
+export function usePayments(params?: ListPaymentsDto) {
+  return useQuery({
+    queryKey: paymentsKeys.list(params),
+    queryFn: async () => {
+      const result = await listPaymentsAction(params);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Hook to create a new payment
+ */
+export function useCreatePayment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreatePaymentDto) => createPaymentAction(data),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success("Payment created successfully");
+
+        // Invalidate payments list queries
+        queryClient.invalidateQueries({
+          queryKey: paymentsKeys.lists(),
+        });
+
+        // Also invalidate payment by order ID queries if applicable
+        if (result.data.orderId) {
+          queryClient.invalidateQueries({
+            queryKey: paymentsKeys.byOrder(result.data.orderId),
+          });
+        }
+      } else {
+        toast.error(result.error || "Failed to create payment");
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to create payment");
+    },
+  });
+}
+
+/**
+ * Hook to get payment summary statistics
+ */
+export function usePaymentSummary(orderId?: string) {
+  return useQuery({
+    queryKey: paymentsKeys.summary(orderId),
+    queryFn: async () => {
+      const result = await getPaymentSummaryAction(orderId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
+ * Hook to get payment by ID
+ */
+export function usePayment(id: string, enabled = true) {
+  return useQuery({
+    queryKey: paymentsKeys.details(id),
+    queryFn: async () => {
+      const result = await getPaymentByIdAction(id);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    enabled: enabled && !!id,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Hook to get available payment methods
+ */
 export function usePaymentMethods() {
   return useQuery({
     queryKey: paymentsKeys.methods(),
-    queryFn: () => getPaymentMethodsAction(),
-    select: (data) => (data.success ? data.data : undefined),
+    queryFn: async () => {
+      const result = await getPaymentMethodsAction();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
     staleTime: 10 * 60 * 1000, // 10 minutes - payment methods don't change often
     gcTime: 30 * 60 * 1000, // 30 minutes
   });
 }
 
+/**
+ * Hook to get payment status for an order
+ */
 export function usePaymentStatus(
   orderId: string,
   enabled = true,
@@ -43,17 +152,22 @@ export function usePaymentStatus(
 ) {
   const query = useQuery({
     queryKey: paymentsKeys.status(orderId),
-    queryFn: () => getPaymentStatusAction(orderId),
-    select: (data) => (data.success ? data.data : undefined),
+    queryFn: async () => {
+      const result = await getPaymentStatusAction(orderId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
     enabled: enabled && !!orderId,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 
-  // Auto-refresh for pending/processing payments
+  // Auto-refresh for pending payments
   useEffect(() => {
-    const status = query.data?.status;
-    const shouldPoll = status === "PENDING" || status === "PROCESSING";
+    const status = query.data?.paymentStatus;
+    const shouldPoll = status === "PENDING";
 
     if (shouldPoll && enabled && !!orderId && pollingInterval > 0) {
       const interval = setInterval(() => {
@@ -62,20 +176,37 @@ export function usePaymentStatus(
 
       return () => clearInterval(interval);
     }
-  }, [query.data?.status, query.refetch, enabled, orderId, pollingInterval]);
+  }, [
+    query.data?.paymentStatus,
+    query.refetch,
+    enabled,
+    orderId,
+    pollingInterval,
+  ]);
 
   return query;
 }
 
+/**
+ * Hook to get payment details for an order
+ */
 export function usePaymentDetails(orderId: string, enabled = true) {
   return useQuery({
-    queryKey: paymentsKeys.details(orderId),
-    queryFn: () => getPaymentDetailsAction(orderId),
-    select: (data) => (data.success ? data.data : undefined),
+    queryKey: paymentsKeys.byOrder(orderId),
+    queryFn: async () => {
+      const result = await getPaymentDetailsAction(orderId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
     enabled: enabled && !!orderId,
   });
 }
 
+/**
+ * Hook to initiate payment for an order
+ */
 export function useInitiatePayment() {
   const queryClient = useQueryClient();
 
@@ -91,27 +222,10 @@ export function useInitiatePayment() {
       if (data.success) {
         toast.success("Payment initiated successfully");
 
-        // Show payment instructions to user
-        if (data.data.instructions) {
-          toast.info(data.data.instructions, {
+        // Show payment instructions to user if available
+        if (data.data.customerMessage) {
+          toast.info(data.data.customerMessage, {
             duration: 10000,
-            position: "top-center",
-          });
-        }
-
-        // Show additional guidance based on payment method
-        if (data.data.metadata?.phoneNumber) {
-          toast.info("Please check your phone for the MPESA prompt", {
-            duration: 15000,
-            position: "top-center",
-          });
-        }
-
-        // Show next steps if available
-        if (data.data.nextSteps && data.data.nextSteps.length > 0) {
-          const steps = data.data.nextSteps.join(" • ");
-          toast.info(`Next steps: ${steps}`, {
-            duration: 12000,
             position: "top-center",
           });
         }
@@ -123,7 +237,7 @@ export function useInitiatePayment() {
 
         // Also invalidate payment details
         queryClient.invalidateQueries({
-          queryKey: paymentsKeys.details(variables.orderId),
+          queryKey: paymentsKeys.byOrder(variables.orderId),
         });
       } else {
         toast.error(data.error || "Failed to initiate payment");
@@ -135,6 +249,9 @@ export function useInitiatePayment() {
   });
 }
 
+/**
+ * Hook to initiate refund for an order
+ */
 export function useInitiateRefund() {
   const queryClient = useQueryClient();
 
@@ -150,31 +267,20 @@ export function useInitiateRefund() {
       if (data.success) {
         toast.success("Refund initiated successfully");
 
-        // Show refund timeline information
-        if (data.data.estimatedCompletionTime) {
-          toast.info(
-            `Refund expected by: ${data.data.estimatedCompletionTime}`,
-            {
-              duration: 8000,
-            }
-          );
-        } else {
-          toast.info("Refund will be processed within 3-5 business days", {
-            duration: 8000,
-          });
-        }
-
         // Update payment-related queries
         queryClient.invalidateQueries({
-          queryKey: paymentsKeys.details(variables.orderId),
+          queryKey: paymentsKeys.byOrder(variables.orderId),
         });
         queryClient.invalidateQueries({
           queryKey: paymentsKeys.status(variables.orderId),
         });
+        queryClient.invalidateQueries({
+          queryKey: paymentsKeys.lists(),
+        });
 
-        // If there's a refund reference, show it
-        if (data.data.reference) {
-          toast.info(`Refund reference: ${data.data.reference}`, {
+        // If there's a refund ID, show it
+        if (data.data.refundId) {
+          toast.info(`Refund reference: ${data.data.refundId}`, {
             duration: 10000,
           });
         }
@@ -188,6 +294,9 @@ export function useInitiateRefund() {
   });
 }
 
+/**
+ * Hook to handle Sqrool payment callback
+ */
 export function useHandleSqroolCallback() {
   const queryClient = useQueryClient();
 
@@ -224,13 +333,16 @@ export function useRefetchPaymentStatus() {
   );
 }
 
+/**
+ * Manual refetch hook for payment details
+ */
 export function useRefetchPaymentDetails() {
   const queryClient = useQueryClient();
 
   return useCallback(
     (orderId: string) => {
       queryClient.invalidateQueries({
-        queryKey: paymentsKeys.details(orderId),
+        queryKey: paymentsKeys.byOrder(orderId),
       });
     },
     [queryClient]
@@ -238,10 +350,10 @@ export function useRefetchPaymentDetails() {
 }
 
 /**
- * Get payment method by type
+ * Get payment method by value
  */
-export function usePaymentMethodByType(methodType: string) {
+export function usePaymentMethodByValue(methodValue: string) {
   const { data: methods } = usePaymentMethods();
 
-  return methods?.find((method) => method.type === methodType);
+  return methods?.find((method) => method.value === methodValue);
 }

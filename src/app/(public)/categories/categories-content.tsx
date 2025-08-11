@@ -1,10 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,19 +14,16 @@ import {
   ChevronRight,
   Package,
   ArrowRight,
-  TreePine,
+  FolderOpen,
 } from "lucide-react";
-import { useCategories, useCategoriesTree } from "@/hooks/use-categories";
-import {
-  CategoryTreeResponse,
-  CategoryWithRelations,
-} from "@/lib/categories/types/categories.types";
+import { useCategories } from "@/hooks/use-categories";
+import { CategoryWithRelations } from "@/lib/categories/types/categories.types";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface CategoriesContentProps {
   searchQuery?: string;
-  viewMode: "grid" | "tree";
+  viewMode: "grid" | "list";
 }
 
 export default function CategoriesContent({
@@ -39,26 +33,21 @@ export default function CategoriesContent({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(searchQuery);
-  const [currentViewMode, setCurrentViewMode] = useState<"grid" | "tree">(
+  const [currentViewMode, setCurrentViewMode] = useState<"grid" | "list">(
     viewMode
   );
 
-  // Fetch categories based on view mode
+  // Fetch categories
   const {
-    data: categoriesData,
-    isLoading: isLoadingCategories,
-    error: categoriesError,
-  } = useCategories();
+    data: categoriesResponse,
+    isLoading,
+    error,
+  } = useCategories({
+    search: search || undefined,
+    isActive: true,
+  });
 
-  const {
-    data: treeData,
-    isLoading: isLoadingTree,
-    error: treeError,
-  } = useCategoriesTree();
-
-  const isLoading =
-    currentViewMode === "grid" ? isLoadingCategories : isLoadingTree;
-  const error = currentViewMode === "grid" ? categoriesError : treeError;
+  const categories = categoriesResponse?.items ? categoriesResponse.items : [];
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -71,12 +60,28 @@ export default function CategoriesContent({
     router.push(`/categories?${params.toString()}`);
   };
 
-  const handleViewModeChange = (mode: "grid" | "tree") => {
+  const handleViewModeChange = (mode: "grid" | "list") => {
     setCurrentViewMode(mode);
     const params = new URLSearchParams(searchParams);
     params.set("view", mode);
     router.push(`/categories?${params.toString()}`);
   };
+
+  // Organize categories into parent and children structure
+  const { parentCategories, childCategories } = categories.reduce(
+    (acc, category) => {
+      if (!category.parentId) {
+        acc.parentCategories.push(category);
+      } else {
+        acc.childCategories.push(category);
+      }
+      return acc;
+    },
+    {
+      parentCategories: [] as CategoryWithRelations[],
+      childCategories: [] as CategoryWithRelations[],
+    }
+  );
 
   if (error) {
     return (
@@ -117,52 +122,65 @@ export default function CategoriesContent({
             Grid
           </Button>
           <Button
-            variant={currentViewMode === "tree" ? "default" : "outline"}
+            variant={currentViewMode === "list" ? "default" : "outline"}
             size="sm"
-            onClick={() => handleViewModeChange("tree")}
+            onClick={() => handleViewModeChange("list")}
           >
-            <TreePine className="h-4 w-4 mr-2" />
-            Tree
+            <List className="h-4 w-4 mr-2" />
+            List
           </Button>
         </div>
       </div>
 
+      {/* Stats */}
+      {!isLoading && categories.length > 0 && (
+        <div className="flex gap-4 text-sm text-muted-foreground">
+          <span>{categories.length} total categories</span>
+          <span>{parentCategories.length} main categories</span>
+          <span>{childCategories.length} subcategories</span>
+        </div>
+      )}
+
       {/* Loading State */}
       {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          className={cn(
+            currentViewMode === "grid"
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              : "space-y-4"
+          )}
+        >
           {Array.from({ length: 6 }).map((_, i) => (
-            <CategoryCardSkeleton key={i} />
+            <CategoryCardSkeleton key={i} viewMode={currentViewMode} />
           ))}
         </div>
       )}
 
       {/* Content */}
-      {!isLoading && (
+      {!isLoading && categories.length > 0 && (
         <>
-          {currentViewMode === "grid" && categoriesData && (
-            <CategoriesGrid categories={categoriesData.items} />
+          {currentViewMode === "grid" && (
+            <CategoriesGrid categories={categories} />
           )}
 
-          {currentViewMode === "tree" && treeData && (
-            <CategoriesTree categories={treeData} />
+          {currentViewMode === "list" && (
+            <CategoriesList categories={categories} />
           )}
         </>
       )}
 
       {/* Empty State */}
-      {!isLoading &&
-        ((currentViewMode === "grid" && categoriesData?.items.length === 0) ||
-          (currentViewMode === "tree" && treeData?.length === 0)) && (
-          <div className="text-center py-12">
-            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No categories found</h3>
-            <p className="text-muted-foreground">
-              {search
-                ? "Try adjusting your search terms."
-                : "No categories are available at the moment."}
-            </p>
-          </div>
-        )}
+      {!isLoading && categories.length === 0 && (
+        <div className="text-center py-12">
+          <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No categories found</h3>
+          <p className="text-muted-foreground">
+            {search
+              ? "Try adjusting your search terms."
+              : "No categories are available at the moment."}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -181,15 +199,15 @@ function CategoriesGrid({
   );
 }
 
-function CategoriesTree({
+function CategoriesList({
   categories,
 }: {
-  categories: CategoryTreeResponse[];
+  categories: CategoryWithRelations[];
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {categories.map((category) => (
-        <TreeCategoryCard key={category.id} category={category} level={0} />
+        <CategoryListItem key={category.id} category={category} />
       ))}
     </div>
   );
@@ -197,11 +215,11 @@ function CategoriesTree({
 
 function CategoryCard({ category }: { category: CategoryWithRelations }) {
   return (
-    <Card className="group hover:shadow-md transition-shadow">
+    <Card className="group hover:shadow-md transition-shadow h-full">
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-lg group-hover:text-primary transition-colors">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-lg group-hover:text-primary transition-colors line-clamp-1">
               {category.name}
             </CardTitle>
             {category.parent && (
@@ -210,31 +228,23 @@ function CategoryCard({ category }: { category: CategoryWithRelations }) {
               </p>
             )}
           </div>
-          <Badge variant="secondary">{category.productCount} products</Badge>
+          <Badge variant="secondary" className="flex-shrink-0">
+            {category.productCount}
+          </Badge>
         </div>
       </CardHeader>
 
-      <CardContent>
-        {category.thumbnailImage && (
-          <div className="relative h-32 mb-4 rounded-md overflow-hidden bg-muted">
-            <Image
-              src={category.thumbnailImage}
-              alt={category.name}
-              fill
-              className="object-cover"
-            />
-          </div>
-        )}
-
+      <CardContent className="flex-1 flex flex-col">
         {category.description && (
-          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+          <p className="text-sm text-muted-foreground mb-4 line-clamp-3 flex-1">
             {category.description}
           </p>
         )}
 
         {category.children.length > 0 && (
           <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+              <FolderOpen className="h-3 w-3" />
               Subcategories:
             </p>
             <div className="flex flex-wrap gap-1">
@@ -252,7 +262,7 @@ function CategoryCard({ category }: { category: CategoryWithRelations }) {
           </div>
         )}
 
-        <Link href={`/categories/${category.slug}`} className="block">
+        <Link href={`/categories/${category.slug}`} className="mt-auto">
           <Button className="w-full group">
             Browse Category
             <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -263,70 +273,90 @@ function CategoryCard({ category }: { category: CategoryWithRelations }) {
   );
 }
 
-function TreeCategoryCard({
-  category,
-  level,
-}: {
-  category: CategoryTreeResponse;
-  level: number;
-}) {
+function CategoryListItem({ category }: { category: CategoryWithRelations }) {
   return (
-    <div className={cn("space-y-2", level > 0 && "ml-6")}>
-      <Card className="group hover:shadow-sm transition-shadow">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "w-1 h-8 rounded-full",
-                  level === 0 ? "bg-primary" : "bg-muted-foreground"
-                )}
-              />
-              <div>
+    <Card className="group hover:shadow-sm transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <div className="w-1 h-12 bg-primary rounded-full flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
                 <Link
                   href={`/categories/${category.slug}`}
-                  className="font-medium hover:text-primary transition-colors"
+                  className="font-medium hover:text-primary transition-colors line-clamp-1"
                 >
                   {category.name}
                 </Link>
-                {category.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-1">
-                    {category.description}
-                  </p>
+                {category.parent && (
+                  <span className="text-sm text-muted-foreground">
+                    in {category.parent.name}
+                  </span>
                 )}
               </div>
-            </div>
 
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">
-                {category.productCount} products
-              </Badge>
-              <Link href={`/categories/${category.slug}`}>
-                <Button variant="ghost" size="sm">
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              {category.description && (
+                <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+                  {category.description}
+                </p>
+              )}
+
+              {category.children.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {category.children.slice(0, 4).map((child) => (
+                    <Badge key={child.id} variant="outline" className="text-xs">
+                      {child.name}
+                    </Badge>
+                  ))}
+                  {category.children.length > 4 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{category.children.length - 4} more
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {category.children.length > 0 && (
-        <div className="space-y-2">
-          {category.children.map((child) => (
-            <TreeCategoryCard
-              key={child.id}
-              category={child}
-              level={level + 1}
-            />
-          ))}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <Badge variant="secondary" className="text-xs">
+              {category.productCount} products
+            </Badge>
+            <Link href={`/categories/${category.slug}`}>
+              <Button variant="ghost" size="sm" className="group">
+                Browse
+                <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          </div>
         </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function CategoryCardSkeleton() {
+function CategoryCardSkeleton({ viewMode }: { viewMode: "grid" | "list" }) {
+  if (viewMode === "list") {
+    return (
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <Skeleton className="w-1 h-12" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-full" />
+              <div className="flex gap-1">
+                <Skeleton className="h-5 w-16" />
+                <Skeleton className="h-5 w-16" />
+              </div>
+            </div>
+            <Skeleton className="h-8 w-20" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -339,9 +369,14 @@ function CategoryCardSkeleton() {
         </div>
       </CardHeader>
       <CardContent>
-        <Skeleton className="h-32 w-full mb-4" />
-        <Skeleton className="h-4 w-full mb-2" />
-        <Skeleton className="h-4 w-2/3 mb-4" />
+        <Skeleton className="h-16 w-full mb-4" />
+        <div className="space-y-2 mb-4">
+          <Skeleton className="h-3 w-20" />
+          <div className="flex gap-1">
+            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-5 w-16" />
+          </div>
+        </div>
         <Skeleton className="h-10 w-full" />
       </CardContent>
     </Card>

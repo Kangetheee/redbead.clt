@@ -144,3 +144,18 @@ export interface OrderConfirmation {
   estimatedDelivery: string;
   createdAt: string;
 }
+
+// Add pagination metadata interface
+export interface PaginationMeta {
+  pageCount: number;
+  pageSize: number;
+  currentPage: number;
+  pageIndex: number;
+  itemCount: number;
+}
+
+// Add checkout sessions list response interface
+export interface CheckoutSessionsListResponse {
+  data: CheckoutSession[];
+  meta: PaginationMeta;
+}

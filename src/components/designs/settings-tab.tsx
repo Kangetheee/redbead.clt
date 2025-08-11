@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from "react";
 import { UseFormReturn } from "react-hook-form";
 
@@ -19,20 +21,28 @@ import {
 } from "@/components/ui/select";
 
 import { SizeVariant } from "@/lib/design-templates/types/design-template.types";
+import { CanvasElement } from "@/lib/design-studio/types/design-studio.types";
 
 interface SettingsTabProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   designForm: UseFormReturn<any>;
   sizeVariants: SizeVariant[] | undefined;
   selectedVariant: SizeVariant | null;
+  canvasElements: CanvasElement[];
+  templatePresets: any;
   onVariantSelect: (variant: SizeVariant) => void;
+  onCanvasElementsChange: (elements: CanvasElement[]) => void;
+  isLoadingPresets: boolean;
 }
 
 export default function SettingsTab({
   designForm,
   sizeVariants,
   selectedVariant,
+  canvasElements,
+  templatePresets,
   onVariantSelect,
+  onCanvasElementsChange,
+  isLoadingPresets,
 }: SettingsTabProps) {
   return (
     <div className="space-y-4">
@@ -110,6 +120,66 @@ export default function SettingsTab({
         </div>
       </Form>
 
+      {/* Canvas Settings */}
+      <div className="space-y-2">
+        <h4 className="font-medium text-gray-900">Canvas Settings</h4>
+        <div className="grid grid-cols-2 gap-2">
+          <FormField
+            control={designForm.control}
+            name="customizations.width"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Width (px)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    {...field}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                    placeholder="800"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={designForm.control}
+            name="customizations.height"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Height (px)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    {...field}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                    placeholder="600"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        </div>
+        <FormField
+          control={designForm.control}
+          name="customizations.backgroundColor"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Background Color</FormLabel>
+              <FormControl>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="color"
+                    {...field}
+                    className="w-12 h-10 p-1 rounded border"
+                  />
+                  <Input {...field} placeholder="#ffffff" className="flex-1" />
+                </div>
+              </FormControl>
+            </FormItem>
+          )}
+        />
+      </div>
+
       {/* Size Variants */}
       {sizeVariants && sizeVariants.length > 0 && (
         <div className="space-y-2">
@@ -148,6 +218,67 @@ export default function SettingsTab({
           </div>
         </div>
       )}
+
+      {/* Template Presets */}
+      {templatePresets && !isLoadingPresets && (
+        <div className="space-y-2">
+          <h4 className="font-medium text-gray-900">Template Presets</h4>
+          <div className="text-sm text-gray-600">
+            {templatePresets.colors && (
+              <div className="mb-2">
+                <span className="font-medium">Available Colors: </span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {templatePresets.colors.map(
+                    (color: string, index: number) => (
+                      <div
+                        key={index}
+                        className="w-6 h-6 rounded border border-gray-300"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+            {templatePresets.fonts && (
+              <div className="mb-2">
+                <span className="font-medium">Recommended Fonts: </span>
+                <span>{templatePresets.fonts.join(", ")}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Statistics */}
+      <div className="pt-4 border-t border-gray-200">
+        <h4 className="font-medium text-gray-900 mb-2">Design Statistics</h4>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="text-gray-500">Total Elements:</span>
+            <span className="ml-1 font-medium">{canvasElements.length}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Text Elements:</span>
+            <span className="ml-1 font-medium">
+              {canvasElements.filter((el) => el.type === "text").length}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-500">Images:</span>
+            <span className="ml-1 font-medium">
+              {canvasElements.filter((el) => el.type === "image").length}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-500">Shapes:</span>
+            <span className="ml-1 font-medium">
+              {canvasElements.filter((el) => el.type === "shape").length}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

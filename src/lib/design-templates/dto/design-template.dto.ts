@@ -1,129 +1,67 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import {
+  SizeVariantResponseDto,
+  ColorPresetResponseDto,
+  FontPresetResponseDto,
+  MediaRestrictionResponseDto,
+} from "../types/design-template.types";
+
 import { z } from "zod";
 
-// Base schemas for reusable components
-const dimensionsSchema = z.object({
-  width: z.number().positive(),
-  height: z.number().positive(),
-  unit: z.enum(["mm", "cm", "in"]),
-});
-
-const materialsSchema = z.object({
-  base: z.string(),
-  options: z.array(z.string()),
-});
-
-const printAreaSchema = z
-  .object({
-    unit: z.string(),
-    width: z.number().positive(),
-    height: z.number().positive(),
-  })
-  .optional();
-
-const designConstraintsSchema = z.object({
-  allowText: z.boolean(),
-  allowLogos: z.boolean(),
-  allowCustomColors: z.boolean(),
-  maxColors: z.number().min(1),
-  printArea: printAreaSchema,
-});
-
-const canvasSettingsSchema = z.object({
-  backgroundColor: z.string(),
-  printable: z.boolean(),
-  snapToGrid: z.boolean().optional(),
-  gridEnabled: z.boolean().optional(),
-});
-
-export const getTemplatesSchema = z.object({
-  page: z.number().min(1).optional(),
-  limit: z.number().min(1).max(100).optional(),
-  search: z.string().optional(),
-  productId: z.string().optional(),
-  categoryId: z.string().optional(),
-  isActive: z.boolean().optional(),
-  isFeatured: z.boolean().optional(),
-});
-
-export type GetTemplatesDto = z.infer<typeof getTemplatesSchema>;
-
+// Create Template DTO Schema
 export const createTemplateSchema = z.object({
-  name: z.string().min(1, "Template name is required"),
-  slug: z.string().min(1, "Slug is required"),
-  description: z.string().min(1, "Description is required"),
+  name: z.string().min(1, "Name is required").max(100, "Name too long"),
+  description: z.string().max(500, "Description too long").optional(),
   productId: z.string().min(1, "Product ID is required"),
   categoryId: z.string().min(1, "Category ID is required"),
-  previewImage: z.string().min(1, "Preview image is required"),
-  images: z.array(z.string()),
-  basePrice: z.number().min(0, "Base price must be non-negative"),
-  sku: z.string().min(1, "SKU is required"),
-  stock: z.number().min(0, "Stock must be non-negative"),
-  minOrderQuantity: z
-    .number()
-    .min(1, "Minimum order quantity must be at least 1"),
-  maxOrderQuantity: z
-    .number()
-    .min(1, "Maximum order quantity must be at least 1"),
-  designConstraints: designConstraintsSchema,
-  canvasSettings: canvasSettingsSchema,
-  dimensions: dimensionsSchema,
-  leadTime: z.string(),
-  productionDays: z.number().min(0),
-  designDays: z.number().min(0),
-  shippingDays: z.number().min(0),
-  materials: materialsSchema,
-  printOptions: z.array(z.string()),
-  customizations: z.record(z.any()),
-  isFeatured: z.boolean().default(false),
+  basePrice: z.number().positive("Base price must be positive"),
+  thumbnail: z.string().min(1, "Thumbnail is required"),
   isActive: z.boolean().default(true),
-  metaTitle: z.string().optional(),
-  metaDescription: z.string().optional(),
+  metadata: z
+    .object({
+      tags: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
 export type CreateTemplateDto = z.infer<typeof createTemplateSchema>;
 
-export const updateTemplateSchema = createTemplateSchema.partial();
+// Update Template DTO Schema
+export const updateTemplateSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .max(100, "Name too long")
+    .optional(),
+  description: z.string().max(500, "Description too long").optional(),
+  categoryId: z.string().optional(),
+  productId: z.string().optional(),
+  basePrice: z.number().positive("Base price must be positive").optional(),
+  thumbnail: z.string().optional(),
+  isActive: z.boolean().optional(),
+  metadata: z
+    .object({
+      tags: z.array(z.string()).optional(),
+    })
+    .optional(),
+});
 
 export type UpdateTemplateDto = z.infer<typeof updateTemplateSchema>;
 
-export const createSizeVariantSchema = z.object({
-  name: z.string().min(1, "Variant name is required"),
-  displayName: z.string().min(1, "Display name is required"),
-  dimensions: dimensionsSchema,
-  description: z.string().optional(),
-  price: z.number().min(0, "Price must be non-negative"),
-  sku: z.string().min(1, "SKU is required"),
-  stock: z.number().min(0, "Stock must be non-negative"),
-  minOrderQty: z.number().min(1, "Minimum order quantity must be at least 1"),
-  maxOrderQty: z.number().min(1, "Maximum order quantity must be at least 1"),
-  isDefault: z.boolean().default(false),
-  isActive: z.boolean().default(true),
-  sortOrder: z.number().min(0),
-});
-export type CreateSizeVariantDto = z.infer<typeof createSizeVariantSchema>;
-
-export const updateSizeVariantSchema = createSizeVariantSchema.partial();
-
-export type UpdateSizeVariantDto = z.infer<typeof updateSizeVariantSchema>;
-
-export const calculatePriceSchema = z.object({
-  sizeVariantId: z.string().min(1, "Size variant ID is required"),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
-  customizations: z.record(z.any()),
-  urgencyLevel: z
-    .enum(["NORMAL", "EXPEDITED", "RUSH", "EMERGENCY"])
-    .default("NORMAL"),
+// Get Templates DTO Schema
+export const getTemplatesSchema = z.object({
+  pageIndex: z.number().min(0).optional(),
+  pageSize: z.number().min(-1).max(100).optional(),
+  search: z.string().optional(),
+  productId: z.string().optional(),
+  categoryId: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
-export type CalculatePriceDto = z.infer<typeof calculatePriceSchema>;
+export type GetTemplatesDto = z.infer<typeof getTemplatesSchema>;
 
-export const duplicateTemplateSchema = z.object({
-  name: z.string().min(1, "New template name is required"),
-  slug: z.string().min(1, "New slug is required"),
-});
-
-export type DuplicateTemplateDto = z.infer<typeof duplicateTemplateSchema>;
-
+// Get Templates by Product DTO Schema
 export const getTemplatesByProductSchema = z.object({
   isActive: z.boolean().optional(),
 });
@@ -132,22 +70,120 @@ export type GetTemplatesByProductDto = z.infer<
   typeof getTemplatesByProductSchema
 >;
 
+// Duplicate Template DTO Schema
+export const duplicateTemplateSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100, "Name too long"),
+});
+
+export type DuplicateTemplateDto = z.infer<typeof duplicateTemplateSchema>;
+
+// Size Variant DTOs
+export const createSizeVariantSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  displayName: z.string().min(1, "Display name is required"),
+  dimensions: z.object({
+    width: z.number().positive(),
+    height: z.number().positive(),
+    unit: z.string(),
+    dpi: z.number().positive(),
+  }),
+  price: z.number().positive("Price must be positive"),
+  isDefault: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().min(0).default(0),
+  metadata: z
+    .object({
+      printArea: z
+        .object({
+          width: z.number().positive(),
+          height: z.number().positive(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+export type CreateSizeVariantDto = z.infer<typeof createSizeVariantSchema>;
+
+export const updateSizeVariantSchema = createSizeVariantSchema.partial();
+export type UpdateSizeVariantDto = z.infer<typeof updateSizeVariantSchema>;
+
+// Color Preset DTOs
+export const createColorPresetSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  hexCode: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
+  rgbCode: z.string(),
+  cmykCode: z.string().optional(),
+  pantoneCode: z.string().optional(),
+  category: z.string().min(1, "Category is required"),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().min(0).default(0),
+});
+
+export type CreateColorPresetDto = z.infer<typeof createColorPresetSchema>;
+
+export const updateColorPresetSchema = createColorPresetSchema.partial();
+export type UpdateColorPresetDto = z.infer<typeof updateColorPresetSchema>;
+
+// Font Preset DTOs
+export const createFontPresetSchema = z.object({
+  family: z.string().min(1, "Font family is required"),
+  displayName: z.string().min(1, "Display name is required"),
+  weights: z.array(z.number()),
+  styles: z.array(z.string()),
+  category: z.string().min(1, "Category is required"),
+  urls: z
+    .object({
+      woff2: z.string().optional(),
+      woff: z.string().optional(),
+    })
+    .optional(),
+  isPremium: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().min(0).default(0),
+});
+
+export type CreateFontPresetDto = z.infer<typeof createFontPresetSchema>;
+
+export const updateFontPresetSchema = createFontPresetSchema.partial();
+export type UpdateFontPresetDto = z.infer<typeof updateFontPresetSchema>;
+
+// Media Restriction DTOs
+export const createMediaRestrictionSchema = z.object({
+  allowedTypes: z.array(z.string()),
+  maxFileSize: z.number().positive(),
+  allowedFormats: z.array(z.string()),
+  requiredDPI: z.number().positive().optional(),
+  isActive: z.boolean().default(true),
+});
+
+export type CreateMediaRestrictionDto = z.infer<
+  typeof createMediaRestrictionSchema
+>;
+
+export const updateMediaRestrictionSchema =
+  createMediaRestrictionSchema.partial();
+export type UpdateMediaRestrictionDto = z.infer<
+  typeof updateMediaRestrictionSchema
+>;
+
+// Price Calculation DTO
+export const calculatePriceSchema = z.object({
+  sizeVariantId: z.string().min(1, "Size variant ID is required"),
+  quantity: z.number().positive("Quantity must be positive"),
+  customizations: z.record(z.any()).optional(),
+  urgencyLevel: z.enum(["NORMAL", "URGENT", "RUSH"]).default("NORMAL"),
+});
+
+export type CalculatePriceDto = z.infer<typeof calculatePriceSchema>;
+
+// Analytics DTOs
 export const getTemplateAnalyticsSchema = z.object({
-  includeAnalytics: z.boolean().optional(),
-  dateRange: z.number().min(1).max(365).optional(), // Days
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  templateIds: z.array(z.string()).optional(),
 });
 
 export type GetTemplateAnalyticsDto = z.infer<
   typeof getTemplateAnalyticsSchema
 >;
-
-export const URGENCY_LEVELS = [
-  "NORMAL",
-  "EXPEDITED",
-  "RUSH",
-  "EMERGENCY",
-] as const;
-export type UrgencyLevel = (typeof URGENCY_LEVELS)[number];
-
-export const DIMENSION_UNITS = ["mm", "cm", "in"] as const;
-export type DimensionUnit = (typeof DIMENSION_UNITS)[number];

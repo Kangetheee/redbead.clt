@@ -32,8 +32,12 @@ export function CartItem({ item, onEdit }: CartItemProps) {
           {/* Product Image */}
           <div className="relative w-20 h-20 flex-shrink-0">
             <Image
-              src={item.template.previewImage || "/placeholder-product.jpg"}
-              alt={item.template.name}
+              src={
+                item.product.thumbnailImage ||
+                item.product.images?.[0] ||
+                "/placeholder-product.jpg"
+              }
+              alt={item.product.name}
               fill
               className="object-cover rounded-md"
             />
@@ -42,35 +46,51 @@ export function CartItem({ item, onEdit }: CartItemProps) {
           {/* Product Details */}
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-sm line-clamp-2">
-              {item.template.name}
+              {item.product.name}
             </h3>
 
-            {/* Size Variant */}
+            {/* Variant */}
             <div className="text-xs text-muted-foreground mt-1">
-              Size: {item.sizeVariant.displayName}
+              {item.variant.name}
+              {item.variant.sku && ` • SKU: ${item.variant.sku}`}
             </div>
 
             {/* Customizations */}
-            <div className="mt-2 space-y-1">
-              {item.customizations.map((customization, index) => (
-                <div key={index} className="text-xs text-muted-foreground">
-                  <span className="font-medium">
-                    {customization.option.displayName}:
-                  </span>{" "}
-                  {customization.customValue || customization.value.displayName}
-                  {customization.value.priceAdjustment > 0 && (
-                    <span className="text-green-600 ml-1">
-                      (+KES {customization.value.priceAdjustment.toFixed(2)})
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+            {item.customizations && item.customizations.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {item.customizations.map((customization, index) => (
+                  <div key={index} className="text-xs text-muted-foreground">
+                    <span className="font-medium">
+                      {customization.option.name}:
+                    </span>{" "}
+                    {customization.customValue ||
+                      customization.option.metadata?.options?.find(
+                        (opt) => opt.value === customization.valueId
+                      )?.label ||
+                      customization.valueId}
+                    {customization.option.metadata?.options?.find(
+                      (opt) => opt.value === customization.valueId
+                    )?.priceAdjustment &&
+                      customization.option.metadata.options.find(
+                        (opt) => opt.value === customization.valueId
+                      )!.priceAdjustment > 0 && (
+                        <span className="text-green-600 ml-1">
+                          (+KES{" "}
+                          {customization.option.metadata.options
+                            .find((opt) => opt.value === customization.valueId)!
+                            .priceAdjustment.toLocaleString()}
+                          )
+                        </span>
+                      )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {/* Design Info */}
-            {item.design && (
-              <Badge variant="outline" className="mt-2">
-                Design: {item.design.name}
+            {/* Category */}
+            {item.product.category && (
+              <Badge variant="outline" className="mt-2 text-xs">
+                {item.product.category.name}
               </Badge>
             )}
           </div>
@@ -81,37 +101,35 @@ export function CartItem({ item, onEdit }: CartItemProps) {
               KES {item.totalPrice.toLocaleString()}
             </div>
             <div className="text-xs text-muted-foreground">
-              KES {(item.totalPrice / item.quantity).toFixed(2)} each
+              KES {item.unitPrice.toLocaleString()} each
             </div>
 
             <QuantitySelector
               cartItemId={item.id}
               quantity={item.quantity}
-              minQuantity={item.template.minOrderQuantity}
-              maxQuantity={Math.min(
-                item.template.maxOrderQuantity,
-                item.template.stock
-              )}
+              maxQuantity={item.variant.stock}
             />
           </div>
 
           {/* Actions */}
           <div className="flex flex-col gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleEdit}
-              disabled={!onEdit}
-              title="Edit item"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleEdit}
+                title="Edit item"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
               onClick={handleRemove}
               disabled={removeCartItem.isPending}
               title="Remove item"
+              className="text-destructive hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" />
             </Button>

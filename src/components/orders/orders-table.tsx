@@ -107,6 +107,11 @@ const STATUS_CONFIG = {
     label: "Pending",
     icon: Clock,
   },
+  CONFIRMED: {
+    color: "bg-green-100 text-green-800 border-green-200",
+    label: "Confirmed",
+    icon: CheckCircle,
+  },
   DESIGN_PENDING: {
     color: "bg-blue-100 text-blue-800 border-blue-200",
     label: "Design Review",

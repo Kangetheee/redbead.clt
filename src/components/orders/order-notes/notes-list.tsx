@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, MessageSquare } from "lucide-react";
+import { Plus, MessageSquare, AlertTriangle, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useOrderNotes } from "@/hooks/use-orders";
-import { OrderNote } from "@/lib/orders/types/orders.types";
+// import { OrderNote } from "@/lib/orders/types/orders.types";
 import { NOTE_TYPES } from "@/lib/orders/dto/orders.dto";
 import { AddNoteDialog } from "./add-note-dialog";
 import { NoteItem } from "./note-item";
@@ -30,6 +30,13 @@ interface NotesListProps {
   showFilters?: boolean;
 }
 
+const formatNoteType = (type: string): string => {
+  return type
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
 export default function NotesList({
   orderId,
   showAddButton = true,
@@ -40,19 +47,18 @@ export default function NotesList({
   const [showInternal, setShowInternal] = useState(true);
 
   // Fetch notes using the hook
-  const { data: notesResponse, isLoading, refetch } = useOrderNotes(orderId);
-
-  // Extract notes from response - the hook's select function returns data directly
-  const notes: OrderNote[] = React.useMemo(() => {
-    return notesResponse || [];
-  }, [notesResponse]);
+  const { data: notes, isLoading, error, refetch } = useOrderNotes(orderId);
 
   // Filter notes
-  const filteredNotes = notes.filter((note) => {
-    if (filterType !== "all" && note.noteType !== filterType) return false;
-    if (!showInternal && note.isInternal) return false;
-    return true;
-  });
+  const filteredNotes = React.useMemo(() => {
+    if (!notes) return [];
+
+    return notes.filter((note) => {
+      if (filterType !== "all" && note.type !== filterType) return false;
+      if (!showInternal && note.isInternal) return false;
+      return true;
+    });
+  }, [notes, filterType, showInternal]);
 
   const handleNoteAdded = () => {
     refetch();
@@ -68,25 +74,35 @@ export default function NotesList({
     console.log("Delete note:", noteId);
   };
 
-  const formatNoteType = (type: string) => {
-    return type
-      .replace("_", " ")
-      .toLowerCase()
-      .replace(/\b\w/g, (l) => l.toUpperCase());
-  };
-
   if (isLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-32">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+            <Loader2 className="h-4 w-4 animate-spin" />
             <span>Loading notes...</span>
           </div>
         </CardContent>
       </Card>
     );
   }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center h-32">
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load notes. Please try again.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const allNotes = notes || [];
 
   return (
     <div className="space-y-4">
@@ -95,7 +111,7 @@ export default function NotesList({
         <div>
           <h3 className="text-lg font-semibold">Order Notes</h3>
           <p className="text-sm text-muted-foreground">
-            {filteredNotes.length} of {notes.length} notes
+            {filteredNotes.length} of {allNotes.length} notes
           </p>
         </div>
 
@@ -114,7 +130,7 @@ export default function NotesList({
       </div>
 
       {/* Filters */}
-      {showFilters && notes.length > 0 && (
+      {showFilters && allNotes.length > 0 && (
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-4">
@@ -157,11 +173,11 @@ export default function NotesList({
               <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">No notes found</h3>
               <p className="text-muted-foreground mb-4">
-                {notes.length === 0
+                {allNotes.length === 0
                   ? "Be the first to add a note to this order"
                   : "Try adjusting your filters to see more notes"}
               </p>
-              {showAddButton && notes.length === 0 && (
+              {showAddButton && allNotes.length === 0 && (
                 <AddNoteDialog
                   orderId={orderId}
                   onNoteAdded={handleNoteAdded}
@@ -188,20 +204,20 @@ export default function NotesList({
       </div>
 
       {/* Notes Summary */}
-      {notes.length > 0 && (
+      {allNotes.length > 0 && (
         <Alert>
           <MessageSquare className="h-4 w-4" />
           <AlertDescription>
             <div className="flex justify-between text-sm">
               <span>
-                Total notes: {notes.length} (
-                {notes.filter((n) => n.isInternal).length} internal)
+                Total notes: {allNotes.length} (
+                {allNotes.filter((n) => n.isInternal).length} internal)
               </span>
-              {notes.length > 0 && (
+              {allNotes.length > 0 && (
                 <span>
                   Latest:{" "}
                   {formatDistanceToNow(
-                    new Date(notes[0]?.createdAt || new Date()),
+                    new Date(allNotes[0]?.createdAt || new Date()),
                     { addSuffix: true }
                   )}
                 </span>

@@ -74,18 +74,18 @@ export interface DesignApproval {
   id: string;
   orderId: string;
   designId: string;
-  approvalToken: string;
+  approvalToken?: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED";
   customerEmail: string;
   previewImages: string[];
-  designSummary: DesignSummary;
+  designSummary?: DesignSummary;
   requestedAt: string;
   respondedAt?: string;
   approvedBy?: string;
   rejectionReason?: string;
-  expiresAt: string;
-  emailSent: boolean;
-  remindersSent: number;
+  expiresAt?: string;
+  emailSent?: boolean;
+  remindersSent?: number;
 }
 
 export interface OrderNoteUser {
@@ -96,7 +96,8 @@ export interface OrderNoteUser {
 
 export interface OrderNote {
   id: string;
-  noteType:
+  // Changed from noteType to type based on API docs
+  type:
     | "GENERAL"
     | "URGENCY"
     | "TIMELINE"
@@ -108,7 +109,7 @@ export interface OrderNote {
   priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
   title?: string;
   content: string;
-  isInternal: boolean;
+  isInternal?: boolean;
   createdBy?: string;
   createdAt: string;
   user?: OrderNoteUser;
@@ -127,15 +128,16 @@ export interface OrderPayment {
   status?: string;
   transactionId?: string;
   amount?: number;
-  // Add other payment fields based on your requirements
 }
 
+// Updated to match API response structure
 export interface OrderResponse {
   id: string;
-  customerId: string;
+  customerId?: string;
   orderNumber: string;
   status:
     | "PENDING"
+    | "CONFIRMED" // Added from API docs
     | "DESIGN_PENDING"
     | "DESIGN_APPROVED"
     | "DESIGN_REJECTED"
@@ -156,7 +158,7 @@ export interface OrderResponse {
   trackingUrl?: string;
   expectedDelivery?: string;
   notes?: string;
-  urgencyLevel: "NORMAL" | "EXPEDITED" | "RUSH" | "EMERGENCY";
+  urgencyLevel?: "NORMAL" | "EXPEDITED" | "RUSH" | "EMERGENCY";
   expectedProductionDays?: number;
   specialInstructions?: string;
   designApprovalRequired: boolean;
@@ -178,19 +180,20 @@ export interface OrderResponse {
 
   shippingAddress: AddressResponse;
   billingAddress?: AddressResponse;
-  orderItems: OrderItem[];
+  orderItems: OrderItem[] | string[];
   payment?: OrderPayment;
   templateId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// Simplified OrderResponse for list view (from GET /v1/orders)
+// Simplified OrderResponse for list view
 export interface OrderListItem {
   id: string;
   orderNumber: string;
   status:
     | "PENDING"
+    | "CONFIRMED" // Added from API docs
     | "DESIGN_PENDING"
     | "DESIGN_APPROVED"
     | "DESIGN_REJECTED"
@@ -248,23 +251,6 @@ export interface OrderFilters {
   search?: string;
   urgencyLevel?: string;
   templateId?: string;
-}
-
-// API Response wrapper types
-export interface OrdersListResponse {
-  data: OrderListItem[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    lastPage: number;
-  };
-  links: {
-    first: string;
-    last: string;
-    next?: string;
-    prev?: string;
-  };
 }
 
 // Type guards and utilities

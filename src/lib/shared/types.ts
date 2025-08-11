@@ -46,3 +46,16 @@ export type PaginatedData4<T> = {
   meta: Meta;
   data: T[];
 };
+
+export type Meta2 = {
+  pageCount: number;
+  pageSize: number;
+  currentPage: number;
+  pageIndex: number;
+  itemCount: number;
+};
+
+export type PaginatedData2<T> = {
+  meta: Meta;
+  items: T[];
+};

@@ -1,11 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import axios, { AxiosError, AxiosHeaders, AxiosRequestConfig } from "axios";
+import axios, {
+  AxiosError,
+  AxiosHeaders,
+  AxiosRequestConfig,
+  AxiosResponse,
+} from "axios";
 import "server-only";
 
 import env from "@/config/server.env";
 
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { cache } from "react";
 import { getErrorMessage } from "../get-error-message";
 import { getSession, destroySession, createSession } from "../session/session";
@@ -16,7 +21,6 @@ type BaseOptions = {
 
 type RequestOptions = BaseOptions & {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-
   data?: Record<string, any> | FormData;
 };
 
@@ -27,16 +31,103 @@ type RefreshTokenResponse = {
 };
 
 export class Fetcher {
-  constructor(private apiUri = axios.create({ baseURL: env.API_URL })) {}
+  constructor(
+    private apiUri = axios.create({
+      baseURL: env.API_URL,
+      withCredentials: true,
+      timeout: 30000,
+    })
+  ) {
+    // Add response interceptor to handle cookies
+    this.apiUri.interceptors.response.use(
+      (response) => this.handleResponseCookies(response),
+      (error) => Promise.reject(error)
+    );
+  }
 
   private isDev = env.NODE_ENV === "development";
   private isRefreshing = false;
   private refreshPromise: Promise<RefreshTokenResponse> | null = null;
 
+  private async handleResponseCookies(
+    response: AxiosResponse
+  ): Promise<AxiosResponse> {
+    // Extract and forward cookies from API response to browser
+    const setCookieHeaders = response.headers["set-cookie"];
+
+    if (setCookieHeaders && setCookieHeaders.length > 0) {
+      const cookieStore = await cookies();
+
+      if (this.isDev) {
+        console.log("Processing cookies from API:", setCookieHeaders);
+      }
+
+      for (const cookieHeader of setCookieHeaders) {
+        // Parse cookie header format: "name=value; Max-Age=123; HttpOnly; Secure; SameSite=Lax"
+        const [nameValue, ...options] = cookieHeader.split("; ");
+        const [name, value] = nameValue.split("=");
+
+        if (name && value) {
+          // Parse cookie options
+          const cookieOptions: any = {
+            httpOnly: true, // Default to httpOnly for security
+            secure: env.NODE_ENV === "production",
+            sameSite: "lax" as const,
+          };
+
+          for (const option of options) {
+            const [key, val] = option.split("=");
+            const lowerKey = key.toLowerCase();
+
+            switch (lowerKey) {
+              case "max-age":
+                cookieOptions.maxAge = parseInt(val) * 1000; // Convert to milliseconds
+                break;
+              case "expires":
+                cookieOptions.expires = new Date(val);
+                break;
+              case "httponly":
+                cookieOptions.httpOnly = true;
+                break;
+              case "secure":
+                cookieOptions.secure = true;
+                break;
+              case "samesite":
+                cookieOptions.sameSite = val.toLowerCase() as
+                  | "strict"
+                  | "lax"
+                  | "none";
+                break;
+              case "path":
+                cookieOptions.path = val;
+                break;
+              case "domain":
+                cookieOptions.domain = val;
+                break;
+            }
+          }
+
+          // Set the cookie in Next.js
+          try {
+            cookieStore.set(name, value, cookieOptions);
+            if (this.isDev) {
+              console.log(`Set cookie: ${name}=${value}`, cookieOptions);
+            }
+          } catch (error) {
+            if (this.isDev) {
+              console.error(`Failed to set cookie ${name}:`, error);
+            }
+          }
+        }
+      }
+    }
+
+    return response;
+  }
+
   private async getClientHeaders() {
     const headersList = await headers();
 
-    // List of headers you want to forward
     const headersToForward = [
       "user-agent",
       "accept-language",
@@ -44,19 +135,18 @@ export class Fetcher {
       "referer",
       "accept",
       "origin",
-      // 'x-real-ip',
     ];
 
     const clientHeaders: Record<string, string> = {};
 
-    // Get IP address from various possible headers
+    // Get IP address
     const ip =
       headersList.get("x-forwarded-for")?.split(",")[0] ||
       headersList.get("x-real-ip") ||
-      headersList.get("cf-connecting-ip") || // Cloudflare
-      headersList.get("true-client-ip") || // Akamai and Cloudflare
-      headersList.get("x-client-ip") || // AWS WAF
-      headersList.get("forwarded") || // RFC 7239
+      headersList.get("cf-connecting-ip") ||
+      headersList.get("true-client-ip") ||
+      headersList.get("x-client-ip") ||
+      headersList.get("forwarded") ||
       "";
 
     if (ip) {
@@ -67,7 +157,6 @@ export class Fetcher {
     headersToForward.forEach((header) => {
       const value = headersList.get(header);
       if (value) {
-        // Convert to proper case (e.g., 'user-agent' to 'User-Agent')
         const properHeader = header
           .split("-")
           .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -80,8 +169,17 @@ export class Fetcher {
     return clientHeaders;
   }
 
+  private async getAllCookiesForBackend(): Promise<string> {
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+
+    // Convert to cookie header format that backend expects
+    return allCookies
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
+  }
+
   private async refreshAccessToken(): Promise<RefreshTokenResponse> {
-    // Prevent multiple simultaneous refresh attempts
     if (this.isRefreshing && this.refreshPromise) {
       return this.refreshPromise;
     }
@@ -107,7 +205,6 @@ export class Fetcher {
 
       const result = await this.refreshPromise;
 
-      // Update session with new tokens
       await createSession({
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
@@ -116,7 +213,6 @@ export class Fetcher {
 
       return result;
     } catch (error) {
-      // Refresh failed, destroy session
       await destroySession();
       throw new Error("Session expired. Please log in again.");
     } finally {
@@ -148,13 +244,23 @@ export class Fetcher {
           throw new Error("No active session found. Please login to continue");
         }
 
-        // Build headers object, handling FormData specially
+        // Build headers
         const baseHeaders: Record<string, string> = {
           ...headersList,
           ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         };
 
-        // Don't set Content-Type for FormData - let the browser set it with boundary
+        // CRITICAL: Forward all existing cookies to backend for session tracking
+        const existingCookies = await this.getAllCookiesForBackend();
+        if (existingCookies) {
+          baseHeaders["Cookie"] = existingCookies;
+
+          if (this.isDev) {
+            console.log(`Forwarding cookies to backend: ${existingCookies}`);
+          }
+        }
+
+        // Don't set Content-Type for FormData
         const isFormData =
           restOptions.data && restOptions.data instanceof FormData;
         if (!isFormData) {
@@ -162,7 +268,6 @@ export class Fetcher {
           baseHeaders["Accept"] = "application/json";
         }
 
-        // Merge additional headers, but don't override Content-Type for FormData
         const finalHeaders = {
           ...baseHeaders,
           ...(!isFormData && otherHeaders ? otherHeaders : {}),
@@ -190,22 +295,20 @@ export class Fetcher {
         return resp;
       } catch (error) {
         if (error instanceof AxiosError) {
-          // Handle 401 Unauthorized - token might be expired
+          // Handle 401 Unauthorized
           if (
             error.response?.status === 401 &&
             authOptions.auth &&
             !authOptions.skipRefresh &&
-            !url.includes("/auth/refresh") // Don't refresh on refresh endpoint
+            !url.includes("/auth/refresh")
           ) {
             try {
               if (this.isDev) {
                 console.log("Access token expired, attempting refresh...");
               }
 
-              // Attempt to refresh the token
               await this.refreshAccessToken();
 
-              // Retry the original request with skipRefresh to avoid infinite loop
               return this.request<T>(url, options, {
                 auth: authOptions.auth,
                 skipRefresh: true,
@@ -214,12 +317,11 @@ export class Fetcher {
               if (this.isDev) {
                 console.error("Token refresh failed:", refreshError);
               }
-              // Refresh failed, throw original error
               throw new Error("Session expired. Please log in again.");
             }
           }
 
-          // Handle other network errors
+          // Handle network errors
           if (error.code === "ETIMEDOUT") {
             console.error("Request timed out. Server might be unresponsive.");
             throw new Error("Request timed out. Please try again later.");

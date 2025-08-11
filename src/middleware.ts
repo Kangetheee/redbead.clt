@@ -21,6 +21,8 @@ const publicRoutes = [
   "/cart",
   "/about",
   "/contact",
+  "/checkout",
+  "/checkout/.*",
 ];
 
 // Middleware-specific session store for cookie handling

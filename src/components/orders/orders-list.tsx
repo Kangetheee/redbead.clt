@@ -1,40 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import Link from "next/link";
-import { format } from "date-fns";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  Package,
-  Search,
-  Filter,
-  Download,
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Plus,
-} from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  SortingState,
+  getSortedRowModel,
+  Table as TableType,
+  Row,
+  Header,
+  Cell,
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -43,6 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,172 +42,406 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Eye,
+  Edit,
+  Package,
+  Search,
+  Filter,
+  Calendar,
+  DollarSign,
+  Clock,
+  User,
+  Loader2,
+  AlertTriangle,
+  Download,
+  RefreshCw,
+} from "lucide-react";
+import { format } from "date-fns";
 
 import { useOrders } from "@/hooks/use-orders";
-import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
-import { OrderListItem } from "@/lib/orders/types/orders.types";
-import OrderStatusBadge from "./order-status-badge";
+import {
+  GetOrdersDto,
+  ORDER_STATUS,
+  URGENCY_LEVELS,
+  DESIGN_APPROVAL_STATUS,
+} from "@/lib/orders/dto/orders.dto";
+import { OrderResponse, OrderFilters } from "@/lib/orders/types/orders.types";
 
 interface OrdersListProps {
-  filters?: GetOrdersDto;
-  onFiltersChange?: (filters: GetOrdersDto) => void;
+  filters: OrderFilters;
+  onFiltersChange: (filters: OrderFilters) => void;
   selectable?: boolean;
-  selectedOrders?: string[];
-  onSelectionChange?: (orderIds: string[]) => void;
-  showActions?: boolean;
+  selectedOrders: string[];
+  onSelectionChange: (selectedIds: string[]) => void;
   compact?: boolean;
 }
 
-type SortField =
-  | "orderNumber"
-  | "status"
-  | "totalAmount"
-  | "createdAt"
-  | "templateId";
-type SortDirection = "asc" | "desc";
-
-interface SortConfig {
-  field: SortField;
-  direction: SortDirection;
-}
-
 export default function OrdersList({
-  filters = { page: 1, limit: 20 },
+  filters,
   onFiltersChange,
   selectable = false,
-  selectedOrders = [],
+  selectedOrders,
   onSelectionChange,
-  showActions = true,
   compact = false,
 }: OrdersListProps) {
-  const [localFilters, setLocalFilters] = useState<GetOrdersDto>(filters);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    field: "createdAt",
-    direction: "desc",
-  });
+  const router = useRouter();
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const selectAllRef = useRef<HTMLButtonElement>(null);
-
-  // Fetch orders using the hook
-  const { data: ordersData, isLoading, refetch } = useOrders(localFilters);
-
-  const orders: OrderListItem[] = ordersData?.success
-    ? ordersData.data?.data || []
-    : [];
-  const pagination = ordersData?.success ? ordersData.data?.meta : null;
-
-  // Handle filter changes
-  const updateFilters = (newFilters: Partial<GetOrdersDto>) => {
-    const updatedFilters = { ...localFilters, ...newFilters, page: 1 };
-    setLocalFilters(updatedFilters);
-    onFiltersChange?.(updatedFilters);
+  // Convert filters to GetOrdersDto format
+  const queryParams: GetOrdersDto = {
+    page: currentPage,
+    limit: compact ? 5 : 10,
+    status: filters.status as any,
+    designApprovalStatus: filters.designApprovalStatus as any,
+    minTotal: filters.minTotal,
+    maxTotal: filters.maxTotal,
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    search: filters.search,
+    urgencyLevel: filters.urgencyLevel as any,
+    templateId: filters.templateId,
   };
 
-  // Handle sorting
-  const handleSort = (field: SortField) => {
-    const direction =
-      sortConfig.field === field && sortConfig.direction === "asc"
-        ? "desc"
-        : "asc";
-    setSortConfig({ field, direction });
+  const {
+    data: ordersData,
+    isLoading,
+    error,
+    refetch,
+  } = useOrders(queryParams);
 
-    // Apply sorting to filters if backend supports it
-    // updateFilters({ sortBy: field, sortDirection: direction });
+  const orders = ordersData?.items || [];
+  const totalOrders = ordersData?.meta?.totalItems || 0;
+  const totalPages = ordersData?.meta?.totalPages || 1;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
+      CONFIRMED: { color: "bg-blue-100 text-blue-800", label: "Confirmed" },
+      DESIGN_PENDING: {
+        color: "bg-blue-100 text-blue-800",
+        label: "Design Pending",
+      },
+      DESIGN_APPROVED: {
+        color: "bg-green-100 text-green-800",
+        label: "Design Approved",
+      },
+      DESIGN_REJECTED: {
+        color: "bg-red-100 text-red-800",
+        label: "Design Rejected",
+      },
+      PAYMENT_PENDING: {
+        color: "bg-orange-100 text-orange-800",
+        label: "Payment Pending",
+      },
+      PAYMENT_CONFIRMED: {
+        color: "bg-green-100 text-green-800",
+        label: "Payment Confirmed",
+      },
+      PROCESSING: {
+        color: "bg-purple-100 text-purple-800",
+        label: "Processing",
+      },
+      PRODUCTION: {
+        color: "bg-purple-100 text-purple-800",
+        label: "In Production",
+      },
+      SHIPPED: { color: "bg-blue-100 text-blue-800", label: "Shipped" },
+      DELIVERED: { color: "bg-green-100 text-green-800", label: "Delivered" },
+      CANCELLED: { color: "bg-red-100 text-red-800", label: "Cancelled" },
+      REFUNDED: { color: "bg-gray-100 text-gray-800", label: "Refunded" },
+    }[status] || { color: "bg-gray-100 text-gray-800", label: status };
+
+    return <Badge className={statusConfig.color}>{statusConfig.label}</Badge>;
   };
 
-  // Handle search
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-    updateFilters({ search: value || undefined });
-  };
+  const getUrgencyBadge = (urgency?: string) => {
+    if (!urgency || urgency === "NORMAL") return null;
 
-  // Handle pagination
-  const handlePageChange = (page: number) => {
-    updateFilters({ page });
-  };
+    const urgencyConfig = {
+      EXPEDITED: { color: "bg-orange-100 text-orange-800", label: "Expedited" },
+      RUSH: { color: "bg-red-100 text-red-800", label: "Rush" },
+      EMERGENCY: { color: "bg-red-200 text-red-900", label: "Emergency" },
+    }[urgency];
 
-  const handlePageSizeChange = (limit: number) => {
-    updateFilters({ limit, page: 1 });
-  };
+    if (!urgencyConfig) return null;
 
-  // Handle selection
-  const handleSelectAll = () => {
-    if (selectedOrders.length === orders.length) {
-      onSelectionChange?.([]);
-    } else {
-      onSelectionChange?.(orders.map((order) => order.id));
-    }
-  };
-
-  const handleSelectOrder = (orderId: string) => {
-    if (selectedOrders.includes(orderId)) {
-      onSelectionChange?.(selectedOrders.filter((id) => id !== orderId));
-    } else {
-      onSelectionChange?.([...selectedOrders, orderId]);
-    }
-  };
-
-  // Sort orders client-side for demo (normally done server-side)
-  const sortedOrders = useMemo(() => {
-    return [...orders].sort((a, b) => {
-      let aValue: any = a[sortConfig.field];
-      let bValue: any = b[sortConfig.field];
-
-      // Handle different data types
-      if (sortConfig.field === "createdAt") {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
-      } else if (sortConfig.field === "totalAmount") {
-        aValue = Number(aValue);
-        bValue = Number(bValue);
-      } else {
-        aValue = String(aValue).toLowerCase();
-        bValue = String(bValue).toLowerCase();
-      }
-
-      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [orders, sortConfig]);
-
-  const getSortIcon = (field: SortField) => {
-    if (sortConfig.field !== field) {
-      return <ArrowUpDown className="h-4 w-4" />;
-    }
-    return sortConfig.direction === "asc" ? (
-      <ArrowUp className="h-4 w-4" />
-    ) : (
-      <ArrowDown className="h-4 w-4" />
+    return (
+      <Badge className={`${urgencyConfig.color} text-xs px-2 py-1`}>
+        {urgencyConfig.label}
+      </Badge>
     );
   };
 
-  const allSelected =
-    selectedOrders.length === orders.length && orders.length > 0;
-  const someSelected =
-    selectedOrders.length > 0 && selectedOrders.length < orders.length;
+  const formatOrderItems = (orderItems: any[]) => {
+    if (!Array.isArray(orderItems)) return [];
 
-  useEffect(() => {
-    if (selectAllRef.current) {
-      const checkbox = selectAllRef.current.querySelector(
-        'input[type="checkbox"]'
-      ) as HTMLInputElement;
-      if (checkbox) {
-        checkbox.indeterminate = someSelected;
+    return orderItems.map((item, index) => {
+      if (typeof item === "string") {
+        return { id: item, templateId: "Unknown", quantity: 1 };
       }
-    }
-  }, [someSelected]);
+      return item;
+    });
+  };
 
-  if (isLoading) {
+  const columns: ColumnDef<OrderResponse>[] = [
+    ...(selectable
+      ? [
+          {
+            id: "select",
+            header: ({ table }: { table: TableType<OrderResponse> }) => (
+              <Checkbox
+                checked={table.getIsAllPageRowsSelected()}
+                onCheckedChange={(value) =>
+                  table.toggleAllPageRowsSelected(!!value)
+                }
+                aria-label="Select all"
+              />
+            ),
+            cell: ({ row }: { row: Row<OrderResponse> }) => (
+              <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                aria-label="Select row"
+              />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+          },
+        ]
+      : []),
+    {
+      accessorKey: "orderNumber",
+      header: "Order #",
+      cell: ({ row }: { row: Row<OrderResponse> }) => {
+        const order = row.original;
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium">{order.orderNumber}</span>
+            <span className="text-xs text-muted-foreground">
+              {format(new Date(order.createdAt), "MMM dd, yyyy")}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "customerId",
+      header: "Customer",
+      cell: ({ row }: { row: Row<OrderResponse> }) => {
+        const customerId = row.getValue("customerId") as string;
+        return (
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground" />
+            <span>{customerId || "Guest"}</span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }: { row: Row<OrderResponse> }) => {
+        const status = row.getValue("status") as string;
+        const urgency = row.original.urgencyLevel;
+        return (
+          <div className="flex flex-col gap-1">
+            {getStatusBadge(status)}
+            {getUrgencyBadge(urgency)}
+          </div>
+        );
+      },
+    },
+    ...(!compact
+      ? [
+          {
+            accessorKey: "orderItems",
+            header: "Items",
+            cell: ({ row }: { row: Row<OrderResponse> }) => {
+              const items = formatOrderItems(row.original.orderItems);
+              const totalQuantity = items.reduce(
+                (sum, item) => sum + (item.quantity || 0),
+                0
+              );
+              return (
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span>{totalQuantity} items</span>
+                </div>
+              );
+            },
+          },
+          {
+            accessorKey: "designApprovalStatus",
+            header: "Design",
+            cell: ({ row }: { row: Row<OrderResponse> }) => {
+              const status = row.original.designApprovalStatus;
+              const required = row.original.designApprovalRequired;
+
+              if (!required) {
+                return (
+                  <span className="text-muted-foreground">Not required</span>
+                );
+              }
+
+              if (!status) {
+                return <Badge variant="outline">Pending</Badge>;
+              }
+
+              const statusConfig: Record<
+                string,
+                { color: string; label: string }
+              > = {
+                PENDING: {
+                  color: "bg-yellow-100 text-yellow-800",
+                  label: "Pending",
+                },
+                APPROVED: {
+                  color: "bg-green-100 text-green-800",
+                  label: "Approved",
+                },
+                REJECTED: {
+                  color: "bg-red-100 text-red-800",
+                  label: "Rejected",
+                },
+                EXPIRED: {
+                  color: "bg-gray-100 text-gray-800",
+                  label: "Expired",
+                },
+                CANCELLED: {
+                  color: "bg-gray-100 text-gray-800",
+                  label: "Cancelled",
+                },
+              };
+
+              const config = statusConfig[status] || {
+                color: "bg-gray-100 text-gray-800",
+                label: status,
+              };
+
+              return <Badge className={config.color}>{config.label}</Badge>;
+            },
+          },
+        ]
+      : []),
+    {
+      accessorKey: "totalAmount",
+      header: "Total",
+      cell: ({ row }: { row: Row<OrderResponse> }) => {
+        const amount = row.getValue("totalAmount") as number;
+        return (
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">${amount.toFixed(2)}</span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      cell: ({ row }: { row: Row<OrderResponse> }) => {
+        const order = row.original;
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => router.push(`/orders/${order.id}`)}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push(`/orders/${order.id}/edit`)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Order
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => navigator.clipboard.writeText(order.id)}
+              >
+                Copy Order ID
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
+
+  const table = useReactTable({
+    data: orders,
+    columns,
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    state: {
+      sorting,
+      rowSelection: selectable
+        ? selectedOrders.reduce((acc, id) => ({ ...acc, [id]: true }), {})
+        : {},
+    },
+    onRowSelectionChange: (updater) => {
+      if (typeof updater === "function") {
+        const currentSelection = selectedOrders.reduce(
+          (acc, id) => ({ ...acc, [id]: true }),
+          {}
+        );
+        const newSelection = updater(currentSelection);
+        const newSelectedIds = Object.keys(newSelection).filter(
+          (key) => newSelection[key]
+        );
+        onSelectionChange(newSelectedIds);
+      }
+    },
+    enableRowSelection: selectable,
+  });
+
+  const handleFilterChange = (key: keyof OrderFilters, value: any) => {
+    onFiltersChange({
+      ...filters,
+      [key]: value || undefined,
+    });
+  };
+
+  if (error) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center h-64">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-            <span>Loading orders...</span>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-8">
+            <AlertTriangle className="h-8 w-8 text-red-500 mb-2" />
+            <p className="text-red-600 mb-4">Failed to load orders</p>
+            <Button onClick={() => refetch()} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -232,79 +450,153 @@ export default function OrdersList({
 
   return (
     <div className="space-y-4">
-      {/* Search and Filters */}
+      {/* Filters */}
       {!compact && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Orders</CardTitle>
-                <CardDescription>
-                  Manage and track all customer orders
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => refetch()}>
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-                <Button size="sm" asChild>
-                  <Link href="/orders/create">
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Order
-                  </Link>
-                </Button>
-              </div>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+            <CardDescription>Filter orders by various criteria</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="search">Search</Label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search orders..."
-                    value={searchTerm}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    className="pl-9"
+                    id="search"
+                    placeholder="Order number, tracking..."
+                    value={filters.search || ""}
+                    onChange={(e) =>
+                      handleFilterChange("search", e.target.value)
+                    }
+                    className="pl-8"
                   />
                 </div>
               </div>
 
-              <Select
-                value={localFilters.status || "all"}
-                onValueChange={(value) =>
-                  updateFilters({
-                    status: value === "all" ? undefined : (value as any),
-                  })
-                }
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="PROCESSING">Processing</SelectItem>
-                  <SelectItem value="SHIPPED">Shipped</SelectItem>
-                  <SelectItem value="DELIVERED">Delivered</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={filters.status || ""}
+                  onValueChange={(value) => handleFilterChange("status", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All statuses</SelectItem>
+                    {ORDER_STATUS.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select
-                value={localFilters.limit?.toString() || "20"}
-                onValueChange={(value) => handlePageSizeChange(Number(value))}
-              >
-                <SelectTrigger className="w-[100px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="urgency">Urgency Level</Label>
+                <Select
+                  value={filters.urgencyLevel || ""}
+                  onValueChange={(value) =>
+                    handleFilterChange("urgencyLevel", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All levels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All levels</SelectItem>
+                    {URGENCY_LEVELS.map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {level.charAt(0) + level.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="designApproval">Design Approval</Label>
+                <Select
+                  value={filters.designApprovalStatus || ""}
+                  onValueChange={(value) =>
+                    handleFilterChange("designApprovalStatus", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All statuses</SelectItem>
+                    {DESIGN_APPROVAL_STATUS.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.charAt(0) + status.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={filters.startDate || ""}
+                  onChange={(e) =>
+                    handleFilterChange("startDate", e.target.value)
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={filters.endDate || ""}
+                  onChange={(e) =>
+                    handleFilterChange("endDate", e.target.value)
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="minTotal">Min Total</Label>
+                <Input
+                  id="minTotal"
+                  type="number"
+                  placeholder="0.00"
+                  value={filters.minTotal || ""}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "minTotal",
+                      parseFloat(e.target.value) || undefined
+                    )
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="maxTotal">Max Total</Label>
+                <Input
+                  id="maxTotal"
+                  type="number"
+                  placeholder="1000.00"
+                  value={filters.maxTotal || ""}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "maxTotal",
+                      parseFloat(e.target.value) || undefined
+                    )
+                  }
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -312,286 +604,127 @@ export default function OrdersList({
 
       {/* Orders Table */}
       <Card>
-        <CardContent className="p-0">
-          {orders.length === 0 ? (
-            <div className="text-center py-12">
-              <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No orders found</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm || localFilters.status
-                  ? "Try adjusting your search or filters"
-                  : "Get started by creating your first order"}
-              </p>
-              <Button asChild>
-                <Link href="/orders/create">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Order
-                </Link>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Orders</CardTitle>
+            <CardDescription>
+              {totalOrders} orders found
+              {selectable && selectedOrders.length > 0 && (
+                <span className="ml-2">({selectedOrders.length} selected)</span>
+              )}
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            {!compact && (
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export
               </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading orders...</span>
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {selectable && (
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          ref={selectAllRef}
-                          checked={allSelected}
-                          onCheckedChange={handleSelectAll}
-                        />
-                      </TableHead>
-                    )}
-
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("orderNumber")}
-                        className="h-auto p-0 font-medium"
-                      >
-                        Order #{getSortIcon("orderNumber")}
-                      </Button>
-                    </TableHead>
-
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("status")}
-                        className="h-auto p-0 font-medium"
-                      >
-                        Status
-                        {getSortIcon("status")}
-                      </Button>
-                    </TableHead>
-
-                    <TableHead>Template</TableHead>
-
-                    <TableHead>Items</TableHead>
-
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("totalAmount")}
-                        className="h-auto p-0 font-medium"
-                      >
-                        Total
-                        {getSortIcon("totalAmount")}
-                      </Button>
-                    </TableHead>
-
-                    <TableHead>Design Approval</TableHead>
-
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("createdAt")}
-                        className="h-auto p-0 font-medium"
-                      >
-                        Date
-                        {getSortIcon("createdAt")}
-                      </Button>
-                    </TableHead>
-
-                    {showActions && (
-                      <TableHead className="text-right">Actions</TableHead>
-                    )}
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {sortedOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      {selectable && (
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedOrders.includes(order.id)}
-                            onCheckedChange={() => handleSelectOrder(order.id)}
-                          />
-                        </TableCell>
-                      )}
-
-                      <TableCell className="font-medium">
-                        <Link
-                          href={`/orders/${order.id}`}
-                          className="hover:underline"
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => {
+                            if (!selectable) {
+                              router.push(`/orders/${row.original.id}`);
+                            }
+                          }}
                         >
-                          {order.orderNumber}
-                        </Link>
-                      </TableCell>
-
-                      <TableCell>
-                        <OrderStatusBadge status={order.status} size="sm" />
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="text-sm text-muted-foreground">
-                          {order.templateId || "No template"}
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <span>{order.orderItems.length}</span>
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="font-medium">
-                        ${order.totalAmount.toFixed(2)}
-                      </TableCell>
-
-                      <TableCell>
-                        {order.designApprovalRequired ? (
-                          <div className="text-sm">
-                            {order.designApprovalStatus ? (
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs ${
-                                  order.designApprovalStatus === "APPROVED"
-                                    ? "bg-green-100 text-green-800"
-                                    : order.designApprovalStatus === "PENDING"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : order.designApprovalStatus ===
-                                          "REJECTED"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {order.designApprovalStatus}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">
-                                Required
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">
-                            Not required
-                          </span>
-                        )}
-                      </TableCell>
-
-                      <TableCell className="text-muted-foreground">
-                        {format(new Date(order.createdAt), "MMM dd, yyyy")}
-                      </TableCell>
-
-                      {showActions && (
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/orders/${order.id}`}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View Details
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/orders/${order.id}/edit`}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit Order
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Cancel Order
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          className="h-24 text-center"
+                        >
+                          No orders found.
                         </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
 
               {/* Pagination */}
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-4 border-t">
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
                   <div className="text-sm text-muted-foreground">
-                    Showing{" "}
-                    {(pagination.currentPage - 1) * pagination.itemsPerPage + 1}{" "}
-                    to{" "}
-                    {Math.min(
-                      pagination.currentPage * pagination.itemsPerPage,
-                      pagination.totalPages
-                    )}{" "}
-                    of {pagination.totalPages} results
+                    Showing {(currentPage - 1) * (compact ? 5 : 10) + 1} to{" "}
+                    {Math.min(currentPage * (compact ? 5 : 10), totalOrders)} of{" "}
+                    {totalOrders} orders
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(1)}
-                      disabled={pagination.currentPage === 1}
-                    >
-                      <ChevronsLeft className="h-4 w-4" />
-                    </Button>
-
+                  <div className="flex items-center space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        handlePageChange(pagination.currentPage - 1)
+                        setCurrentPage(Math.max(1, currentPage - 1))
                       }
-                      disabled={pagination.currentPage === 1}
+                      disabled={currentPage <= 1 || isLoading}
                     >
                       <ChevronLeft className="h-4 w-4" />
+                      Previous
                     </Button>
-
-                    <div className="flex items-center gap-1">
-                      {Array.from(
-                        { length: Math.min(5, pagination.totalPages) },
-                        (_, i) => {
-                          const page = i + 1;
-                          return (
-                            <Button
-                              key={page}
-                              variant={
-                                pagination.currentPage === page
-                                  ? "default"
-                                  : "outline"
-                              }
-                              size="sm"
-                              onClick={() => handlePageChange(page)}
-                            >
-                              {page}
-                            </Button>
-                          );
-                        }
-                      )}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                      </span>
                     </div>
-
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        handlePageChange(pagination.currentPage + 1)
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
                       }
-                      disabled={
-                        pagination.currentPage === pagination.totalPages
-                      }
+                      disabled={currentPage >= totalPages || isLoading}
                     >
+                      Next
                       <ChevronRight className="h-4 w-4" />
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(pagination.totalPages)}
-                      disabled={
-                        pagination.currentPage === pagination.totalPages
-                      }
-                    >
-                      <ChevronsRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -600,17 +733,6 @@ export default function OrdersList({
           )}
         </CardContent>
       </Card>
-
-      {/* Selection Summary */}
-      {selectable && selectedOrders.length > 0 && (
-        <Alert>
-          <Package className="h-4 w-4" />
-          <AlertDescription>
-            {selectedOrders.length} order{selectedOrders.length > 1 ? "s" : ""}{" "}
-            selected
-          </AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 }

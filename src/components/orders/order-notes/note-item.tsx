@@ -36,6 +36,29 @@ interface NoteItemProps {
   showActions?: boolean;
 }
 
+const NOTE_TYPE_CONFIG = {
+  GENERAL: { icon: MessageSquare, color: "bg-blue-100 text-blue-800" },
+  URGENCY: { icon: AlertTriangle, color: "bg-red-100 text-red-800" },
+  TIMELINE: { icon: Clock, color: "bg-yellow-100 text-yellow-800" },
+  SHIPPING: { icon: Truck, color: "bg-green-100 text-green-800" },
+  CUSTOMIZATION: { icon: Star, color: "bg-purple-100 text-purple-800" },
+  PRODUCTION: { icon: Package, color: "bg-orange-100 text-orange-800" },
+  QUALITY: { icon: AlertTriangle, color: "bg-red-100 text-red-800" },
+  DESIGN_APPROVAL: { icon: FileText, color: "bg-indigo-100 text-indigo-800" },
+} as const;
+
+const formatNoteType = (type: string): string => {
+  return type
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
+// Helper function to format priority display text
+const formatPriority = (priority: string): string => {
+  return priority.toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
 export function NoteItem({
   note,
   onEdit,
@@ -43,21 +66,10 @@ export function NoteItem({
   showActions = true,
 }: NoteItemProps) {
   const getNoteTypeConfig = (type: string) => {
-    const configs = {
-      GENERAL: { icon: MessageSquare, color: "bg-blue-100 text-blue-800" },
-      URGENCY: { icon: AlertTriangle, color: "bg-red-100 text-red-800" },
-      TIMELINE: { icon: Clock, color: "bg-yellow-100 text-yellow-800" },
-      SHIPPING: { icon: Truck, color: "bg-green-100 text-green-800" },
-      CUSTOMIZATION: { icon: Star, color: "bg-purple-100 text-purple-800" },
-      PRODUCTION: { icon: Package, color: "bg-orange-100 text-orange-800" },
-      QUALITY: { icon: AlertTriangle, color: "bg-red-100 text-red-800" },
-      DESIGN_APPROVAL: {
-        icon: FileText,
-        color: "bg-indigo-100 text-indigo-800",
-      },
-    }[type] || { icon: MessageSquare, color: "bg-gray-100 text-gray-800" };
-
-    return configs;
+    return (
+      NOTE_TYPE_CONFIG[type as keyof typeof NOTE_TYPE_CONFIG] ||
+      NOTE_TYPE_CONFIG.GENERAL
+    );
   };
 
   const getPriorityColor = (priority?: string) => {
@@ -75,18 +87,7 @@ export function NoteItem({
     }
   };
 
-  const formatNoteType = (type: string) => {
-    return type
-      .replace("_", " ")
-      .toLowerCase()
-      .replace(/\b\w/g, (l) => l.toUpperCase());
-  };
-
-  const formatPriority = (priority: string) => {
-    return priority.toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
-  };
-
-  const config = getNoteTypeConfig(note.noteType);
+  const config = getNoteTypeConfig(note.type);
   const Icon = config.icon;
 
   return (
@@ -109,7 +110,7 @@ export function NoteItem({
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2">
               <Badge className={config.color}>
-                {formatNoteType(note.noteType)}
+                {formatNoteType(note.type)}
               </Badge>
 
               {note.priority && (

@@ -1,22 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
-import { useCreateAddress } from "@/hooks/use-address";
-import { CreateAddressDto } from "@/lib/address/dto/address.dto";
-import { ADDRESS_TYPES } from "@/lib/address/dto/address.dto";
-import { useRouter, useSearchParams } from "next/navigation";
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createAddressSchema } from "@/lib/address/dto/address.dto";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useCreateAddress, useUpdateAddress } from "@/hooks/use-address";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  createAddressSchema,
+  updateAddressSchema,
+  CreateAddressDto,
+  UpdateAddressDto,
+  ADDRESS_TYPES,
+} from "@/lib/address/dto/address.dto";
+import { AddressResponse } from "@/lib/address/types/address.types";
 import {
   Form,
   FormControl,
@@ -24,126 +19,166 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Info } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, MapPin, User, Building2, Phone } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
-export default function AddAddressForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+interface AddressFormProps {
+  address?: AddressResponse;
+  onSuccess?: (address: AddressResponse) => void;
+  onCancel?: () => void;
+  title?: string;
+  showHeader?: boolean;
+  compact?: boolean;
+  autoFocus?: boolean;
+}
 
-  // Checkout integration parameters
-  const checkoutSession = searchParams.get("session");
-  const addressType = searchParams.get("type") as "SHIPPING" | "BILLING" | null;
-  const returnTo = searchParams.get("returnTo");
+export function AddressForm({
+  address,
+  onSuccess,
+  onCancel,
+  title,
+  showHeader = true,
+  compact = false,
+  autoFocus = true,
+}: AddressFormProps) {
+  const [isDirty, setIsDirty] = useState(false);
+  const isEditing = !!address;
+  const schema = isEditing ? updateAddressSchema : createAddressSchema;
 
-  const createAddress = useCreateAddress();
+  const createMutation = useCreateAddress();
+  const updateMutation = useUpdateAddress();
 
-  const form = useForm<CreateAddressDto>({
-    resolver: zodResolver(createAddressSchema),
-    defaultValues: {
-      addressType: addressType || "SHIPPING",
-      isDefault: false,
-      name: "",
-      recipientName: "",
-      companyName: "",
-      street: "",
-      street2: "",
-      city: "",
-      state: "",
-      postalCode: "",
-      country: "KE",
-      phone: "",
-    },
+  const form = useForm<CreateAddressDto | UpdateAddressDto>({
+    resolver: zodResolver(schema),
+    defaultValues: address
+      ? {
+          name: address.name || "",
+          recipientName: address.recipientName,
+          companyName: address.companyName || "",
+          street: address.street,
+          street2: address.street2 || "",
+          city: address.city,
+          state: address.state || "",
+          postalCode: address.postalCode,
+          country: address.country,
+          phone: address.phone || "",
+          addressType: address.addressType,
+          isDefault: address.isDefault,
+        }
+      : {
+          name: "",
+          recipientName: "",
+          companyName: "",
+          street: "",
+          street2: "",
+          city: "",
+          state: "",
+          postalCode: "",
+          country: "KE",
+          phone: "",
+          addressType: "BOTH",
+          isDefault: false,
+        },
   });
 
-  const onSubmit = async (data: CreateAddressDto) => {
+  const mutation = isEditing ? updateMutation : createMutation;
+
+  // Track form changes
+  useEffect(() => {
+    const subscription = form.watch(() => {
+      setIsDirty(true);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  const onSubmit = async (values: CreateAddressDto | UpdateAddressDto) => {
     try {
-      const response = await createAddress.mutateAsync(data);
-
-      if (response.success) {
-        toast.success("Address created successfully!");
-
-        // If coming from checkout, return with the new address ID
-        if (checkoutSession && returnTo) {
-          const returnUrl = new URL(returnTo, window.location.origin);
-          returnUrl.searchParams.set("selectedAddress", response.data.id);
-          returnUrl.searchParams.set("session", checkoutSession);
-          router.push(returnUrl.toString());
-        } else {
-          // Normal flow - go to addresses list
-          router.push("/addresses");
-        }
+      let result;
+      if (isEditing && address) {
+        result = await updateMutation.mutateAsync({
+          addressId: address.id,
+          values: values as UpdateAddressDto,
+        });
       } else {
-        toast.error(response.error || "Failed to create address");
+        result = await createMutation.mutateAsync(values as CreateAddressDto);
       }
-    } catch (error: any) {
-      console.error("Error creating address:", error);
-      toast.error(error?.message || "Failed to create address");
+
+      if (result.success) {
+        setIsDirty(false);
+        onSuccess?.(result.data);
+      }
+    } catch (error) {
+      // Error handling is done in the mutation hooks
+      console.error("Address form submission error:", error);
     }
   };
 
   const handleCancel = () => {
-    if (checkoutSession && returnTo) {
-      // Return to checkout without creating address
-      router.push(`${returnTo}?session=${checkoutSession}`);
+    if (isDirty) {
+      if (
+        confirm("You have unsaved changes. Are you sure you want to cancel?")
+      ) {
+        onCancel?.();
+      }
     } else {
-      router.push("/addresses");
+      onCancel?.();
     }
   };
 
-  return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Add New Address</h1>
-          {checkoutSession && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Adding address for checkout
-            </p>
-          )}
-        </div>
-        <Button variant="outline" onClick={handleCancel}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          {checkoutSession ? "Back to Checkout" : "Cancel"}
-        </Button>
-      </div>
+  const formTitle = title || (isEditing ? "Edit Address" : "Add New Address");
 
-      {/* Checkout context alert */}
-      {checkoutSession && (
-        <Alert className="mb-6">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            You&apos;re adding an address for your current order. After saving,
-            you&apos;ll be returned to checkout with this address selected.
-          </AlertDescription>
-        </Alert>
-      )}
-
+  const FormWrapper = ({ children }: { children: React.ReactNode }) => {
+    if (compact) {
+      return <div className="space-y-4">{children}</div>;
+    }
+    return (
       <Card>
-        <CardHeader>
-          <CardTitle>Address Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address Name (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Home, Office, etc." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        {showHeader && (
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              {formTitle}
+              {isEditing && (
+                <Badge variant="outline" className="ml-auto">
+                  Editing
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+        )}
+        <CardContent>{children}</CardContent>
+      </Card>
+    );
+  };
 
+  return (
+    <FormWrapper>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Basic Information Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">Contact Information</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="recipientName"
@@ -151,74 +186,113 @@ export default function AddAddressForm() {
                   <FormItem>
                     <FormLabel>Recipient Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Full name" {...field} />
+                      <Input
+                        placeholder="Full name"
+                        autoFocus={autoFocus}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="companyName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company Name (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Company name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address Label</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., Home, Office, John's Place"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Optional name to help you identify this address
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+254..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="companyName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Company name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="street"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Street Address *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Street address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="+254 700 000 000"
+                        type="tel"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
 
-                <FormField
-                  control={form.control}
-                  name="street2"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Apartment/Suite (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Apt, suite, etc." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+          <Separator />
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Address Information Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">Address Details</h3>
+            </div>
+
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="street"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Street Address *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Street address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="street2"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Apartment, Suite, etc.</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Apartment, suite, unit, building, floor, etc."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="city"
@@ -238,7 +312,7 @@ export default function AddAddressForm() {
                   name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>State/Province (Optional)</FormLabel>
+                      <FormLabel>State/Province</FormLabel>
                       <FormControl>
                         <Input placeholder="State or province" {...field} />
                       </FormControl>
@@ -269,78 +343,116 @@ export default function AddAddressForm() {
                   <FormItem>
                     <FormLabel>Country *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Country code (e.g., KE)" {...field} />
+                      <Input
+                        placeholder="Country code (e.g., KE)"
+                        maxLength={2}
+                        style={{ textTransform: "uppercase" }}
+                        {...field}
+                      />
                     </FormControl>
+                    <FormDescription>
+                      Use 2-letter country code (e.g., KE for Kenya, US for
+                      United States)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Settings Section */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium">Address Settings</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="addressType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address Type *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select address type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ADDRESS_TYPES.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type === "BOTH"
+                              ? "Shipping & Billing"
+                              : type === "SHIPPING"
+                                ? "Shipping Only"
+                                : "Billing Only"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Choose how this address will be used
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="addressType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address Type *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {ADDRESS_TYPES.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type === "BOTH"
-                                ? "Shipping & Billing"
-                                : type.toLowerCase()}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="isDefault"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Set as Default
+                      </FormLabel>
+                      <FormDescription>
+                        Use this address as the default for its type
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
 
-                <FormField
-                  control={form.control}
-                  name="isDefault"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-8">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Set as default address</FormLabel>
-                        <p className="text-xs text-muted-foreground">
-                          Use this address as default for this type
-                        </p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="flex justify-end gap-4 pt-6">
-                <Button type="button" variant="outline" onClick={handleCancel}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createAddress.isPending}>
-                  {createAddress.isPending ? "Saving..." : "Save Address"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-    </div>
+          {/* Form Actions */}
+          <div className="flex justify-end space-x-3 pt-6 border-t">
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={mutation.isPending}
+              >
+                Cancel
+              </Button>
+            )}
+            <Button
+              type="submit"
+              disabled={mutation.isPending}
+              className="min-w-[120px]"
+            >
+              {mutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {isEditing ? "Update Address" : "Save Address"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </FormWrapper>
   );
 }

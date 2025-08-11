@@ -25,8 +25,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Menu,
-  X,
 } from "lucide-react";
 import { ProductResponse } from "@/lib/products/types/products.types";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
@@ -426,8 +424,8 @@ export function ProductDetailsView({
                           </div>
 
                           <AddToCartButton
-                            templateId={template.id}
-                            sizeVariantId="default-size"
+                            productId={template.id}
+                            variantId="default-size"
                             quantity={1}
                             variant="default"
                             size="sm"

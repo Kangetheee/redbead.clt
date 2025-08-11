@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Menu, X, Bell, Search, ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useCart, useCartItemCount } from "@/hooks/use-cart";
+import { useCartItemCount } from "@/hooks/use-cart";
 import { useUserProfile } from "@/hooks/use-users";
 import { cn } from "@/lib/utils";
 import AccountDropdown from "@/components/layouts/dashboard/account-dropdown";
+import { CartSheet } from "@/components/cart/cart-sheet-dialog";
 
 interface NavbarProps {
   className?: string;
@@ -63,7 +64,6 @@ export function CustomerNavbar({ className }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const deviceType = useDeviceType();
-  const { data: cart } = useCart();
   const itemCount = useCartItemCount();
   const {
     data: userProfile,
@@ -207,24 +207,6 @@ export function CustomerNavbar({ className }: NavbarProps) {
     </div>
   );
 
-  // Cart Button Component
-  const CartButton = ({ showLabel = false }: { showLabel?: boolean }) => (
-    <Button variant="ghost" size={showLabel ? "default" : "icon"} asChild>
-      <Link href="/cart" className="relative">
-        <ShoppingCart className="h-5 w-5" />
-        {showLabel && <span className="ml-2">Cart</span>}
-        {itemCount > 0 && (
-          <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-            {itemCount > 99 ? "99+" : itemCount}
-          </Badge>
-        )}
-        {showLabel && itemCount > 0 && (
-          <span className="ml-1 text-muted-foreground">({itemCount})</span>
-        )}
-      </Link>
-    </Button>
-  );
-
   // Desktop Navigation
   const DesktopNavigation = () => (
     <>
@@ -248,7 +230,7 @@ export function CustomerNavbar({ className }: NavbarProps) {
 
       {/* Right Side Actions */}
       <div className="hidden md:flex items-center space-x-4">
-        <CartButton />
+        <CartSheet />
 
         {isAuthenticated && (
           <Button variant="ghost" size="icon">
@@ -297,7 +279,7 @@ export function CustomerNavbar({ className }: NavbarProps) {
       {/* Right Side Actions */}
       <div className="md:lg:hidden md:flex items-center space-x-3">
         {!isSearchOpen && <SearchComponent />}
-        <CartButton />
+        <CartSheet />
 
         {isAuthenticated ? (
           <AccountDropdown />
@@ -327,7 +309,7 @@ export function CustomerNavbar({ className }: NavbarProps) {
         {!isSearchOpen && !isMenuOpen && (
           <>
             <SearchComponent />
-            <CartButton />
+            <CartSheet />
           </>
         )}
 

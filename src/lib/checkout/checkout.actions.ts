@@ -9,6 +9,7 @@ import {
   ValidateCheckoutDto,
   CompleteCheckoutDto,
   GuestCompleteCheckoutDto,
+  ListCheckoutSessionsDto,
 } from "./dto/checkout.dto";
 import {
   CheckoutSession,
@@ -16,6 +17,7 @@ import {
   CheckoutValidation,
   CheckoutResponse,
   OrderConfirmation,
+  CheckoutSessionsListResponse,
 } from "./types/checkout.types";
 import { CheckoutService } from "./checkout.service";
 
@@ -127,6 +129,17 @@ export async function getOrderConfirmationAction(
 ): Promise<ActionResponse<OrderConfirmation>> {
   try {
     const res = await checkoutService.getOrderConfirmation(orderId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function listCheckoutSessionsAction(
+  params: ListCheckoutSessionsDto
+): Promise<ActionResponse<CheckoutSessionsListResponse>> {
+  try {
+    const res = await checkoutService.listCheckoutSessions(params);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };

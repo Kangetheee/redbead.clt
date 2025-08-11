@@ -3,6 +3,7 @@ import { z } from "zod";
 // Order status and urgency level enums for reuse
 const ORDER_STATUS = [
   "PENDING",
+  "CONFIRMED", // Updated based on API docs
   "DESIGN_PENDING",
   "DESIGN_APPROVED",
   "DESIGN_REJECTED",
@@ -51,6 +52,7 @@ const ORDER_ITEM_STATUS = [
 ] as const;
 
 export const getOrdersSchema = z.object({
+  // Updated to match API parameters
   page: z.number().min(1).optional(),
   limit: z.number().min(1).max(100).optional(),
   status: z.enum(ORDER_STATUS).optional(),
@@ -83,6 +85,7 @@ export const orderItemSchema = z.object({
 export type OrderItemDto = z.infer<typeof orderItemSchema>;
 
 export const createOrderSchema = z.object({
+  // Based on API create order endpoint
   shippingAddressId: z.string(),
   billingAddressId: z.string().optional(),
   customerId: z.string().optional(),
@@ -102,6 +105,7 @@ export const createOrderSchema = z.object({
 export type CreateOrderDto = z.infer<typeof createOrderSchema>;
 
 export const updateOrderSchema = z.object({
+  // Based on PATCH /v1/orders/{id} endpoint
   status: z.enum(ORDER_STATUS).optional(),
   trackingNumber: z.string().optional(),
   trackingUrl: z.string().optional(),
@@ -121,6 +125,7 @@ export const updateOrderSchema = z.object({
 export type UpdateOrderDto = z.infer<typeof updateOrderSchema>;
 
 export const updateOrderStatusSchema = z.object({
+  // Based on PATCH /v1/orders/{id}/status endpoint
   status: z.enum(ORDER_STATUS),
   reason: z.string().optional(),
 });
@@ -128,7 +133,8 @@ export const updateOrderStatusSchema = z.object({
 export type UpdateOrderStatusDto = z.infer<typeof updateOrderStatusSchema>;
 
 export const createOrderNoteSchema = z.object({
-  noteType: z.enum(NOTE_TYPES),
+  // Based on POST /v1/orders/{id}/notes endpoint
+  type: z.enum(NOTE_TYPES), // Changed from noteType to type based on API docs
   priority: z.enum(NOTE_PRIORITIES).optional(),
   title: z.string().optional(),
   content: z.string(),
@@ -154,6 +160,7 @@ export const designSummarySchema = z.object({
 });
 
 export const requestDesignApprovalSchema = z.object({
+  // Based on POST /v1/orders/{id}/request-design-approval endpoint
   customerEmail: z.string().email(),
   designId: z.string().optional(),
   previewImages: z.array(z.string()),
@@ -167,6 +174,7 @@ export type RequestDesignApprovalDto = z.infer<
 >;
 
 export const updateDesignApprovalSchema = z.object({
+  // Based on PATCH /v1/orders/{id}/design-approval endpoint
   status: z.enum(DESIGN_APPROVAL_STATUS),
   rejectionReason: z.string().optional(),
   approvedBy: z.string().optional(),

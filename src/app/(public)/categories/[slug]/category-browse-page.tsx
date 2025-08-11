@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -32,10 +32,9 @@ import {
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProductTypesByCategory } from "@/hooks/use-products";
-import { useCategoryBySlug } from "@/hooks/use-categories"; // You'll need this hook
-import { CategoryDetail } from "@/lib/categories/types/categories.types";
-import { ProductTypeResponse } from "@/lib/products/types/products.types";
+import { useProducts } from "@/hooks/use-products";
+import { useCategoryBySlug } from "@/hooks/use-categories";
+import { ProductResponse } from "@/lib/products/types/products.types";
 
 interface CategoryBrowsePageProps {
   slug: string;
@@ -52,48 +51,39 @@ export default function CategoryBrowsePage({
     isLoading: categoryLoading,
     error: categoryError,
   } = useCategoryBySlug(slug);
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [filters, setFilters] = useState({
-    type: "",
-    material: "",
     isFeatured: false,
-    priceRange: { min: 0, max: 1000 },
+    minPrice: undefined as number | undefined,
+    maxPrice: undefined as number | undefined,
   });
 
-  // Get products for this category (only if category is loaded)
+  // Get products for this category using the existing useProducts hook
   const {
     data: productsData,
     isLoading: productsLoading,
     error: productsError,
-  } = useProductTypesByCategory({
-    categoryId: category?.id || "",
+  } = useProducts({
+    categoryId: category?.id,
     search: searchTerm || undefined,
-    type: filters.type || undefined,
-    material: filters.material || undefined,
     isFeatured: filters.isFeatured || undefined,
-    sortBy: sortBy as "name" | "createdAt" | "sortOrder",
+    minPrice: filters.minPrice,
+    maxPrice: filters.maxPrice,
+    sortBy: sortBy as "name" | "createdAt" | "basePrice" | "updatedAt",
     sortDirection: sortDirection as "asc" | "desc",
+    isActive: true, // Only show active products
   });
-
-  // Get unique filter options from products
-  const filterOptions = useMemo(() => {
-    if (!productsData?.items) return { types: [], materials: [] };
-
-    const types = [
-      ...new Set(productsData.items.map((p) => p.type).filter(Boolean)),
-    ];
-    const materials = [
-      ...new Set(productsData.items.map((p) => p.material).filter(Boolean)),
-    ];
-
-    return { types, materials };
-  }, [productsData?.items]);
 
   const handleFilterChange = (key: string, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handlePriceRangeChange = (min?: number, max?: number) => {
+    setFilters((prev) => ({ ...prev, minPrice: min, maxPrice: max }));
   };
 
   return (
@@ -142,54 +132,30 @@ export default function CategoryBrowsePage({
 
           {/* Category Header */}
           <div className="mb-8">
-            {category.bannerImage && (
-              <div className="relative h-48 md:h-64 mb-6 rounded-lg overflow-hidden">
-                <Image
-                  src={category.bannerImage}
-                  alt={category.name}
-                  fill
-                  className="object-cover"
-                  priority
-                />
-                <div className="absolute inset-0 bg-black/40 flex items-end">
-                  <div className="p-6 text-white">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                      {category.name}
-                    </h1>
-                    {category.description && (
-                      <p className="text-lg opacity-90 max-w-2xl">
-                        {category.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!category.bannerImage && (
-              <div className="mb-6">
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                  {category.name}
-                </h1>
-                {category.description && (
-                  <p className="text-lg text-muted-foreground max-w-2xl">
-                    {category.description}
-                  </p>
-                )}
-              </div>
-            )}
+            <div className="mb-6">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                {category.name}
+              </h1>
+              {category.description && (
+                <p className="text-lg text-muted-foreground max-w-2xl">
+                  {category.description}
+                </p>
+              )}
+            </div>
 
             {/* Category Stats */}
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>{category.productCount} products available</span>
-              {category.children.length > 0 && (
+              <span>
+                {productsData?.meta?.totalItems || 0} products available
+              </span>
+              {category.children && category.children.length > 0 && (
                 <span>{category.children.length} subcategories</span>
               )}
             </div>
           </div>
 
           {/* Subcategories */}
-          {category.children.length > 0 && (
+          {category.children && category.children.length > 0 && (
             <div className="mb-8">
               <h2 className="text-xl font-semibold mb-4">Subcategories</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -235,7 +201,12 @@ export default function CategoryBrowsePage({
                   <SelectItem value="name-desc">Name (Z-A)</SelectItem>
                   <SelectItem value="createdAt-desc">Newest First</SelectItem>
                   <SelectItem value="createdAt-asc">Oldest First</SelectItem>
-                  <SelectItem value="sortOrder-asc">Default Order</SelectItem>
+                  <SelectItem value="basePrice-asc">
+                    Price (Low to High)
+                  </SelectItem>
+                  <SelectItem value="basePrice-desc">
+                    Price (High to Low)
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -252,9 +223,9 @@ export default function CategoryBrowsePage({
                     <SheetTitle>Filters</SheetTitle>
                   </SheetHeader>
                   <FiltersContent
-                    filterOptions={filterOptions}
                     filters={filters}
                     onFilterChange={handleFilterChange}
+                    onPriceRangeChange={handlePriceRangeChange}
                   />
                 </SheetContent>
               </Sheet>
@@ -287,9 +258,9 @@ export default function CategoryBrowsePage({
               <Card className="p-4 sticky top-4">
                 <h3 className="font-semibold mb-4">Filters</h3>
                 <FiltersContent
-                  filterOptions={filterOptions}
                   filters={filters}
                   onFilterChange={handleFilterChange}
+                  onPriceRangeChange={handlePriceRangeChange}
                 />
               </Card>
             </div>
@@ -310,26 +281,26 @@ export default function CategoryBrowsePage({
                 <>
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-sm text-muted-foreground">
-                      Showing {productsData.items.length} of{" "}
-                      {productsData.meta.totalItems} products
+                      Showing {productsData.items?.length || 0} of{" "}
+                      {productsData.meta?.totalItems || 0} products
                     </p>
                   </div>
 
                   {viewMode === "grid" ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {productsData.items.map((product) => (
+                      {productsData.items?.map((product) => (
                         <ProductCard key={product.id} product={product} />
                       ))}
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {productsData.items.map((product) => (
+                      {productsData.items?.map((product) => (
                         <ProductListItem key={product.id} product={product} />
                       ))}
                     </div>
                   )}
 
-                  {productsData.items.length === 0 && (
+                  {(!productsData.items || productsData.items.length === 0) && (
                     <div className="text-center py-12">
                       <p className="text-muted-foreground">
                         No products found matching your criteria.
@@ -347,62 +318,16 @@ export default function CategoryBrowsePage({
 }
 
 function FiltersContent({
-  filterOptions,
   filters,
   onFilterChange,
+  onPriceRangeChange,
 }: {
-  filterOptions: { types: string[]; materials: string[] };
   filters: any;
   onFilterChange: (key: string, value: any) => void;
+  onPriceRangeChange: (min?: number, max?: number) => void;
 }) {
   return (
     <div className="space-y-6">
-      {/* Product Type Filter */}
-      {filterOptions.types.length > 0 && (
-        <div>
-          <h4 className="font-medium mb-3">Product Type</h4>
-          <Select
-            value={filters.type}
-            onValueChange={(value) => onFilterChange("type", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Any type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Any type</SelectItem>
-              {filterOptions.types.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Material Filter */}
-      {filterOptions.materials.length > 0 && (
-        <div>
-          <h4 className="font-medium mb-3">Material</h4>
-          <Select
-            value={filters.material}
-            onValueChange={(value) => onFilterChange("material", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Any material" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Any material</SelectItem>
-              {filterOptions.materials.map((material) => (
-                <SelectItem key={material} value={material}>
-                  {material}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
       {/* Featured Filter */}
       <div className="flex items-center space-x-2">
         <Checkbox
@@ -414,11 +339,40 @@ function FiltersContent({
           Featured products only
         </label>
       </div>
+
+      {/* Price Range */}
+      <div>
+        <h4 className="font-medium mb-3">Price Range</h4>
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            type="number"
+            placeholder="Min"
+            value={filters.minPrice || ""}
+            onChange={(e) =>
+              onPriceRangeChange(
+                e.target.value ? Number(e.target.value) : undefined,
+                filters.maxPrice
+              )
+            }
+          />
+          <Input
+            type="number"
+            placeholder="Max"
+            value={filters.maxPrice || ""}
+            onChange={(e) =>
+              onPriceRangeChange(
+                filters.minPrice,
+                e.target.value ? Number(e.target.value) : undefined
+              )
+            }
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
-function ProductCard({ product }: { product: ProductTypeResponse }) {
+function ProductCard({ product }: { product: ProductResponse }) {
   return (
     <Link href={`/products/${product.slug}`}>
       <Card className="group hover:shadow-lg transition-shadow duration-200 h-full">
@@ -460,7 +414,7 @@ function ProductCard({ product }: { product: ProductTypeResponse }) {
               <p className="font-semibold">
                 $
                 {product.designTemplates?.[0]?.basePrice?.toFixed(2) ||
-                  "Custom"}
+                  product.basePrice.toFixed(2)}
               </p>
             </div>
             <Button size="sm" className="ml-2">
@@ -473,7 +427,7 @@ function ProductCard({ product }: { product: ProductTypeResponse }) {
   );
 }
 
-function ProductListItem({ product }: { product: ProductTypeResponse }) {
+function ProductListItem({ product }: { product: ProductResponse }) {
   return (
     <Link href={`/products/${product.slug}`}>
       <Card className="group hover:shadow-md transition-shadow duration-200">
@@ -506,9 +460,8 @@ function ProductListItem({ product }: { product: ProductTypeResponse }) {
                     {product.description}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="outline">{product.type}</Badge>
-                    {product.material && (
-                      <Badge variant="outline">{product.material}</Badge>
+                    {product.category && (
+                      <Badge variant="outline">{product.category.name}</Badge>
                     )}
                     {product.isFeatured && (
                       <Badge variant="default">
@@ -523,7 +476,7 @@ function ProductListItem({ product }: { product: ProductTypeResponse }) {
                   <p className="font-semibold">
                     $
                     {product.designTemplates?.[0]?.basePrice?.toFixed(2) ||
-                      "Custom"}
+                      product.basePrice.toFixed(2)}
                   </p>
                   <Button size="sm" className="mt-2">
                     Customize

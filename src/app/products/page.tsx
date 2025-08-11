@@ -161,7 +161,7 @@ export default function ProductsPage() {
               />
 
               {/* Pagination */}
-              {productsData && productsData.meta.pageCount > 1 && (
+              {productsData && productsData.meta.itemsPerPage > 1 && (
                 <div className="flex justify-center mt-12">
                   <div className="flex items-center gap-2">
                     <Button
@@ -175,14 +175,14 @@ export default function ProductsPage() {
 
                     <div className="flex items-center gap-1">
                       {Array.from(
-                        { length: productsData.meta.pageCount },
+                        { length: productsData.meta.itemsPerPage },
                         (_, i) => i + 1
                       )
                         .filter((pageNum) => {
                           // Show first page, last page, current page, and pages around current
                           return (
                             pageNum === 1 ||
-                            pageNum === productsData.meta.pageCount ||
+                            pageNum === productsData.meta.itemsPerPage ||
                             Math.abs(pageNum - page) <= 1
                           );
                         })
@@ -212,7 +212,7 @@ export default function ProductsPage() {
 
                     <Button
                       variant="outline"
-                      disabled={page === productsData.meta.pageCount}
+                      disabled={page === productsData.meta.itemsPerPage}
                       onClick={() => handlePageChange(page + 1)}
                       className="border-border hover:border-green-600 hover:text-green-600 dark:hover:border-green-400 dark:hover:text-green-400"
                     >

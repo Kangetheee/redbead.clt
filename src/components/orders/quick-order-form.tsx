@@ -316,7 +316,8 @@ export default function QuickOrderForm({
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
-  const createOrder = useCreateOrder();
+  // FIXED: Use the mutation correctly
+  const { mutate: createOrder, isPending: isCreatingOrder } = useCreateOrder();
 
   const {
     register,
@@ -350,6 +351,7 @@ export default function QuickOrderForm({
   const urgencyMultiplier = selectedUrgency.multiplier;
   const estimatedPrice = basePrice * quantityMultiplier * urgencyMultiplier;
 
+  // FIXED: Corrected onSubmit to use the mutation properly
   const onSubmit = async (data: QuickOrderFormData) => {
     try {
       if (!selectedSizeVariant || !selectedTemplate) {
@@ -435,13 +437,19 @@ export default function QuickOrderForm({
         templateId: data.templateId, // Set template at order level for quick orders
       };
 
-      const result = await createOrder.mutateAsync(orderData);
-
-      if (result.success && result.data) {
-        toast.success("Quick order submitted successfully!");
-        onSuccess?.(result.data.id);
-        router.push(`/orders/${result.data.id}`);
-      }
+      // FIXED: Use the mutation correctly - it returns OrderResponse directly
+      createOrder(orderData, {
+        onSuccess: (orderResponse) => {
+          // orderResponse is already the OrderResponse object
+          toast.success("Quick order submitted successfully!");
+          onSuccess?.(orderResponse.id);
+          router.push(`/orders/${orderResponse.id}`);
+        },
+        onError: (error: any) => {
+          console.error("Failed to create quick order:", error);
+          toast.error(error?.message || "Failed to create quick order");
+        },
+      });
     } catch (error: any) {
       console.error("Failed to create quick order:", error);
       toast.error(error?.message || "Failed to create quick order");
@@ -1149,7 +1157,7 @@ export default function QuickOrderForm({
                 type="button"
                 variant="outline"
                 onClick={() => setCurrentStep(currentStep - 1)}
-                disabled={createOrder.isPending}
+                disabled={isCreatingOrder}
               >
                 Previous
               </Button>
@@ -1160,7 +1168,7 @@ export default function QuickOrderForm({
                 type="button"
                 variant="outline"
                 onClick={onCancel}
-                disabled={createOrder.isPending}
+                disabled={isCreatingOrder}
               >
                 Cancel
               </Button>
@@ -1172,9 +1180,7 @@ export default function QuickOrderForm({
               <Button
                 type="button"
                 onClick={() => setCurrentStep(currentStep + 1)}
-                disabled={
-                  !canProceedToStep(currentStep + 1) || createOrder.isPending
-                }
+                disabled={!canProceedToStep(currentStep + 1) || isCreatingOrder}
               >
                 Continue
               </Button>
@@ -1182,13 +1188,11 @@ export default function QuickOrderForm({
               <Button
                 type="submit"
                 disabled={
-                  createOrder.isPending ||
-                  !selectedTemplate ||
-                  !selectedSizeVariant
+                  isCreatingOrder || !selectedTemplate || !selectedSizeVariant
                 }
                 className="min-w-[120px]"
               >
-                {createOrder.isPending ? (
+                {isCreatingOrder ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Submitting...

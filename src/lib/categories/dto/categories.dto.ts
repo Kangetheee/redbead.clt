@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Create Category Schema
 export const createCategorySchema = z.object({
   name: z
     .string()
@@ -17,24 +18,14 @@ export const createCategorySchema = z.object({
     .string()
     .max(1000, "Description must be less than 1000 characters")
     .optional(),
-  metaTitle: z
-    .string()
-    .max(200, "Meta title must be less than 200 characters")
-    .optional(),
-  metaDescription: z
-    .string()
-    .max(500, "Meta description must be less than 500 characters")
-    .optional(),
-  thumbnailImage: z.string().url("Invalid thumbnail image URL").optional(),
-  bannerImage: z.string().url("Invalid banner image URL").optional(),
-  configSchema: z.record(z.any()).optional(),
   isActive: z.boolean().default(true),
-  sortOrder: z.number().min(0).max(9999).default(0),
+  metadata: z.record(z.any()).optional(),
   parentId: z.string().uuid("Invalid parent ID").optional(),
 });
 
 export type CreateCategoryDto = z.infer<typeof createCategorySchema>;
 
+// Update Category Schema
 export const updateCategorySchema = z.object({
   name: z
     .string()
@@ -54,29 +45,35 @@ export const updateCategorySchema = z.object({
     .string()
     .max(1000, "Description must be less than 1000 characters")
     .optional(),
-  metaTitle: z
-    .string()
-    .max(200, "Meta title must be less than 200 characters")
-    .optional(),
-  metaDescription: z
-    .string()
-    .max(500, "Meta description must be less than 500 characters")
-    .optional(),
-  thumbnailImage: z.string().url("Invalid thumbnail image URL").optional(),
-  bannerImage: z.string().url("Invalid banner image URL").optional(),
-  configSchema: z.record(z.any()).optional(),
   isActive: z.boolean().optional(),
-  sortOrder: z.number().min(0).max(9999).optional(),
+  metadata: z.record(z.any()).optional(),
   parentId: z.string().uuid("Invalid parent ID").optional(),
 });
 
 export type UpdateCategoryDto = z.infer<typeof updateCategorySchema>;
 
+// Get Categories Schema (matching API spec)
 export const getCategoriesSchema = z.object({
-  page: z.number().min(1).optional().default(1),
-  limit: z.number().min(1).max(100).optional().default(10),
-  search: z.string().max(100).optional(),
+  pageIndex: z.number().min(0, "Page index must be non-negative").optional(),
+  pageSize: z
+    .number()
+    .min(-1, "Page size must be -1 or positive")
+    .max(100, "Page size cannot exceed 100")
+    .optional(),
+  search: z.string().max(100, "Search term too long").optional(),
   isActive: z.boolean().optional(),
+  sortBy: z.enum(["name", "slug", "createdAt", "updatedAt"]).optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+  parentId: z.string().uuid("Invalid parent ID").optional(),
 });
 
-export type GetCategoriesDto = z.infer<typeof getCategoriesSchema>;
+// Explicit type definition to ensure all properties are optional
+export type GetCategoriesDto = {
+  pageIndex?: number;
+  pageSize?: number;
+  search?: string;
+  isActive?: boolean;
+  sortBy?: "name" | "slug" | "createdAt" | "updatedAt";
+  sortOrder?: "asc" | "desc";
+  parentId?: string;
+};

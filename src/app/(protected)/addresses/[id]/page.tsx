@@ -1,8 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { getSession } from "@/lib/session/session";
-import { redirect, useParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAddress } from "@/hooks/use-address";
 import { AddressDetails } from "@/components/addresses/address-details";
 import { Button } from "@/components/ui/button";
@@ -13,17 +11,14 @@ import { ArrowLeft, AlertCircle } from "lucide-react";
 export default function AddressDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { data: response, isLoading, error } = useAddress(params.id);
-
-  const address = response?.success ? response.data : null;
-  const addressError = response?.success === false ? response.error : null;
+  const { data: address, isLoading, error } = useAddress(params.id);
 
   const handleEdit = () => {
-    router.push(`/dashboard/${params.id}/edit`);
+    router.push(`/addresses/${params.id}/edit`);
   };
 
   const handleBack = () => {
-    router.push("/dashboard");
+    router.push("/addresses");
   };
 
   if (isLoading) {
@@ -38,7 +33,7 @@ export default function AddressDetailsPage() {
     );
   }
 
-  if (error || addressError || !address) {
+  if (error || !address) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center gap-4 mb-8">
@@ -52,7 +47,8 @@ export default function AddressDetailsPage() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {addressError || "Failed to load address. Please try again."}
+            {error?.message ||
+              "Address not found. It may have been deleted or the ID is invalid."}
           </AlertDescription>
         </Alert>
       </div>
@@ -74,6 +70,7 @@ export default function AddressDetailsPage() {
             </p>
           </div>
         </div>
+        <Button onClick={handleEdit}>Edit Address</Button>
       </div>
 
       <AddressDetails

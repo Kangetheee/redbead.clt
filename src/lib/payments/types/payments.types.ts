@@ -4,115 +4,104 @@
  * Payment method configuration returned by GET /v1/payments/methods
  */
 export interface PaymentMethod {
-  id: string;
   name: string;
-  type: "MPESA" | "BANK_TRANSFER" | "CARD" | "CASH";
-  description: string;
-  isActive: boolean;
-  configuration?: {
-    shortcode?: string;
-    tillNumber?: string;
-    accountNumber?: string;
-    instructions?: string;
+  value: string;
+  enabled: boolean;
+}
+
+/**
+ * Basic payment information in list responses
+ */
+export interface PaymentInfo {
+  id: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  status: "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
+  method: string;
+  transactionId?: string;
+  metadata?: {
+    customerPhone?: string;
+    provider?: string;
     [key: string]: any;
   };
-  fees?: {
-    percentage?: number;
-    fixed?: number;
-    minimum?: number;
-    maximum?: number;
+  createdAt: string;
+}
+
+/**
+ * Paginated list of payments from GET /v1/payments
+ */
+export interface PaymentListResponse {
+  data: PaymentInfo[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    lastPage: number;
   };
-  limits?: {
-    minimum?: number;
-    maximum?: number;
+  links: {
+    first: string;
+    last: string;
+    prev?: string;
+    next?: string;
   };
 }
 
 /**
- * Detailed payment information returned by GET /v1/payments/{orderId}
+ * Payment summary statistics from GET /v1/payments/summary
+ */
+export interface PaymentSummary {
+  summary: Array<{
+    status: string;
+    count: number;
+    totalAmount: number;
+  }>;
+  totalPayments: number;
+  totalAmount: number;
+}
+
+/**
+ * Detailed payment information returned by GET /v1/payments/{id} or GET /v1/payments/order/{orderId}
  */
 export interface PaymentDetails {
   id: string;
   orderId: string;
-  method: "MPESA" | "BANK_TRANSFER" | "CARD" | "CASH";
-  status:
-    | "PENDING"
-    | "PROCESSING"
-    | "COMPLETED"
-    | "FAILED"
-    | "CANCELLED"
-    | "REFUNDED";
   amount: number;
   currency: string;
-  reference?: string;
+  status: "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
+  method: string;
   transactionId?: string;
-  externalReference?: string;
-  failureReason?: string;
   metadata?: {
-    phoneNumber?: string;
-    checkoutRequestId?: string;
-    merchantRequestId?: string;
-    mpesaReceiptNumber?: string;
+    customerPhone?: string;
+    provider?: string;
     [key: string]: any;
   };
-  fees?: {
-    amount: number;
-    currency: string;
-  };
   createdAt: string;
-  updatedAt: string;
-  completedAt?: string;
-  expiresAt?: string;
 }
 
 /**
  * Payment initiation response from POST /v1/payments/initiate/{orderId}
  */
 export interface PaymentInitiationResponse {
-  paymentId: string;
+  success: boolean;
+  message: string;
+  transactionId?: string;
+  customerMessage?: string;
   status: "PENDING" | "PROCESSING";
-  paymentUrl?: string;
-  qrCode?: string;
-  instructions: string;
-  expiresAt?: string;
-  metadata?: {
-    checkoutRequestId?: string;
-    merchantRequestId?: string;
-    phoneNumber?: string;
-    tillNumber?: string;
-    accountNumber?: string;
-    [key: string]: any;
-  };
-  nextSteps?: string[];
 }
 
 /**
  * Payment status information returned by GET /v1/payments/status/{orderId}
  */
 export interface PaymentStatus {
-  paymentId: string;
   orderId: string;
-  status:
-    | "PENDING"
-    | "PROCESSING"
-    | "COMPLETED"
-    | "FAILED"
-    | "CANCELLED"
-    | "REFUNDED";
-  amount: number;
-  currency: string;
-  method: "MPESA" | "BANK_TRANSFER" | "CARD" | "CASH";
-  reference?: string;
-  externalReference?: string;
+  paymentStatus: "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
   transactionId?: string;
-  failureReason?: string;
-  lastUpdated: string;
-  timeline?: PaymentTimelineEvent[];
-  metadata?: {
-    phoneNumber?: string;
-    mpesaReceiptNumber?: string;
-    [key: string]: any;
+  sqroolResponse?: {
+    status: string;
+    message: string;
   };
+  error?: string;
 }
 
 /**
@@ -131,53 +120,15 @@ export interface PaymentTimelineEvent {
  * Refund response from POST /v1/payments/refund/{orderId}
  */
 export interface RefundResponse {
-  refundId: string;
-  paymentId: string;
-  orderId: string;
-  amount: number;
-  currency: string;
-  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-  reference?: string;
-  externalReference?: string;
-  failureReason?: string;
-  metadata?: {
-    originalTransactionId?: string;
-    refundReference?: string;
-    [key: string]: any;
-  };
-  createdAt: string;
-  completedAt?: string;
-  estimatedCompletionTime?: string;
-}
-
-/**
- * Sqrool callback payload structure for POST /v1/payments/callbacks/sqrool
- */
-export interface SqroolCallbackPayload {
-  merchant_request_id?: string;
-  checkout_request_id?: string;
-  result_code: string;
-  result_desc: string;
-  amount?: number;
-  mpesa_receipt_number?: string;
-  balance?: string;
-  transaction_date?: string;
-  phone_number?: string;
-}
-
-/**
- * Generic payment callback response
- */
-export interface PaymentCallbackResponse {
-  status: "SUCCESS" | "ERROR";
+  success: boolean;
   message: string;
-  paymentId?: string;
-  orderId?: string;
+  refundId: string;
+  status: "PENDING";
 }
 
 // Type guards for runtime type checking
 export const isPaymentMethod = (obj: any): obj is PaymentMethod => {
-  return obj && typeof obj.id === "string" && typeof obj.type === "string";
+  return obj && typeof obj.name === "string" && typeof obj.value === "string";
 };
 
 export const isPaymentDetails = (obj: any): obj is PaymentDetails => {
@@ -186,17 +137,14 @@ export const isPaymentDetails = (obj: any): obj is PaymentDetails => {
 
 export const isPaymentStatus = (obj: any): obj is PaymentStatus => {
   return (
-    obj && typeof obj.paymentId === "string" && typeof obj.status === "string"
+    obj &&
+    typeof obj.orderId === "string" &&
+    typeof obj.paymentStatus === "string"
   );
 };
 
 export const isRefundResponse = (obj: any): obj is RefundResponse => {
   return (
-    obj && typeof obj.refundId === "string" && typeof obj.paymentId === "string"
+    obj && typeof obj.success === "boolean" && typeof obj.refundId === "string"
   );
 };
-
-// Utility types
-export type PaymentMethodType = PaymentMethod["type"];
-export type PaymentStatusType = PaymentStatus["status"];
-export type RefundStatusType = RefundResponse["status"];

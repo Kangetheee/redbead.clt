@@ -17,15 +17,15 @@ import {
 } from "@/components/ui/card";
 import OrdersList from "@/components/orders/orders-list";
 import OrderExport from "@/components/orders/order-export";
-import BulkOperations from "@/components/orders/bulk-operations";
+// import BulkOperations from "@/components/orders/bulk-operations";
 
 import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
-import { OrderResponse } from "@/lib/orders/types/orders.types";
+import { OrderResponse, OrderFilters } from "@/lib/orders/types/orders.types";
 
 export default function OrdersClient() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [orders, setOrders] = useState<OrderResponse[]>([]);
-  const [filters, setFilters] = useState<GetOrdersDto>({ page: 1, limit: 20 });
+  const [filters, setFilters] = useState<OrderFilters>({});
 
   const handleOrdersUpdated = () => {
     window.location.reload();
@@ -35,7 +35,7 @@ export default function OrdersClient() {
     console.log("Exported data:", data);
   };
 
-  const handleFiltersChange = (newFilters: GetOrdersDto) => {
+  const handleFiltersChange = (newFilters: OrderFilters) => {
     setFilters(newFilters);
   };
 
@@ -51,11 +51,11 @@ export default function OrdersClient() {
         </div>
 
         <div className="flex items-center gap-2">
-          <OrderExport
+          {/* <OrderExport
             orders={orders}
             filters={filters}
             onExport={handleExport}
-          />
+          /> */}
           <Button asChild>
             <Link href="/orders/create">
               <Plus className="h-4 w-4 mr-2" />
@@ -65,7 +65,7 @@ export default function OrdersClient() {
         </div>
       </div>
 
-      {/* Bulk Operations */}
+      {/* Bulk Operations
       {selectedOrders.length > 0 && (
         <BulkOperations
           orders={orders}
@@ -73,7 +73,7 @@ export default function OrdersClient() {
           onSelectionChange={setSelectedOrders}
           onOrdersUpdated={handleOrdersUpdated}
         />
-      )}
+      )} */}
 
       {/* Orders Table */}
       <OrdersList
@@ -82,7 +82,6 @@ export default function OrdersClient() {
         selectable={true}
         selectedOrders={selectedOrders}
         onSelectionChange={setSelectedOrders}
-        showActions={true}
         compact={false}
       />
 

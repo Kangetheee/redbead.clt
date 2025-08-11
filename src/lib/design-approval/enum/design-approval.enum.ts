@@ -5,5 +5,6 @@ export const designApprovalStatusEnum = z.enum([
   "APPROVED",
   "REJECTED",
   "EXPIRED",
+  "CANCELLED",
 ]);
 export type DesignApprovalStatus = z.infer<typeof designApprovalStatusEnum>;

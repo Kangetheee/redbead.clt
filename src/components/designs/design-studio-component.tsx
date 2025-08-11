@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,6 +22,7 @@ import {
   useFonts,
   useUploadAsset,
   useDesign,
+  useAutoSaveDesign,
 } from "@/hooks/use-design-studio";
 import {
   createDesignSchema,
@@ -29,11 +30,18 @@ import {
   exportDesignSchema,
   uploadArtworkSchema,
   uploadAssetSchema,
+  type CreateDesignDto,
+  type UpdateDesignDto,
+  type ExportDesignDto,
+  type UploadArtworkDto,
+  type UploadAssetDto,
 } from "@/lib/design-studio/dto/design-studio.dto";
 import {
-  DesignResponse,
-  CanvasData,
-  CanvasElement,
+  type DesignResponse,
+  type CanvasData,
+  type CanvasElement,
+  type Font,
+  type AssetResponse,
 } from "@/lib/design-studio/types/design-studio.types";
 
 // Template hooks
@@ -43,8 +51,8 @@ import {
   useSizeVariants,
 } from "@/hooks/use-design-templates";
 import {
-  DesignTemplate,
-  SizeVariant,
+  type DesignTemplate,
+  type SizeVariant,
 } from "@/lib/design-templates/types/design-template.types";
 
 // UI Components
@@ -66,9 +74,13 @@ interface DesignStudioComponentProps {
   categoryId?: string;
   showBackToTemplates?: boolean;
   designId?: string;
+  enableAutoSave?: boolean;
+  autoSaveInterval?: number;
   onSave?: (designData: DesignResponse) => void;
   onDownload?: (exportData: any) => void;
   onBack?: () => void;
+  onDesignLoad?: (design: DesignResponse) => void;
+  onCanvasConfigured?: (canvasId: string) => void;
 }
 
 export default function DesignStudioComponent({
@@ -78,9 +90,13 @@ export default function DesignStudioComponent({
   categoryId,
   showBackToTemplates = true,
   designId,
+  enableAutoSave = false,
+  autoSaveInterval = 5000,
   onSave,
   onDownload,
   onBack,
+  onDesignLoad,
+  onCanvasConfigured,
 }: DesignStudioComponentProps) {
   const router = useRouter();
 
@@ -101,6 +117,8 @@ export default function DesignStudioComponent({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [canvasId, setCanvasId] = useState<string>("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Hooks
   const configureCanvas = useConfigureCanvas();
@@ -112,11 +130,19 @@ export default function DesignStudioComponent({
   const shareDesign = useShareDesign();
   const uploadAsset = useUploadAsset();
 
-  // Data hooks
-  const { data: existingDesign, isLoading: designLoading } = useDesign(
-    designId || "",
-    !!designId
+  // Auto-save hook
+  const autoSaveDesign = useAutoSaveDesign(
+    currentDesign?.id || "",
+    enableAutoSave
   );
+
+  // Data hooks
+  const {
+    data: existingDesign,
+    isLoading: designLoading,
+    error: designError,
+  } = useDesign(designId || "", !!designId);
+
   const {
     data: templateFromSlug,
     isLoading: templateLoading,
@@ -127,22 +153,19 @@ export default function DesignStudioComponent({
   );
 
   const templateId = selectedTemplate?.id;
-  const { data: sizeVariants } = useSizeVariants(
-    templateId || "",
-    !!templateId
-  );
-  const { data: templatePresets } = useTemplatePresets(
-    templateId || "",
-    !!templateId
-  );
-  const { data: fonts } = useFonts();
-  const { data: customizationOptions } = useCustomizationOptions(
-    templateId || "",
-    !!templateId
-  );
+  const { data: sizeVariants, isLoading: sizeVariantsLoading } =
+    useSizeVariants(templateId || "", !!templateId);
 
-  // Forms
-  const designForm = useForm({
+  const { data: templatePresets, isLoading: templatePresetsLoading } =
+    useTemplatePresets(templateId || "", !!templateId);
+
+  const { data: fonts, isLoading: fontsLoading } = useFonts();
+
+  const { data: customizationOptions, isLoading: customizationOptionsLoading } =
+    useCustomizationOptions(templateId || "", !!templateId);
+
+  // Forms with proper typing
+  const designForm = useForm<CreateDesignDto>({
     resolver: zodResolver(createDesignSchema),
     defaultValues: {
       name: "",
@@ -156,22 +179,24 @@ export default function DesignStudioComponent({
         elements: [],
         metadata: {},
       },
-      status: "DRAFT" as const,
+      status: "DRAFT",
       isTemplate: false,
       isPublic: false,
     },
   });
 
-  const exportForm = useForm({
+  const exportForm = useForm<ExportDesignDto>({
     resolver: zodResolver(exportDesignSchema),
     defaultValues: {
-      format: "png" as const,
-      quality: "high" as const,
+      format: "png",
+      quality: "high",
       showMockup: true,
+      includeBleed: false,
+      includeCropMarks: false,
     },
   });
 
-  const artworkForm = useForm({
+  const artworkForm = useForm<UploadArtworkDto>({
     resolver: zodResolver(uploadArtworkSchema),
     defaultValues: {
       canvasId: "",
@@ -179,15 +204,51 @@ export default function DesignStudioComponent({
     },
   });
 
-  const assetForm = useForm({
+  const assetForm = useForm<UploadAssetDto>({
     resolver: zodResolver(uploadAssetSchema),
     defaultValues: {
       name: "",
-      type: "image" as const,
+      type: "image",
       description: "",
       tags: [],
     },
   });
+
+  // Auto-save effect
+  useEffect(() => {
+    if (!enableAutoSave || !currentDesign || !hasUnsavedChanges) return;
+
+    const autoSaveTimer = setTimeout(() => {
+      const formData = designForm.getValues();
+      const designData: UpdateDesignDto = {
+        customizations: {
+          ...formData.customizations,
+          elements: canvasElements,
+        },
+      };
+
+      autoSaveDesign(designData);
+      setHasUnsavedChanges(false);
+      setLastSavedAt(new Date());
+    }, autoSaveInterval);
+
+    return () => clearTimeout(autoSaveTimer);
+  }, [
+    enableAutoSave,
+    currentDesign,
+    hasUnsavedChanges,
+    autoSaveInterval,
+    canvasElements,
+    designForm,
+    autoSaveDesign,
+  ]);
+
+  // Track changes for auto-save
+  useEffect(() => {
+    if (currentDesign) {
+      setHasUnsavedChanges(true);
+    }
+  }, [canvasElements, currentDesign]);
 
   // Effects - Load existing design data
   useEffect(() => {
@@ -195,14 +256,23 @@ export default function DesignStudioComponent({
       setCurrentDesign(existingDesign);
       setCanvasElements(existingDesign.customizations.elements || []);
 
-      designForm.setValue("name", existingDesign.name);
-      designForm.setValue("description", existingDesign.description || "");
-      designForm.setValue("customizations", existingDesign.customizations);
-      designForm.setValue("status", existingDesign.status);
-      designForm.setValue("isTemplate", existingDesign.isTemplate);
-      designForm.setValue("isPublic", existingDesign.isPublic);
+      // Update form with existing design data
+      designForm.reset({
+        name: existingDesign.name,
+        description: existingDesign.description || "",
+        templateId: existingDesign.template?.id || "",
+        sizeVariantId: existingDesign.sizeVariant?.id || "",
+        customizations: existingDesign.customizations,
+        status: existingDesign.status,
+        isTemplate: existingDesign.isTemplate,
+        isPublic: existingDesign.isPublic,
+      });
+
+      setLastSavedAt(new Date(existingDesign.updatedAt));
+      setHasUnsavedChanges(false);
+      onDesignLoad?.(existingDesign);
     }
-  }, [existingDesign, designId, designForm]);
+  }, [existingDesign, designId, designForm, onDesignLoad]);
 
   // Set template from slug fetch
   useEffect(() => {
@@ -218,7 +288,8 @@ export default function DesignStudioComponent({
       selectedTemplate &&
       sizeVariants &&
       sizeVariants.length > 0 &&
-      !selectedVariant
+      !selectedVariant &&
+      !designId // Don't auto-configure if loading existing design
     ) {
       const defaultVariant =
         sizeVariants.find((v) => v.isDefault) || sizeVariants[0];
@@ -227,7 +298,7 @@ export default function DesignStudioComponent({
       designForm.setValue("templateId", selectedTemplate.id);
       designForm.setValue("sizeVariantId", defaultVariant.id);
 
-      if (!designId) {
+      if (!currentDesign) {
         designForm.setValue("name", `Design - ${selectedTemplate.name}`);
       }
 
@@ -235,14 +306,28 @@ export default function DesignStudioComponent({
         {
           templateId: selectedTemplate.id,
           sizeVariantId: defaultVariant.id,
-          customizations: {},
+          customizations: currentDesign?.customizations || {},
         },
         {
-          onSuccess: (response) => {
-            if (response.success) {
-              setCanvasId(response.data.canvasId);
-              artworkForm.setValue("canvasId", response.data.canvasId);
+          onSuccess: (data) => {
+            setCanvasId(data.canvasId);
+            artworkForm.setValue("canvasId", data.canvasId);
+            onCanvasConfigured?.(data.canvasId);
+
+            // Update canvas dimensions from configuration
+            if (data.canvasSettings) {
+              designForm.setValue(
+                "customizations.width",
+                data.canvasSettings.width
+              );
+              designForm.setValue(
+                "customizations.height",
+                data.canvasSettings.height
+              );
             }
+          },
+          onError: (error) => {
+            console.error("Canvas configuration failed:", error);
           },
         }
       );
@@ -255,15 +340,24 @@ export default function DesignStudioComponent({
     configureCanvas,
     artworkForm,
     designId,
+    currentDesign,
+    onCanvasConfigured,
   ]);
 
   // Event Handlers
-  const handleTemplateSelect = (template: DesignTemplate) => {
+  const handleTemplateSelect = useCallback((template: DesignTemplate) => {
     setSelectedTemplate(template);
     setIsDesigning(true);
-  };
+  }, []);
 
-  const handleBackToTemplates = () => {
+  const handleBackToTemplates = useCallback(() => {
+    if (hasUnsavedChanges) {
+      const confirmLeave = window.confirm(
+        "You have unsaved changes. Are you sure you want to leave?"
+      );
+      if (!confirmLeave) return;
+    }
+
     if (onBack) {
       onBack();
     } else if (templateSlug) {
@@ -272,11 +366,11 @@ export default function DesignStudioComponent({
       setSelectedTemplate(null);
       setIsDesigning(false);
     }
-  };
+  }, [hasUnsavedChanges, onBack, templateSlug, router]);
 
-  const handleSaveDesign = () => {
+  const handleSaveDesign = useCallback(() => {
     const formData = designForm.getValues();
-    const designData = {
+    const designData: CreateDesignDto | UpdateDesignDto = {
       ...formData,
       customizations: {
         ...formData.customizations,
@@ -286,29 +380,36 @@ export default function DesignStudioComponent({
 
     if (currentDesign) {
       updateDesign.mutate(
-        { designId: currentDesign.id, values: designData },
+        { designId: currentDesign.id, values: designData as UpdateDesignDto },
         {
-          onSuccess: (response) => {
-            if (response.success) {
-              setCurrentDesign(response.data);
-              onSave?.(response.data);
-            }
+          onSuccess: (data) => {
+            setCurrentDesign(data);
+            setLastSavedAt(new Date());
+            setHasUnsavedChanges(false);
+            onSave?.(data);
           },
         }
       );
     } else {
-      createDesign.mutate(designData, {
-        onSuccess: (response) => {
-          if (response.success) {
-            setCurrentDesign(response.data);
-            onSave?.(response.data);
-          }
+      createDesign.mutate(designData as CreateDesignDto, {
+        onSuccess: (data) => {
+          setCurrentDesign(data);
+          setLastSavedAt(new Date());
+          setHasUnsavedChanges(false);
+          onSave?.(data);
         },
       });
     }
-  };
+  }, [
+    designForm,
+    canvasElements,
+    currentDesign,
+    updateDesign,
+    createDesign,
+    onSave,
+  ]);
 
-  const handleExportDesign = () => {
+  const handleExportDesign = useCallback(() => {
     if (!currentDesign) {
       toast.error("Please save your design first");
       return;
@@ -318,16 +419,14 @@ export default function DesignStudioComponent({
     exportDesign.mutate(
       { designId: currentDesign.id, values: exportData },
       {
-        onSuccess: (response) => {
-          if (response.success) {
-            onDownload?.(response.data);
-          }
+        onSuccess: (data) => {
+          onDownload?.(data);
         },
       }
     );
-  };
+  }, [currentDesign, exportForm, exportDesign, onDownload]);
 
-  const handleValidateDesign = () => {
+  const handleValidateDesign = useCallback(() => {
     if (!currentDesign) {
       toast.error("Please save your design first");
       return;
@@ -341,9 +440,9 @@ export default function DesignStudioComponent({
         checkAssetQuality: true,
       },
     });
-  };
+  }, [currentDesign, validateDesign]);
 
-  const handleShareDesign = () => {
+  const handleShareDesign = useCallback(() => {
     if (!currentDesign) {
       toast.error("Please save your design first");
       return;
@@ -356,20 +455,20 @@ export default function DesignStudioComponent({
         note: "Shared design from studio",
       },
     });
-  };
+  }, [currentDesign, shareDesign]);
 
-  const handleUploadArtwork = (file: File) => {
-    if (!canvasId) {
-      toast.error("Canvas not configured yet");
-      return;
-    }
+  const handleUploadArtwork = useCallback(
+    (file: File) => {
+      if (!canvasId) {
+        toast.error("Canvas not configured yet");
+        return;
+      }
 
-    const artworkData = artworkForm.getValues();
-    uploadArtwork.mutate(
-      { file, values: artworkData },
-      {
-        onSuccess: (response) => {
-          if (response.success) {
+      const artworkData = artworkForm.getValues();
+      uploadArtwork.mutate(
+        { file, values: artworkData },
+        {
+          onSuccess: (data) => {
             const newElement: CanvasElement = {
               id: `artwork-${Date.now()}`,
               type: "image",
@@ -377,43 +476,46 @@ export default function DesignStudioComponent({
               y: 100,
               width: 200,
               height: 200,
-              mediaId: response.data.mediaId,
+              mediaId: data.mediaId,
             };
             setCanvasElements((prev) => [...prev, newElement]);
-            toast.success("Artwork uploaded and added to design");
-          }
-        },
+            setSelectedElement(newElement);
+          },
+        }
+      );
+    },
+    [canvasId, artworkForm, uploadArtwork]
+  );
+
+  // Handle upload asset with the correct signature
+  const handleUploadAsset = useCallback(
+    (file: File) => {
+      const assetData = assetForm.getValues();
+
+      if (!assetData.name) {
+        toast.error("Please enter an asset name");
+        return;
       }
-    );
-  };
 
-  const handleUploadAsset = (file: File) => {
-    const assetData = assetForm.getValues();
-    if (!assetData.name) {
-      toast.error("Please enter an asset name");
-      return;
-    }
-
-    uploadAsset.mutate(
-      { file, assetData },
-      {
-        onSuccess: (response) => {
-          if (response.success) {
-            toast.success("Asset uploaded successfully");
+      uploadAsset.mutate(
+        { file, assetData: assetData as UploadAssetDto },
+        {
+          onSuccess: () => {
             assetForm.reset({
               name: "",
               type: "image",
               description: "",
               tags: [],
             });
-          }
-        },
-      }
-    );
-  };
+          },
+        }
+      );
+    },
+    [assetForm, uploadAsset]
+  );
 
   // Element Management
-  const addTextElement = () => {
+  const addTextElement = useCallback(() => {
     const newElement: CanvasElement = {
       id: `text-${Date.now()}`,
       type: "text",
@@ -430,9 +532,9 @@ export default function DesignStudioComponent({
 
     setCanvasElements((prev) => [...prev, newElement]);
     setSelectedElement(newElement);
-  };
+  }, []);
 
-  const addImageElement = () => {
+  const addImageElement = useCallback(() => {
     const newElement: CanvasElement = {
       id: `image-${Date.now()}`,
       type: "image",
@@ -445,9 +547,9 @@ export default function DesignStudioComponent({
 
     setCanvasElements((prev) => [...prev, newElement]);
     setSelectedElement(newElement);
-  };
+  }, []);
 
-  const addShapeElement = () => {
+  const addShapeElement = useCallback(() => {
     const newElement: CanvasElement = {
       id: `shape-${Date.now()}`,
       type: "shape",
@@ -461,30 +563,56 @@ export default function DesignStudioComponent({
 
     setCanvasElements((prev) => [...prev, newElement]);
     setSelectedElement(newElement);
-  };
+  }, []);
 
-  const updateElement = (
-    elementId: string,
-    updates: Partial<CanvasElement>
-  ) => {
-    setCanvasElements((prev) =>
-      prev.map((el) => (el.id === elementId ? { ...el, ...updates } : el))
-    );
+  const updateElement = useCallback(
+    (elementId: string, updates: Partial<CanvasElement>) => {
+      setCanvasElements((prev) =>
+        prev.map((el) => (el.id === elementId ? { ...el, ...updates } : el))
+      );
 
-    if (selectedElement?.id === elementId) {
-      setSelectedElement((prev) => (prev ? { ...prev, ...updates } : null));
-    }
-  };
+      if (selectedElement?.id === elementId) {
+        setSelectedElement((prev) => (prev ? { ...prev, ...updates } : null));
+      }
+    },
+    [selectedElement]
+  );
 
-  const deleteElement = (elementId: string) => {
-    setCanvasElements((prev) => prev.filter((el) => el.id !== elementId));
-    if (selectedElement?.id === elementId) {
-      setSelectedElement(null);
-    }
-  };
+  const deleteElement = useCallback(
+    (elementId: string) => {
+      setCanvasElements((prev) => prev.filter((el) => el.id !== elementId));
+      if (selectedElement?.id === elementId) {
+        setSelectedElement(null);
+      }
+    },
+    [selectedElement]
+  );
+
+  const duplicateElement = useCallback(
+    (elementId: string) => {
+      const elementToDuplicate = canvasElements.find(
+        (el) => el.id === elementId
+      );
+      if (!elementToDuplicate) return;
+
+      const duplicatedElement: CanvasElement = {
+        ...elementToDuplicate,
+        id: `${elementToDuplicate.type}-${Date.now()}`,
+        x: elementToDuplicate.x + 20,
+        y: elementToDuplicate.y + 20,
+      };
+
+      setCanvasElements((prev) => [...prev, duplicatedElement]);
+      setSelectedElement(duplicatedElement);
+    },
+    [canvasElements]
+  );
 
   // Loading state
-  if ((templateSlug && templateLoading) || (designId && designLoading)) {
+  const isLoading =
+    (templateSlug && templateLoading) || (designId && designLoading);
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -498,19 +626,26 @@ export default function DesignStudioComponent({
   }
 
   // Error state
-  if (templateSlug && templateError) {
+  if ((templateSlug && templateError) || (designId && designError)) {
+    const error = templateError || designError;
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Template Not Found
+            {templateError ? "Template Not Found" : "Design Not Found"}
           </h2>
           <p className="text-gray-600 mb-4">
-            The template you&apos;re looking for doesn&apos;t exist.
+            {templateError
+              ? "The template you're looking for doesn't exist."
+              : "The design you're looking for doesn't exist or has been deleted."}
           </p>
-          <Button onClick={() => router.push("/templates")}>
-            Browse Templates
+          <Button
+            onClick={() =>
+              router.push(templateError ? "/templates" : "/designs")
+            }
+          >
+            {templateError ? "Browse Templates" : "Browse Designs"}
           </Button>
         </div>
       </div>
@@ -538,6 +673,9 @@ export default function DesignStudioComponent({
         currentDesign={currentDesign}
         showBackToTemplates={showBackToTemplates}
         isPreviewMode={isPreviewMode}
+        lastSavedAt={lastSavedAt}
+        hasUnsavedChanges={hasUnsavedChanges}
+        enableAutoSave={enableAutoSave}
         onBack={handleBackToTemplates}
         onPreviewToggle={() => setIsPreviewMode(!isPreviewMode)}
         onValidate={handleValidateDesign}
@@ -569,6 +707,7 @@ export default function DesignStudioComponent({
           onAddShape={addShapeElement}
           onSelectElement={setSelectedElement}
           onDeleteElement={deleteElement}
+          onDuplicateElement={duplicateElement}
           onUploadArtwork={handleUploadArtwork}
           onUploadAsset={handleUploadAsset}
           onSetUploadedFiles={setUploadedFiles}
@@ -580,6 +719,8 @@ export default function DesignStudioComponent({
           onElementUpdate={updateElement}
           isUploadingArtwork={uploadArtwork.isPending}
           isUploadingAsset={uploadAsset.isPending}
+          isLoadingPresets={templatePresetsLoading}
+          isLoadingFonts={fontsLoading}
         />
 
         <CanvasArea
@@ -590,8 +731,11 @@ export default function DesignStudioComponent({
           selectedElement={selectedElement}
           designForm={designForm}
           isPreviewMode={isPreviewMode}
+          canvasId={canvasId}
           onElementSelect={setSelectedElement}
           onElementUpdate={updateElement}
+          onElementDuplicate={duplicateElement}
+          onElementDelete={deleteElement}
         />
 
         <RightSidebar

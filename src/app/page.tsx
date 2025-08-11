@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
 "use client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,9 +11,6 @@ import {
   Award,
   Clock,
   Headphones,
-  ShoppingCart,
-  Menu,
-  X,
 } from "lucide-react";
 import { FeaturedProductsSection } from "@/components/products/featured-products";
 import Link from "next/link";
@@ -99,11 +95,7 @@ export default function LandingPage() {
       {/* Featured Products Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <FeaturedProductsSection
-            limit={8}
-            className="max-w-7xl mx-auto"
-            showAddToCart={true}
-          />
+          <FeaturedProductsSection limit={8} className="max-w-7xl mx-auto" />
         </div>
       </section>
 
