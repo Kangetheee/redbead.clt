@@ -41,9 +41,9 @@ export class DesignTemplatesService {
   async getTemplates(params: GetTemplatesDto) {
     const query = new URLSearchParams();
     if (params.pageIndex !== undefined)
-      query.append("pageIndex", params.pageIndex.toString());
+      query.append("page", params.pageIndex.toString());
     if (params.pageSize !== undefined)
-      query.append("pageSize", params.pageSize.toString());
+      query.append("limit", params.pageSize.toString());
     if (params.search) query.append("search", params.search);
     if (params.productId) query.append("productId", params.productId);
     if (params.categoryId) query.append("categoryId", params.categoryId);
