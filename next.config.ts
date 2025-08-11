@@ -30,7 +30,7 @@ const nextConfig = {
         protocol: "https",
         hostname: "wristbandskenya.com",
         port: "",
-        pathname: "/**",
+        pathname: "/wp-content/uploads/**",
       },
       {
         protocol: "https",

@@ -105,16 +105,8 @@ export function ProductCard({
   // Get default variant for add to cart
   const getDefaultVariant = () => {
     if (!product.variants || product.variants.length === 0) {
-      // Create a mock variant if none exist
-      return {
-        id: `${product.id}-default`,
-        name: "Default",
-        type: "default",
-        price: product.basePrice,
-        sku: product.id,
-        stock: 100,
-        isDefault: true,
-      };
+      // Return null - we'll handle this case differently
+      return null;
     }
 
     // Find default variant or use first available variant
@@ -122,6 +114,13 @@ export function ProductCard({
       product.variants.find((v) => v.isDefault) ||
       product.variants.find((v) => v.stock > 0) ||
       product.variants[0]
+    );
+  };
+
+  // Check if product needs customization (has templates or complex variants)
+  const needsCustomization = () => {
+    return (
+      templates.length > 0 || (product.variants && product.variants.length > 1)
     );
   };
 
@@ -143,7 +142,7 @@ export function ProductCard({
 
     return (
       <Button {...buttonProps} asChild>
-        <Link href={`/products/${product.slug}`}>
+        <Link href={`/products/${product.id}`}>
           {variant === "overlay" && <Eye className="w-3 h-3 mr-1" />}
           {variant === "list" ? "View" : "View Details"}
         </Link>
@@ -151,14 +150,12 @@ export function ProductCard({
     );
   };
 
-  // FIXED: Render Add to Cart button - now shows when showAddToCart is true and product is available
   const renderAddToCartButton = (variant: "overlay" | "primary" | "list") => {
     if (!showAddToCart) return null;
 
     const isAvailable = canAddToCart();
     const defaultVariant = getDefaultVariant();
-
-    if (!defaultVariant) return null;
+    const requiresCustomization = needsCustomization();
 
     const buttonProps = {
       variant:
@@ -174,32 +171,66 @@ export function ProductCard({
       ),
     };
 
-    // If product has no variants or needs customization, navigate to product page
-    if (
-      !product.variants ||
-      product.variants.length === 0 ||
-      templates.length > 0
-    ) {
+    // If product is not available, show disabled state
+    if (!isAvailable) {
       return (
-        <Button {...buttonProps} asChild disabled={!isAvailable}>
-          <Link href={`/products/${product.slug}`}>
-            <ShoppingCart className="w-3 h-3 mr-1" />
-            {!isAvailable
-              ? variant === "list"
-                ? "N/A"
-                : "Not Available"
-              : variant === "list"
-                ? "Add"
-                : "Add to Cart"}
+        <Button {...buttonProps} disabled>
+          <ShoppingCart className="w-3 h-3 mr-1" />
+          {variant === "list" ? "N/A" : "Not Available"}
+        </Button>
+      );
+    }
+
+    // If product requires customization (multiple variants, templates, etc.),
+    // redirect to product page for detailed selection
+    if (requiresCustomization) {
+      return (
+        <Button {...buttonProps} asChild>
+          <Link href={`/products/${product.id}`}>
+            <Plus className="w-3 h-3 mr-1" />
+            {variant === "list" ? "Select" : "Customize & Add"}
           </Link>
         </Button>
       );
     }
 
+    // For simple products with a single variant or no variants, use AddToCartButton directly
+    if (defaultVariant) {
+      return (
+        <AddToCartButton
+          productId={product.id}
+          variantId={defaultVariant.id}
+          quantity={1}
+          variant={variant === "overlay" ? "default" : "default"}
+          size={variant === "list" ? "sm" : config.buttonSize}
+          className={cn(
+            variant === "overlay" &&
+              "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700",
+            variant === "primary" &&
+              "bg-green-600 hover:bg-green-700 text-white w-full dark:bg-green-600 dark:hover:bg-green-700",
+            variant === "list" &&
+              "flex-1 bg-green-600 hover:bg-green-700 text-xs dark:bg-green-600 dark:hover:bg-green-700"
+          )}
+          disabled={!isAvailable || defaultVariant.stock === 0}
+          showSuccessState={true}
+        >
+          <ShoppingCart className="w-3 h-3 mr-1" />
+          {defaultVariant.stock === 0
+            ? variant === "list"
+              ? "OOS"
+              : "Out of Stock"
+            : variant === "list"
+              ? "Add"
+              : "Add to Cart"}
+        </AddToCartButton>
+      );
+    }
+
+    // For products without variants, create a simple add to cart with product ID
     return (
       <AddToCartButton
         productId={product.id}
-        variantId={defaultVariant.id}
+        variantId="default"
         quantity={1}
         variant={variant === "overlay" ? "default" : "default"}
         size={variant === "list" ? "sm" : config.buttonSize}
@@ -215,13 +246,7 @@ export function ProductCard({
         showSuccessState={true}
       >
         <ShoppingCart className="w-3 h-3 mr-1" />
-        {!isAvailable
-          ? variant === "list"
-            ? "N/A"
-            : "Not Available"
-          : variant === "list"
-            ? "Add"
-            : "Add to Cart"}
+        {variant === "list" ? "Add" : "Add to Cart"}
       </AddToCartButton>
     );
   };
@@ -269,7 +294,7 @@ export function ProductCard({
             {/* Header */}
             <div>
               <h3 className="text-sm font-medium text-foreground line-clamp-1 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                <Link href={`/products/${product.slug}`}>{product.name}</Link>
+                <Link href={`/products/${product.id}`}>{product.name}</Link>
               </h3>
 
               {/* Meta info - compact */}
@@ -401,10 +426,7 @@ export function ProductCard({
               "text-foreground mb-1 line-clamp-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors"
             )}
           >
-            <Link
-              href={`/products/${product.slug}`}
-              className="hover:underline"
-            >
+            <Link href={`/products/${product.id}`} className="hover:underline">
               {product.name}
             </Link>
           </h3>

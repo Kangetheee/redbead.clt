@@ -109,7 +109,11 @@ export class ProductService {
     const queryString = queryParams.toString();
     const url = `/v1/product/featured${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetcher.request<ProductResponse[]>(url, {}, { auth: false });
+    return await this.fetcher.request<ProductResponse[]>(
+      url,
+      {},
+      { auth: false }
+    );
   }
 
   /**
@@ -145,7 +149,7 @@ export class ProductService {
    */
   public async findById(productId: string): Promise<ProductResponse> {
     return this.fetcher.request<ProductResponse>(
-      `/v1/products/${productId}`,
+      `/v1/product/${productId}`,
       {},
       { auth: false } // Public endpoint
     );
