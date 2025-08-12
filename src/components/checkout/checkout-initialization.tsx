@@ -9,10 +9,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useInitializeCheckout } from "@/hooks/use-checkout";
 import {
   initCheckoutSchema,
-  guestInitCheckoutSchema,
+  // guestInitCheckoutSchema,
   checkoutItemSchema,
   type InitCheckoutDto,
-  type GuestInitCheckoutDto,
+  // type GuestInitCheckoutDto,
 } from "@/lib/checkout/dto/checkout.dto";
 // Create type from schema
 type CheckoutItemDto = z.infer<typeof checkoutItemSchema>;
