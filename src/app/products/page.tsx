@@ -17,23 +17,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import {
-  Award,
-  Clock,
-  Users,
-  ShoppingCart,
-  CheckCircle,
-  Filter,
-  Grid3X3,
-  List,
-  Menu,
-  X,
-} from "lucide-react";
+import { Award, Users, ShoppingCart, CheckCircle, Filter } from "lucide-react";
 import Link from "next/link";
 import { CustomerNavbar } from "@/components/layouts/customer-nav";
 
 export default function ProductsPage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [filters, setFilters] = useState<ProductFilters>({});
   const [page, setPage] = useState(1);
   const limit = 12;

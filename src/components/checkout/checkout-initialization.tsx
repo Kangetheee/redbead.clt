@@ -6,10 +6,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  useInitializeCheckout,
-  useInitializeGuestCheckout,
-} from "@/hooks/use-checkout";
+import { useInitializeCheckout } from "@/hooks/use-checkout";
 import {
   initCheckoutSchema,
   guestInitCheckoutSchema,
@@ -36,14 +33,6 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   ShoppingCart,
   User,
@@ -115,24 +104,12 @@ export function CheckoutInitialization({
   const [customItems, setCustomItems] = useState<CheckoutItemDto[]>([]);
   const [isInitializing, setIsInitializing] = useState(false);
 
-  // Hooks
   const initializeCheckoutMutation = useInitializeCheckout();
-  const initializeGuestCheckoutMutation = useInitializeGuestCheckout();
 
-  // Forms
   const authenticatedForm = useForm<InitCheckoutDto>({
     resolver: zodResolver(initCheckoutSchema),
     defaultValues: {
       useCartItems: true,
-      items: [],
-      couponCode: couponCode || undefined,
-    },
-  });
-
-  const guestForm = useForm<GuestInitCheckoutDto>({
-    resolver: zodResolver(guestInitCheckoutSchema),
-    defaultValues: {
-      guestEmail: defaultGuestEmail,
       items: [],
       couponCode: couponCode || undefined,
     },
@@ -209,42 +186,6 @@ export function CheckoutInitialization({
     } catch (error) {
       console.error("Checkout initialization failed:", error);
       toast.error("Failed to initialize checkout. Please try again.");
-    } finally {
-      setIsInitializing(false);
-    }
-  };
-
-  // Handle guest checkout initialization
-  const handleGuestInit = async (data: GuestInitCheckoutDto) => {
-    setIsInitializing(true);
-
-    try {
-      const finalData = { ...data };
-
-      if (checkoutMode === "cart" && selectedItems.length > 0) {
-        finalData.items = getSelectedCartItems();
-      } else if (checkoutMode === "custom") {
-        finalData.items = customItems;
-      }
-
-      if (finalData.items.length === 0) {
-        toast.error("Please select at least one item for checkout");
-        return;
-      }
-
-      const result =
-        await initializeGuestCheckoutMutation.mutateAsync(finalData);
-
-      onInitialized?.(result.sessionId);
-
-      // Navigate to guest checkout
-      const checkoutUrl = new URL("/checkout/guest", window.location.origin);
-      checkoutUrl.searchParams.set("session", result.sessionId);
-
-      router.push(checkoutUrl.toString());
-    } catch (error) {
-      console.error("Guest checkout initialization failed:", error);
-      toast.error("Failed to initialize guest checkout. Please try again.");
     } finally {
       setIsInitializing(false);
     }
@@ -606,155 +547,6 @@ export function CheckoutInitialization({
           </CardContent>
         </Card>
       )}
-
-      {/* Form Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {isGuest ? (
-              <Mail className="h-5 w-5" />
-            ) : (
-              <User className="h-5 w-5" />
-            )}
-            {isGuest ? "Guest Information" : "Checkout Options"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isGuest ? (
-            <Form {...guestForm}>
-              <form
-                onSubmit={guestForm.handleSubmit(handleGuestInit)}
-                className="space-y-4"
-              >
-                <FormField
-                  control={guestForm.control}
-                  name="guestEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="your@email.com"
-                          {...field}
-                          disabled={isInitializing}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        We&apos;ll send order updates to this email address
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={guestForm.control}
-                  name="couponCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Coupon Code (Optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter coupon code"
-                          {...field}
-                          disabled={isInitializing}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex items-center justify-between pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push(returnUrl)}
-                    disabled={isInitializing}
-                  >
-                    Back to Cart
-                  </Button>
-
-                  <Button
-                    type="submit"
-                    disabled={!canProceed() || isInitializing}
-                    className="min-w-32"
-                  >
-                    {isInitializing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Initializing...
-                      </>
-                    ) : (
-                      <>
-                        Continue as Guest
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          ) : (
-            <Form {...authenticatedForm}>
-              <form
-                onSubmit={authenticatedForm.handleSubmit(
-                  handleAuthenticatedInit
-                )}
-                className="space-y-4"
-              >
-                <FormField
-                  control={authenticatedForm.control}
-                  name="couponCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Coupon Code (Optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter coupon code"
-                          {...field}
-                          disabled={isInitializing}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex items-center justify-between pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push(returnUrl)}
-                    disabled={isInitializing}
-                  >
-                    Back to Cart
-                  </Button>
-
-                  <Button
-                    type="submit"
-                    disabled={!canProceed() || isInitializing}
-                    className="min-w-32"
-                  >
-                    {isInitializing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Initializing...
-                      </>
-                    ) : (
-                      <>
-                        Initialize Checkout
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Summary */}
       {selectedItems.length > 0 || customItems.length > 0 ? (

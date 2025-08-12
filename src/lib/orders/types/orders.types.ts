@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AddressResponse } from "@/lib/address/types/address.types";
+
 export interface OrderAddress {
   id?: string;
   street?: string;
@@ -33,12 +34,16 @@ export interface SizeVariantDetails {
   price: number;
 }
 
+// Updated to match API expectations
 export interface OrderItem {
   id?: string;
-  templateId: string;
-  sizeVariantId: string;
+  // Use productId instead of templateId based on API requirements
+  productId: string;
+  // Use variantId instead of sizeVariantId
+  variantId: string;
   quantity: number;
-  customizations?: OrderItemCustomization[];
+  // Customizations should be an object, not an array
+  customizations?: Record<string, string>;
   designId?: string;
   status?:
     | "PROCESSING"
@@ -257,7 +262,7 @@ export interface OrderFilters {
 export const isOrderItem = (item: any): item is OrderItem => {
   return (
     item &&
-    typeof item.templateId === "string" &&
+    typeof item.productId === "string" &&
     typeof item.quantity === "number"
   );
 };
@@ -275,3 +280,19 @@ export const isOrderNote = (note: any): note is OrderNote => {
     note && typeof note.id === "string" && typeof note.content === "string"
   );
 };
+
+// Helper interface for cart items that need to be transformed
+export interface CartItem {
+  id?: string;
+  productId?: string;
+  templateId?: string;
+  variantId?: string;
+  sizeVariantId?: string;
+  quantity: number;
+  customizations?: OrderItemCustomization[] | Record<string, string>;
+  designId?: string;
+  productName?: string;
+  name?: string;
+  totalPrice?: number;
+  total?: number;
+}

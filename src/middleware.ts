@@ -6,9 +6,10 @@ import type { Session } from "@/lib/session/session.types";
 import env from "@/config/server.env";
 
 const signInRoute = "/sign-in";
+const signUpRoute = "/sign-up";
 const authRoutes = [
   signInRoute,
-  "/sign-up",
+  signUpRoute,
   "/forgot-password",
   "/reset-password",
 ];
@@ -21,8 +22,6 @@ const publicRoutes = [
   "/cart",
   "/about",
   "/contact",
-  "/checkout",
-  "/checkout/.*",
 ];
 
 // Middleware-specific session store for cookie handling
@@ -86,6 +85,39 @@ async function getMiddlewareSession(req: NextRequest): Promise<Session | null> {
   return session;
 }
 
+// Helper function to determine the appropriate auth route for redirects
+function getAuthRedirectRoute(originalPath: string): string {
+  // You can customize this logic based on your needs
+  // For example, redirect to sign-up for certain paths, sign-in for others
+
+  // Option 1: Always redirect to sign-in (current behavior)
+  return signInRoute;
+
+  // Option 2: Smart routing based on path
+  // if (originalPath.includes('checkout') || originalPath.includes('premium')) {
+  //   return signUpRoute; // New users might need to sign up for premium features
+  // }
+  // return signInRoute; // Default to sign-in for existing users
+}
+
+// Helper function to handle callback URL for auth routes
+function handleAuthRouteCallback(
+  req: NextRequest,
+  targetAuthRoute: string
+): NextResponse {
+  const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+
+  if (callbackUrl) {
+    // If there's already a callback URL, preserve it
+    const authUrl = new URL(targetAuthRoute, req.url);
+    authUrl.searchParams.set("callbackUrl", callbackUrl);
+    return NextResponse.redirect(authUrl);
+  }
+
+  // No callback URL, just redirect to the auth route
+  return NextResponse.redirect(new URL(targetAuthRoute, req.url));
+}
+
 export default async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
@@ -131,7 +163,6 @@ export default async function middleware(req: NextRequest) {
     if (process.env.NODE_ENV !== "production") {
       console.log("Session in middleware:", {
         hasSession: !!session,
-        userRole: session?.user?.role,
         path,
       });
     }
@@ -139,54 +170,61 @@ export default async function middleware(req: NextRequest) {
     // More strict validation - check if the session actually has valid data
     const isAuth = !!session?.accessToken && !!session?.user?.id;
 
-    // Get user role
-    const userRole = session?.user?.role;
-    const isAdmin = userRole?.toLowerCase() === "admin";
-    const isCustomer = userRole?.toLowerCase() === "customer";
+    // Role checking removed - treating all authenticated users the same
+
+    // Handle callback URL preservation when switching between auth routes
+    if (isAuthRoute && !isAuth) {
+      const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+
+      if (callbackUrl) {
+        // User is on an auth route with a callback URL, preserve it
+        return NextResponse.next();
+      }
+    }
 
     // Redirect to login if trying to access protected routes without auth
     if (!isAuthRoute && !isPublicRoute && !isAuth) {
-      console.log("Redirecting to login - not authenticated");
-      const loginUrl = new URL(signInRoute, req.url);
-      loginUrl.searchParams.set(
+      console.log("Redirecting to auth - not authenticated");
+
+      const targetAuthRoute = getAuthRedirectRoute(path);
+      const authUrl = new URL(targetAuthRoute, req.url);
+
+      // Set callback URL to return to the original protected route
+      authUrl.searchParams.set(
         "callbackUrl",
         req.nextUrl.pathname + req.nextUrl.search
       );
-      return NextResponse.redirect(loginUrl);
+
+      return NextResponse.redirect(authUrl);
     }
 
     // Only redirect from auth routes if the session is VALID
     if (isAuth && isAuthRoute) {
       console.log("Redirecting from auth route - already authenticated");
 
-      // Redirect to appropriate dashboard based on role
-      if (isAdmin) {
-        return NextResponse.redirect(new URL("/admin/dashboard", req.url));
-      } else {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
+      // Check if there's a callback URL to redirect to
+      const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+
+      if (callbackUrl) {
+        // Validate the callback URL to prevent open redirect attacks
+        try {
+          const callback = new URL(callbackUrl, req.url);
+
+          // Ensure it's the same origin
+          if (callback.origin === req.nextUrl.origin) {
+            console.log("Redirecting to callback URL:", callbackUrl);
+            return NextResponse.redirect(callback);
+          }
+        } catch (error) {
+          console.warn("Invalid callback URL:", callbackUrl);
+        }
       }
+
+      // No valid callback URL, redirect to default dashboard
+      return NextResponse.redirect(new URL("/", req.url));
     }
 
-    // Handle app directory structure for customer and admin areas
-    const isAdminPath = path.includes("/(admin)") || path.startsWith("/admin");
-    const isCustomerPath =
-      path.includes("/(customer)") || path.startsWith("/dashboard");
-
-    // Redirect from customer dashboard to admin dashboard if user is admin
-    if (isAuth && isAdmin && isCustomerPath) {
-      console.log(
-        "Admin user accessing customer dashboard - redirecting to admin dashboard"
-      );
-      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
-    }
-
-    // Restrict admin routes to admin users
-    if (isAuth && isAdminPath && !isAdmin) {
-      console.log(
-        "Non-admin user accessing admin area - redirecting to customer dashboard"
-      );
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
+    // All role-based routing removed - allow access to all routes for authenticated users
 
     if (process.env.NODE_ENV !== "production") {
       console.log("Middleware allowing access to:", path);

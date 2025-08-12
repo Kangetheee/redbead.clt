@@ -488,7 +488,7 @@ export default function OrdersList({
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All statuses</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
                     {ORDER_STATUS.map((status) => (
                       <SelectItem key={status} value={status}>
                         {status.replace(/_/g, " ")}
@@ -510,7 +510,7 @@ export default function OrdersList({
                     <SelectValue placeholder="All levels" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All levels</SelectItem>
+                    <SelectItem value="all">All levels</SelectItem>
                     {URGENCY_LEVELS.map((level) => (
                       <SelectItem key={level} value={level}>
                         {level.charAt(0) + level.slice(1).toLowerCase()}
@@ -532,7 +532,7 @@ export default function OrdersList({
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All statuses</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
                     {DESIGN_APPROVAL_STATUS.map((status) => (
                       <SelectItem key={status} value={status}>
                         {status.charAt(0) + status.slice(1).toLowerCase()}
