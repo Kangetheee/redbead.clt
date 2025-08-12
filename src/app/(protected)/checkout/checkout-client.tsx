@@ -218,7 +218,7 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
                     </div>
                     <div>
                       <p className="font-medium text-green-900">
-                        User ID: {session.user.id}
+                        {/* User ID: {session.user.} */}
                       </p>
                       <p className="text-sm text-green-700">
                         Role: {session.user.role}
@@ -409,7 +409,7 @@ function OrderSummaryCard({
                   </div>
                   <div className="text-sm font-medium text-gray-900">
                     {formatAmount(
-                      item.totalPrice || item.price * item.quantity || 0
+                      item.totalPrice || item.price * item.quantity
                     )}
                   </div>
                 </div>

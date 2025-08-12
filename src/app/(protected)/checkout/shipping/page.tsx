@@ -216,13 +216,11 @@ export default function CheckoutShippingPage() {
       if (!address) {
         try {
           // Force refetch addresses
-          await refetchAddresses();
+          const refetchResult = await refetchAddresses();
 
-          // Check again after refetch
-          const refetchedData = await refetchAddresses();
-
-          if (refetchedData?.success) {
-            address = refetchedData.data.items.find(
+          // Check if the refetch was successful and has data
+          if (refetchResult.isSuccess && refetchResult.data?.success) {
+            address = refetchResult.data.data.items.find(
               (a) => a.id === selectedAddressId
             );
           }
@@ -300,7 +298,7 @@ export default function CheckoutShippingPage() {
           customerId: userProfile?.id,
           // Explicitly include cart items for order creation
           useCartItems: true, // This tells the API to use items from the checkout session
-          items: checkoutSession.items, // Include the items for reference
+          items: checkoutSession?.items || [], // Include the items for reference
         };
 
         // Store all checkout data for payment page
@@ -661,14 +659,14 @@ export default function CheckoutShippingPage() {
               <CardContent className="space-y-4">
                 {/* Items Summary */}
                 <div className="space-y-2">
-                  {checkoutSession.items.map((item, index) => (
+                  {checkoutSession?.items?.map((item, index) => (
                     <div key={index} className="flex justify-between text-sm">
                       <span className="truncate mr-2">
                         {item.productName} × {item.quantity}
                       </span>
                       <span>{formatAmount(item.totalPrice)}</span>
                     </div>
-                  ))}
+                  )) || <p className="text-sm text-gray-500">No items found</p>}
                 </div>
 
                 <Separator />
@@ -679,7 +677,9 @@ export default function CheckoutShippingPage() {
                     <span>Subtotal</span>
                     <span>
                       {formatAmount(
-                        calculatedTotals?.subtotal || checkoutSession.subtotal
+                        calculatedTotals?.subtotal ||
+                          checkoutSession?.subtotal ||
+                          0
                       )}
                     </span>
                   </div>
@@ -696,7 +696,8 @@ export default function CheckoutShippingPage() {
                     <span>
                       {formatAmount(
                         calculatedTotals?.estimatedTax ||
-                          checkoutSession.estimatedTax
+                          checkoutSession?.estimatedTax ||
+                          0
                       )}
                     </span>
                   </div>
@@ -715,7 +716,8 @@ export default function CheckoutShippingPage() {
                   <span>
                     {formatAmount(
                       calculatedTotals?.estimatedTotal ||
-                        checkoutSession.estimatedTotal
+                        checkoutSession?.estimatedTotal ||
+                        0
                     )}
                   </span>
                 </div>
