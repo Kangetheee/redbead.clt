@@ -34,6 +34,7 @@ import {
   CheckCircle,
   Truck,
   XCircle,
+  FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ import {
   isOrderItem,
 } from "@/lib/orders/types/orders.types";
 import { GetOrdersDto, ORDER_STATUS } from "@/lib/orders/dto/orders.dto";
+import { formatCurrency } from "@/lib/utils";
 
 type DateRangeType = "7d" | "30d" | "90d" | "1y";
 type MetricType = "orders" | "revenue";
@@ -87,7 +89,7 @@ interface AnalyticsData {
     revenue: number;
     avgOrderValue: number;
   }>;
-  topTemplates: Array<{
+  topProducts: Array<{
     name: string;
     count: number;
     revenue: number;
@@ -130,7 +132,7 @@ const STATUS_COLORS: Record<string, string> = {
   REFUNDED: "#6b7280",
 };
 
-// Helper function to safely extract order items
+// Helper function to safely extract order items - Updated to use correct field names
 const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
   if (!Array.isArray(orderItems)) return [];
 
@@ -138,8 +140,8 @@ const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
     if (typeof item === "string") {
       return {
         id: item,
-        templateId: `unknown-${index}`,
-        sizeVariantId: "unknown",
+        productId: `unknown-${index}`, // Updated from templateId
+        variantId: "unknown", // Updated from sizeVariantId
         quantity: 1,
       };
     }
@@ -147,9 +149,9 @@ const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
   });
 };
 
-// Helper function to format template name
-const getTemplateName = (item: OrderItem): string => {
-  return item.template?.name || `Template ${item.templateId}`;
+// Helper function to get product name - Updated to use correct field
+const getProductName = (item: OrderItem): string => {
+  return item.template?.name || `Product ${item.productId}`;
 };
 
 export default function OrderAnalytics({
@@ -241,27 +243,29 @@ export default function OrderAnalytics({
       });
     }
 
-    // Top templates (from order items)
-    const templateCounts = orders.reduce(
+    // Top products (from order items) - Updated to use productId
+    const productCounts = orders.reduce(
       (acc, order) => {
         const orderItems = extractOrderItems(order.orderItems);
         const itemCount = orderItems.length || 1; // Prevent division by zero
 
         orderItems.forEach((item) => {
-          const templateName = getTemplateName(item);
-          if (!acc[templateName]) {
-            acc[templateName] = { name: templateName, count: 0, revenue: 0 };
+          const productName = getProductName(item);
+          const productId = item.productId;
+
+          if (!acc[productId]) {
+            acc[productId] = { name: productName, count: 0, revenue: 0 };
           }
-          acc[templateName].count += item.quantity || 1;
-          // Calculate revenue per template - simplified calculation
-          acc[templateName].revenue += (order.totalAmount || 0) / itemCount;
+          acc[productId].count += item.quantity || 1;
+          // Calculate revenue per product - simplified calculation
+          acc[productId].revenue += (order.totalAmount || 0) / itemCount;
         });
         return acc;
       },
       {} as Record<string, { name: string; count: number; revenue: number }>
     );
 
-    const topTemplates = Object.values(templateCounts)
+    const topProducts = Object.values(productCounts)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
@@ -305,7 +309,7 @@ export default function OrderAnalytics({
       revenueTrend,
       statusCounts,
       dailyData,
-      topTemplates,
+      topProducts, // Updated from topTemplates
     };
   }, [orders, days]);
 
@@ -455,7 +459,7 @@ export default function OrderAnalytics({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${analytics.totalRevenue.toLocaleString()}
+              {formatCurrency(analytics.totalRevenue)}
             </div>
             <div className="flex items-center text-xs text-muted-foreground">
               {analytics.revenueTrend > 0 ? (
@@ -484,7 +488,7 @@ export default function OrderAnalytics({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${analytics.averageOrderValue.toFixed(2)}
+              KES {analytics.averageOrderValue.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">Per order average</p>
           </CardContent>
@@ -535,7 +539,7 @@ export default function OrderAnalytics({
                 <Tooltip
                   formatter={(value: number) =>
                     selectedMetric === "revenue"
-                      ? [`$${value.toFixed(2)}`, "Revenue"]
+                      ? [`KES ${value.toFixed(2)}`, "Revenue"]
                       : [value, "Orders"]
                   }
                 />
@@ -578,7 +582,7 @@ export default function OrderAnalytics({
           </CardContent>
         </Card>
 
-        {/* Placeholder for Additional Chart */}
+        {/* Order Volume by Day */}
         <Card>
           <CardHeader>
             <CardTitle>Order Volume by Day</CardTitle>
@@ -599,20 +603,20 @@ export default function OrderAnalytics({
 
       {/* Additional Insights */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Top Templates */}
+        {/* Top Products - Updated from Top Templates */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Templates</CardTitle>
+            <CardTitle>Top Products</CardTitle>
             <CardDescription>
-              Most ordered templates in this period
+              Most ordered products in this period
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analytics.topTemplates.length > 0 ? (
-                analytics.topTemplates.map((template, index) => (
+              {analytics.topProducts.length > 0 ? (
+                analytics.topProducts.map((product, index) => (
                   <div
-                    key={template.name}
+                    key={`${product.name}-${index}`}
                     className="flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
@@ -620,19 +624,19 @@ export default function OrderAnalytics({
                         <span className="text-sm font-medium">{index + 1}</span>
                       </div>
                       <div>
-                        <p className="font-medium">{template.name}</p>
+                        <p className="font-medium">{product.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {template.count} units • $
-                          {template.revenue.toFixed(2)}
+                          {product.count} units • KES{" "}
+                          {product.revenue.toFixed(2)}
                         </p>
                       </div>
                     </div>
-                    <Badge variant="outline">{template.count}</Badge>
+                    <Badge variant="outline">{product.count}</Badge>
                   </div>
                 ))
               ) : (
                 <p className="text-muted-foreground text-center py-4">
-                  No template data available
+                  No product data available
                 </p>
               )}
             </div>
@@ -686,12 +690,47 @@ export default function OrderAnalytics({
                 <span className="text-sm">Revenue per Day</span>
               </div>
               <Badge variant="outline">
-                ${(analytics.totalRevenue / days).toFixed(2)}
+                KES {(analytics.totalRevenue / days).toFixed(2)}
+              </Badge>
+            </div>
+
+            <Separator />
+
+            {/* Design Approval Metrics */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-purple-500" />
+                <span className="text-sm">Design Approvals</span>
+              </div>
+              <Badge variant="outline">
+                {orders.filter((o) => o.designApprovalRequired).length}
               </Badge>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Order Status Breakdown */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Status Breakdown</CardTitle>
+          <CardDescription>
+            Detailed view of order statuses in the selected period
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {Object.entries(analytics.statusCounts).map(([status, count]) => (
+              <div key={status} className="text-center p-3 border rounded-lg">
+                <div className="text-lg font-bold">{count}</div>
+                <div className="text-xs text-muted-foreground">
+                  {status.replace(/_/g, " ")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import { Fetcher } from "../api/api.service";
 import {
   InitCheckoutDto,
-  GuestInitCheckoutDto,
+  // GuestInitCheckoutDto,
   ShippingCalculationDto,
   ValidateCheckoutDto,
   CompleteCheckoutDto,
-  GuestCompleteCheckoutDto,
+  // GuestCompleteCheckoutDto,
   ListCheckoutSessionsDto,
 } from "./dto/checkout.dto";
 import {
@@ -32,17 +32,17 @@ export class CheckoutService {
     });
   }
 
-  /**
-   * Initialize checkout for guest users with custom items
-   */
-  public async initializeGuestCheckout(
-    values: GuestInitCheckoutDto
-  ): Promise<CheckoutSession> {
-    return this.fetcher.request<CheckoutSession>("/v1/checkout/guest/init", {
-      method: "POST",
-      data: values,
-    });
-  }
+  // /**
+  //  * Initialize checkout for guest users with custom items
+  //  */
+  // public async initializeGuestCheckout(
+  //   values: GuestInitCheckoutDto
+  // ): Promise<CheckoutSession> {
+  //   return this.fetcher.request<CheckoutSession>("/v1/checkout/guest/init", {
+  //     method: "POST",
+  //     data: values,
+  //   });
+  // }
 
   /**
    * Calculate available shipping options and costs for checkout
@@ -86,17 +86,17 @@ export class CheckoutService {
   /**
    * Complete the checkout process for guest users
    */
-  public async completeGuestCheckout(
-    values: GuestCompleteCheckoutDto
-  ): Promise<CheckoutResponse> {
-    return this.fetcher.request<CheckoutResponse>(
-      "/v1/checkout/guest/complete",
-      {
-        method: "POST",
-        data: values,
-      }
-    );
-  }
+  // public async completeGuestCheckout(
+  //   values: GuestCompleteCheckoutDto
+  // ): Promise<CheckoutResponse> {
+  //   return this.fetcher.request<CheckoutResponse>(
+  //     "/v1/checkout/guest/complete",
+  //     {
+  //       method: "POST",
+  //       data: values,
+  //     }
+  //   );
+  // }
 
   /**
    * Retrieve checkout session details (no authentication required)

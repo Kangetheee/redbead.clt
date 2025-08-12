@@ -43,8 +43,6 @@ import {
   type Font,
   type AssetResponse,
 } from "@/lib/design-studio/types/design-studio.types";
-
-// Template hooks
 import {
   useDesignTemplateBySlug,
   useCustomizationOptions,
@@ -65,6 +63,12 @@ import LeftSidebar from "./left-sidebar";
 import CanvasArea from "./canvas-area";
 import RightSidebar from "./right-sidebar";
 import ExportDialog from "./export-dialog";
+
+import {
+  getFabricCanvas,
+  fabricCanvasUtils,
+  canvasUtils,
+} from "./canvas-renderer";
 
 // Types
 interface DesignStudioComponentProps {
@@ -119,6 +123,7 @@ export default function DesignStudioComponent({
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [useFabricRenderer, setUseFabricRenderer] = useState(true);
 
   // Hooks
   const configureCanvas = useConfigureCanvas();
@@ -370,11 +375,54 @@ export default function DesignStudioComponent({
 
   const handleSaveDesign = useCallback(() => {
     const formData = designForm.getValues();
+
+    // If using Fabric.js, get the latest canvas state
+    let elementsToSave = canvasElements;
+    if (useFabricRenderer) {
+      const fabricCanvas = getFabricCanvas();
+      if (fabricCanvas) {
+        // Sync Fabric.js objects back to CanvasElement format
+        const fabricObjects = fabricCanvas.getObjects();
+        elementsToSave = fabricObjects
+          .map((obj) => {
+            if (obj.data) {
+              // Update the stored element data with current object state
+              const element = obj.data as CanvasElement;
+              return {
+                ...element,
+                x: Math.round(obj.left || 0),
+                y: Math.round(obj.top || 0),
+                width: Math.round((obj.width || 0) * (obj.scaleX || 1)),
+                height: Math.round((obj.height || 0) * (obj.scaleY || 1)),
+                rotation: Math.round(obj.angle || 0),
+                // Update type-specific properties
+                ...(element.type === "text" && obj.type === "i-text"
+                  ? {
+                      content: (obj as any).text,
+                      fontSize: (obj as any).fontSize,
+                      fontWeight: (obj as any).fontWeight,
+                      color: obj.fill as string,
+                      font: (obj as any).fontFamily,
+                    }
+                  : {}),
+                ...(element.type === "shape"
+                  ? {
+                      color: obj.fill as string,
+                    }
+                  : {}),
+              } as CanvasElement; // ✅ Explicit type assertion
+            }
+            return null; // ✅ Return null instead of undefined obj.data
+          })
+          .filter((element): element is CanvasElement => element !== null); // ✅ Type-safe filter
+      }
+    }
+
     const designData: CreateDesignDto | UpdateDesignDto = {
       ...formData,
       customizations: {
         ...formData.customizations,
-        elements: canvasElements,
+        elements: elementsToSave,
       },
     };
 
@@ -384,9 +432,11 @@ export default function DesignStudioComponent({
         {
           onSuccess: (data) => {
             setCurrentDesign(data);
+            setCanvasElements(elementsToSave);
             setLastSavedAt(new Date());
             setHasUnsavedChanges(false);
             onSave?.(data);
+            toast.success("Design saved successfully");
           },
         }
       );
@@ -394,9 +444,11 @@ export default function DesignStudioComponent({
       createDesign.mutate(designData as CreateDesignDto, {
         onSuccess: (data) => {
           setCurrentDesign(data);
+          setCanvasElements(elementsToSave);
           setLastSavedAt(new Date());
           setHasUnsavedChanges(false);
           onSave?.(data);
+          toast.success("Design created successfully");
         },
       });
     }
@@ -407,6 +459,7 @@ export default function DesignStudioComponent({
     updateDesign,
     createDesign,
     onSave,
+    useFabricRenderer,
   ]);
 
   const handleExportDesign = useCallback(() => {
@@ -415,16 +468,37 @@ export default function DesignStudioComponent({
       return;
     }
 
-    const exportData = exportForm.getValues();
-    exportDesign.mutate(
-      { designId: currentDesign.id, values: exportData },
-      {
-        onSuccess: (data) => {
-          onDownload?.(data);
-        },
+    if (useFabricRenderer) {
+      const exportData = exportForm.getValues();
+      const dataURL = canvasUtils.exportCanvas(
+        exportData.format,
+        exportData.quality === "high" ? 1 : 0.8
+      );
+
+      if (dataURL) {
+        const link = document.createElement("a");
+        link.download = `${currentDesign.name}.${exportData.format}`;
+        link.href = dataURL;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("Design exported successfully");
+        onDownload?.({ dataURL, format: exportData.format });
       }
-    );
-  }, [currentDesign, exportForm, exportDesign, onDownload]);
+    } else {
+      // Use the traditional export method
+      const exportData = exportForm.getValues();
+      exportDesign.mutate(
+        { designId: currentDesign.id, values: exportData },
+        {
+          onSuccess: (data) => {
+            onDownload?.(data);
+            toast.success("Design exported successfully");
+          },
+        }
+      );
+    }
+  }, [currentDesign, exportForm, exportDesign, onDownload, useFabricRenderer]);
 
   const handleValidateDesign = useCallback(() => {
     if (!currentDesign) {
@@ -478,8 +552,13 @@ export default function DesignStudioComponent({
               height: 200,
               mediaId: data.mediaId,
             };
+
             setCanvasElements((prev) => [...prev, newElement]);
             setSelectedElement(newElement);
+            toast.success("Artwork uploaded successfully");
+          },
+          onError: (error) => {
+            toast.error("Failed to upload artwork");
           },
         }
       );
@@ -507,6 +586,10 @@ export default function DesignStudioComponent({
               description: "",
               tags: [],
             });
+            toast.success("Asset uploaded successfully");
+          },
+          onError: (error) => {
+            toast.error("Failed to upload asset");
           },
         }
       );
@@ -514,25 +597,50 @@ export default function DesignStudioComponent({
     [assetForm, uploadAsset]
   );
 
-  // Element Management
+  // Enhanced Element Management with Fabric.js support
   const addTextElement = useCallback(() => {
-    const newElement: CanvasElement = {
-      id: `text-${Date.now()}`,
-      type: "text",
-      x: 100,
-      y: 100,
-      width: 200,
-      height: 40,
-      content: "Your Text Here",
-      font: "Arial",
-      fontSize: 16,
-      fontWeight: "normal",
-      color: "#000000",
-    };
+    if (useFabricRenderer) {
+      // Use Fabric.js to add text
+      const textObject = fabricCanvasUtils.addText("Your Text Here");
+      if (textObject) {
+        const newElement: CanvasElement = {
+          id: `text-${Date.now()}`,
+          type: "text",
+          x: textObject.left || 100,
+          y: textObject.top || 100,
+          width: textObject.width || 200,
+          height: textObject.height || 40,
+          content: "Your Text Here",
+          font: "Arial",
+          fontSize: 20,
+          fontWeight: "normal",
+          color: "#000000",
+        };
 
-    setCanvasElements((prev) => [...prev, newElement]);
-    setSelectedElement(newElement);
-  }, []);
+        textObject.data = newElement;
+        setCanvasElements((prev) => [...prev, newElement]);
+        setSelectedElement(newElement);
+      }
+    } else {
+      // Legacy text addition
+      const newElement: CanvasElement = {
+        id: `text-${Date.now()}`,
+        type: "text",
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 40,
+        content: "Your Text Here",
+        font: "Arial",
+        fontSize: 16,
+        fontWeight: "normal",
+        color: "#000000",
+      };
+
+      setCanvasElements((prev) => [...prev, newElement]);
+      setSelectedElement(newElement);
+    }
+  }, [useFabricRenderer]);
 
   const addImageElement = useCallback(() => {
     const newElement: CanvasElement = {
@@ -550,20 +658,42 @@ export default function DesignStudioComponent({
   }, []);
 
   const addShapeElement = useCallback(() => {
-    const newElement: CanvasElement = {
-      id: `shape-${Date.now()}`,
-      type: "shape",
-      x: 200,
-      y: 200,
-      width: 100,
-      height: 100,
-      shapeType: "rectangle",
-      color: "#0066cc",
-    };
+    if (useFabricRenderer) {
+      // Use Fabric.js to add shape
+      const shapeObject = fabricCanvasUtils.addShape("rect");
+      if (shapeObject) {
+        const newElement: CanvasElement = {
+          id: `shape-${Date.now()}`,
+          type: "shape",
+          x: shapeObject.left || 200,
+          y: shapeObject.top || 200,
+          width: shapeObject.width || 100,
+          height: shapeObject.height || 100,
+          shapeType: "rectangle",
+          color: "#0066cc",
+        };
 
-    setCanvasElements((prev) => [...prev, newElement]);
-    setSelectedElement(newElement);
-  }, []);
+        shapeObject.data = newElement;
+        setCanvasElements((prev) => [...prev, newElement]);
+        setSelectedElement(newElement);
+      }
+    } else {
+      // Legacy shape addition
+      const newElement: CanvasElement = {
+        id: `shape-${Date.now()}`,
+        type: "shape",
+        x: 200,
+        y: 200,
+        width: 100,
+        height: 100,
+        shapeType: "rectangle",
+        color: "#0066cc",
+      };
+
+      setCanvasElements((prev) => [...prev, newElement]);
+      setSelectedElement(newElement);
+    }
+  }, [useFabricRenderer]);
 
   const updateElement = useCallback(
     (elementId: string, updates: Partial<CanvasElement>) => {
@@ -574,8 +704,23 @@ export default function DesignStudioComponent({
       if (selectedElement?.id === elementId) {
         setSelectedElement((prev) => (prev ? { ...prev, ...updates } : null));
       }
+
+      // If using Fabric.js, update the corresponding object
+      if (useFabricRenderer) {
+        const fabricCanvas = getFabricCanvas();
+        if (fabricCanvas) {
+          const fabricObject = fabricCanvas
+            .getObjects()
+            .find((obj) => obj.data?.id === elementId);
+          if (fabricObject) {
+            fabricObject.set(updates);
+            fabricObject.data = { ...fabricObject.data, ...updates };
+            fabricCanvas.renderAll();
+          }
+        }
+      }
     },
-    [selectedElement]
+    [selectedElement, useFabricRenderer]
   );
 
   const deleteElement = useCallback(
@@ -584,8 +729,22 @@ export default function DesignStudioComponent({
       if (selectedElement?.id === elementId) {
         setSelectedElement(null);
       }
+
+      // If using Fabric.js, remove the corresponding object
+      if (useFabricRenderer) {
+        const fabricCanvas = getFabricCanvas();
+        if (fabricCanvas) {
+          const fabricObject = fabricCanvas
+            .getObjects()
+            .find((obj) => obj.data?.id === elementId);
+          if (fabricObject) {
+            fabricCanvas.remove(fabricObject);
+            fabricCanvas.renderAll();
+          }
+        }
+      }
     },
-    [selectedElement]
+    [selectedElement, useFabricRenderer]
   );
 
   const duplicateElement = useCallback(
@@ -676,12 +835,14 @@ export default function DesignStudioComponent({
         lastSavedAt={lastSavedAt}
         hasUnsavedChanges={hasUnsavedChanges}
         enableAutoSave={enableAutoSave}
+        // useFabricRenderer={useFabricRenderer}
         onBack={handleBackToTemplates}
         onPreviewToggle={() => setIsPreviewMode(!isPreviewMode)}
         onValidate={handleValidateDesign}
         onShare={handleShareDesign}
         onSave={handleSaveDesign}
         onExport={handleExportDesign}
+        // onToggleRenderer={() => setUseFabricRenderer(!useFabricRenderer)}
         isValidating={validateDesign.isPending}
         isSharing={shareDesign.isPending}
         isSaving={createDesign.isPending || updateDesign.isPending}
@@ -702,6 +863,7 @@ export default function DesignStudioComponent({
           selectedVariant={selectedVariant}
           canvasId={canvasId}
           uploadedFiles={uploadedFiles}
+          // useFabricRenderer={useFabricRenderer}
           onAddText={addTextElement}
           onAddImage={addImageElement}
           onAddShape={addShapeElement}
@@ -732,6 +894,7 @@ export default function DesignStudioComponent({
           designForm={designForm}
           isPreviewMode={isPreviewMode}
           canvasId={canvasId}
+          // useFabricRenderer={useFabricRenderer}
           onElementSelect={setSelectedElement}
           onElementUpdate={updateElement}
           onElementDuplicate={duplicateElement}
@@ -746,6 +909,7 @@ export default function DesignStudioComponent({
           canvasElements={canvasElements}
           designForm={designForm}
           fonts={fonts}
+          // useFabricRenderer={useFabricRenderer}
           onElementUpdate={updateElement}
           onDeleteElement={deleteElement}
           onUploadArtwork={handleUploadArtwork}

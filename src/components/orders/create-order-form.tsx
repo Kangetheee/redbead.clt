@@ -121,10 +121,10 @@ export default function CreateOrderForm({
       useCartItems: false,
       items: [
         {
-          templateId: "",
-          sizeVariantId: "",
+          productId: "", // Changed from templateId
+          variantId: "", // Changed from sizeVariantId
           quantity: 1,
-          customizations: [],
+          customizations: {}, // Changed to object
         },
       ],
     },
@@ -191,9 +191,6 @@ export default function CreateOrderForm({
             phone: selectedAddress.phone || "",
             type: "SHIPPING" as const,
           },
-          // urgencyLevel: mapOrderUrgencyToShipping(
-          //   watchedValues.urgencyLevel || "NORMAL"
-          // ),
         });
 
         if (response.success) {
@@ -224,7 +221,7 @@ export default function CreateOrderForm({
 
       // Check if all items have required fields
       const invalidItems = data.items.filter(
-        (item) => !item.templateId || !item.sizeVariantId || item.quantity < 1
+        (item) => !item.productId || !item.variantId || item.quantity < 1
       );
 
       if (invalidItems.length > 0) {
@@ -240,7 +237,19 @@ export default function CreateOrderForm({
         return;
       }
 
-      const result = await createOrder.mutateAsync(data);
+      // Transform items to match API expectations
+      const transformedData = {
+        ...data,
+        items: data.items?.map((item) => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          customizations: item.customizations || {},
+          designId: item.designId,
+        })),
+      };
+
+      const result = await createOrder.mutateAsync(transformedData);
       toast.success("Order created successfully!");
       onSuccess?.(result.id);
       router.push(`/orders/${result.id}`);
@@ -252,10 +261,10 @@ export default function CreateOrderForm({
 
   const addItem = () => {
     append({
-      templateId: "",
-      sizeVariantId: "",
+      productId: "",
+      variantId: "",
       quantity: 1,
-      customizations: [],
+      customizations: {},
     });
   };
 
@@ -265,9 +274,9 @@ export default function CreateOrderForm({
     }
   };
 
-  const handleTemplateSelect = (index: number, templateId: string) => {
-    setValue(`items.${index}.templateId`, templateId);
-    setValue(`items.${index}.sizeVariantId`, "");
+  const handleTemplateSelect = (index: number, productId: string) => {
+    setValue(`items.${index}.productId`, productId);
+    setValue(`items.${index}.variantId`, "");
   };
 
   const getStepIcon = (stepNumber: number) => {
@@ -289,7 +298,7 @@ export default function CreateOrderForm({
     switch (stepNumber) {
       case 1:
         return watchedValues.items?.every(
-          (item) => item.templateId && item.sizeVariantId && item.quantity > 0
+          (item) => item.productId && item.variantId && item.quantity > 0
         );
       case 2:
         return true; // Customer info is optional
@@ -338,19 +347,19 @@ export default function CreateOrderForm({
     return parts.join(", ");
   };
 
-  const getTemplateById = (templateId: string) => {
-    return templates.find((t) => t.id === templateId);
+  const getTemplateById = (productId: string) => {
+    return templates.find((t) => t.id === productId);
   };
 
   const calculateEstimatedTotal = () => {
     const validItems =
       watchedValues.items?.filter(
-        (item) => item.templateId && item.sizeVariantId && item.quantity > 0
+        (item) => item.productId && item.variantId && item.quantity > 0
       ) || [];
 
     let subtotal = 0;
     validItems.forEach((item) => {
-      const template = getTemplateById(item.templateId);
+      const template = getTemplateById(item.productId);
       if (template) {
         subtotal += template.basePrice * item.quantity;
       }
@@ -458,12 +467,12 @@ export default function CreateOrderForm({
             <CardContent className="space-y-4">
               {/* Template Search */}
               <div className="space-y-2">
-                <Label htmlFor="template-search">Search Templates</Label>
+                <Label htmlFor="template-search">Search Products</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
                     id="template-search"
-                    placeholder="Search for templates..."
+                    placeholder="Search for products..."
                     value={templateSearch}
                     onChange={(e) => setTemplateSearch(e.target.value)}
                     className="pl-10"
@@ -475,16 +484,14 @@ export default function CreateOrderForm({
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    Failed to load templates. Please try again.
+                    Failed to load products. Please try again.
                   </AlertDescription>
                 </Alert>
               )}
 
               {fields.map((field, index) => {
                 const currentItem = watchedValues.items?.[index] || field;
-                const selectedTemplate = getTemplateById(
-                  currentItem.templateId
-                );
+                const selectedTemplate = getTemplateById(currentItem.productId);
 
                 return (
                   <OrderItemForm

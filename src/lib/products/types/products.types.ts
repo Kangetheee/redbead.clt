@@ -39,12 +39,14 @@ export interface ProductMetadata {
 
 export interface ProductVariant {
   id: string;
+  productId: string; // Added: Missing in original
   name: string;
   type: string;
   price: number;
   sku: string;
   stock: number;
   isDefault: boolean;
+  isActive: boolean; // Added: Missing in original
   metadata?: Record<string, any>;
 }
 
@@ -62,14 +64,37 @@ export interface CustomizationOption {
   name: string;
   type: string;
   required: boolean;
-  metadata?: Record<string, any>;
+  metadata?: CustomizationOptionMetadata; // Made more specific
+  isActive: boolean; // Added: Missing in original
+}
+
+// Added: More specific metadata structure for customization options
+export interface CustomizationOptionMetadata {
+  options?: Array<{
+    label: string;
+    value: string;
+    priceAdjustment?: number;
+    hexColor?: string; // For COLOR type options
+  }>;
+  description?: string;
+  displayName?: string;
+  placeholder?: string; // For TEXT type options
+  maxLength?: number; // For TEXT type options
+  [key: string]: any;
 }
 
 export interface ProductDesignTemplate {
   id: string;
   name: string;
-  thumbnail: string;
+  description?: string; // Added: From your API response
+  categoryId?: string; // Added: From your API response
+  productId?: string; // Added: From your API response
   basePrice: number;
+  thumbnail: string | null; // Updated: Can be null
+  isActive?: boolean; // Added: From your API response
+  metadata?: Record<string, any>; // Added: From your API response
+  createdAt?: string; // Added: From your API response
+  updatedAt?: string; // Added: From your API response
 }
 
 export interface ProductPriceCalculation {
@@ -97,4 +122,36 @@ export interface ProductSearchFilters {
   q: string;
   limit?: number;
   categoryId?: string;
+}
+
+// Added: Additional types that might be useful
+export interface ProductCreateData {
+  name: string;
+  slug: string;
+  description?: string;
+  images?: string[];
+  thumbnailImage?: string;
+  basePrice: number;
+  categoryId: string;
+  isActive?: boolean;
+  isFeatured?: boolean;
+  metadata?: ProductMetadata;
+}
+
+export interface ProductUpdateData extends Partial<ProductCreateData> {
+  id: string;
+}
+
+// Added: Cart-related types for customizations
+export interface CustomizationChoice {
+  optionId: string;
+  value: string | number | boolean;
+  priceAdjustment?: number;
+}
+
+export interface AddToCartData {
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  customizations?: CustomizationChoice[];
 }

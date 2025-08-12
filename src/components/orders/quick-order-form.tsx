@@ -351,43 +351,29 @@ export default function QuickOrderForm({
   const urgencyMultiplier = selectedUrgency.multiplier;
   const estimatedPrice = basePrice * quantityMultiplier * urgencyMultiplier;
 
-  // FIXED: Corrected onSubmit to use the mutation properly
   const onSubmit = async (data: QuickOrderFormData) => {
     try {
       if (!selectedSizeVariant || !selectedTemplate) {
         throw new Error("Please select a valid product and size");
       }
 
-      const customizations = [
-        {
-          optionId: "description",
-          valueId: "custom_description",
-          customValue: data.description,
-        },
-      ];
+      const customizations: Record<string, string> = {
+        description: data.description,
+      };
 
-      // Add file references if any files were uploaded
       if (uploadedFiles.length > 0) {
-        customizations.push({
-          optionId: "uploaded_files",
-          valueId: "file_references",
-          customValue: JSON.stringify(
-            uploadedFiles.map((f) => ({
-              name: f.name,
-              size: f.size,
-              type: f.type,
-            }))
-          ),
-        });
+        customizations.uploaded_files = JSON.stringify(
+          uploadedFiles.map((f) => ({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+          }))
+        );
       }
 
       // Add special requirements if provided
       if (data.specialInstructions) {
-        customizations.push({
-          optionId: "special_requirements",
-          valueId: "custom_requirements",
-          customValue: data.specialInstructions,
-        });
+        customizations.special_requirements = data.specialInstructions;
       }
 
       // Calculate expected production days based on urgency
@@ -414,14 +400,14 @@ export default function QuickOrderForm({
         .filter(Boolean)
         .join(" | ");
 
-      // Create order using the proper DTO structure
+      // FIXED: Update the order item structure to match the expected schema
       const orderData: CreateOrderDto = {
         items: [
           {
-            templateId: data.templateId,
-            sizeVariantId: data.sizeVariantId,
+            productId: data.templateId, // Use productId instead of templateId
+            variantId: data.sizeVariantId, // Use variantId instead of sizeVariantId
             quantity: data.quantity,
-            customizations,
+            customizations, // Now this is Record<string, string>
           },
         ],
         shippingAddressId: data.shippingAddressId,
@@ -437,7 +423,7 @@ export default function QuickOrderForm({
         templateId: data.templateId, // Set template at order level for quick orders
       };
 
-      // FIXED: Use the mutation correctly - it returns OrderResponse directly
+      // Use the mutation correctly - it returns OrderResponse directly
       createOrder(orderData, {
         onSuccess: (orderResponse) => {
           // orderResponse is already the OrderResponse object

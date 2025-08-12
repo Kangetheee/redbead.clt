@@ -95,7 +95,7 @@ export default function CustomerReorderForm({
   const router = useRouter();
   const [showCustomizations, setShowCustomizations] = useState(false);
 
-  // FIXED: Use the hook correctly
+  // Use the hook correctly
   const { mutate: createOrder, isPending: isCreatingOrder } = useCreateOrder();
 
   // Transform original order items to match the new schema
@@ -106,10 +106,23 @@ export default function CustomerReorderForm({
       : [];
 
     return items.map((item, index) => ({
-      templateId: typeof item === "object" ? item.templateId : "",
-      sizeVariantId: typeof item === "object" ? item.sizeVariantId : "",
+      // FIXED: Use correct property names from OrderItem type
+      productId: typeof item === "object" ? item.productId || "" : "",
+      variantId: typeof item === "object" ? item.variantId || "" : "",
       quantity: typeof item === "object" ? item.quantity : 1,
-      customizations: typeof item === "object" ? item.customizations || [] : [],
+      // FIXED: Handle customizations properly - convert array to object if needed
+      customizations:
+        typeof item === "object" && item.customizations
+          ? Array.isArray(item.customizations)
+            ? item.customizations.reduce(
+                (acc, custom) => ({
+                  ...acc,
+                  [custom.name]: custom.value,
+                }),
+                {} as Record<string, string>
+              )
+            : item.customizations
+          : {},
       designId: typeof item === "object" ? item.designId : undefined,
       included: true,
       originalIndex: index,
@@ -154,15 +167,14 @@ export default function CustomerReorderForm({
 
   // Calculate totals (simplified - in real app, would call pricing API)
   const subtotal = includedItems.reduce((sum, item) => {
-    // Mock pricing - in real app, would fetch from API based on templateId + sizeVariantId
+    // Mock pricing - in real app, would fetch from API based on productId + variantId
     const originalItems = Array.isArray(originalOrder.orderItems)
       ? originalOrder.orderItems
       : [];
     const originalItem = originalItems.find((oi) => {
       if (typeof oi === "object") {
         return (
-          oi.templateId === item.templateId &&
-          oi.sizeVariantId === item.sizeVariantId
+          oi.productId === item.productId && oi.variantId === item.variantId
         );
       }
       return false;
@@ -177,7 +189,7 @@ export default function CustomerReorderForm({
   const shipping = urgencyFee > 0 ? urgencyFee : 5.0; // Free shipping for standard, otherwise urgency fee
   const total = subtotal + tax + shipping;
 
-  // FIXED: Corrected onSubmit to use the mutation properly
+  // Corrected onSubmit to use the mutation properly
   const onSubmit = async (data: ReorderFormData) => {
     try {
       const itemsToOrder = data.items?.filter((item) => item.included) || [];
@@ -189,8 +201,8 @@ export default function CustomerReorderForm({
       // Transform items to match CreateOrderDto structure
       const transformedItems = itemsToOrder.map(
         ({ included, originalIndex, ...item }) => ({
-          templateId: item.templateId,
-          sizeVariantId: item.sizeVariantId,
+          productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           customizations: item.customizations,
           designId: item.designId,
@@ -224,7 +236,7 @@ export default function CustomerReorderForm({
         templateId: originalOrder.templateId, // Preserve template if applicable
       };
 
-      // FIXED: Use the mutation correctly - it returns OrderResponse directly
+      // Use the mutation correctly - it returns OrderResponse directly
       createOrder(orderData, {
         onSuccess: (orderResponse) => {
           // orderResponse is already the OrderResponse object
@@ -299,12 +311,21 @@ export default function CustomerReorderForm({
           ORIGINAL CUSTOMIZATIONS
         </Label>
         <div className="mt-1 p-2 bg-muted rounded text-sm space-y-1">
-          {originalItem.customizations.map((customization, idx) => (
-            <div key={idx} className="text-xs">
-              <span className="font-medium">{customization.optionId}:</span>{" "}
-              {customization.customValue || customization.valueId}
-            </div>
-          ))}
+          {/* FIXED: Handle both array and object customizations */}
+          {Array.isArray(originalItem.customizations)
+            ? originalItem.customizations.map((customization, idx) => (
+                <div key={idx} className="text-xs">
+                  <span className="font-medium">{customization.name}:</span>{" "}
+                  {customization.value}
+                </div>
+              ))
+            : Object.entries(
+                originalItem.customizations as Record<string, string>
+              ).map(([key, value], idx) => (
+                <div key={idx} className="text-xs">
+                  <span className="font-medium">{key}:</span> {String(value)}
+                </div>
+              ))}
         </div>
       </div>
     );
@@ -398,12 +419,12 @@ export default function CustomerReorderForm({
                         <div>
                           <h4 className="font-medium">
                             {originalItem?.template?.name ||
-                              `Template ${item?.templateId}`}
+                              `Product ${item?.productId}`}
                           </h4>
                           <p className="text-sm text-muted-foreground">
                             Size:{" "}
                             {originalItem?.sizeVariant?.displayName ||
-                              originalItem?.sizeVariantId}
+                              originalItem?.variantId}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             Original quantity: {originalItem?.quantity || 1}
@@ -603,7 +624,7 @@ export default function CustomerReorderForm({
                   <div key={index} className="flex justify-between text-sm">
                     <span>
                       {originalItem?.template?.name ||
-                        `Template ${item.templateId}`}{" "}
+                        `Product ${item.productId}`}{" "}
                       (x{item.quantity})
                     </span>
                     <span>${(price * item.quantity).toFixed(2)}</span>

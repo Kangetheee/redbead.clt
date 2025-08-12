@@ -4,22 +4,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   initializeCheckoutAction,
-  initializeGuestCheckoutAction,
+  // initializeGuestCheckoutAction,
   calculateShippingAction,
   validateCheckoutAction,
   completeCheckoutAction,
-  completeGuestCheckoutAction,
+  // completeGuestCheckoutAction,
   getCheckoutSessionAction,
   getOrderConfirmationAction,
   listCheckoutSessionsAction,
 } from "@/lib/checkout/checkout.actions";
 import {
   InitCheckoutDto,
-  GuestInitCheckoutDto,
+  // GuestInitCheckoutDto,
   ShippingCalculationDto,
   ValidateCheckoutDto,
   CompleteCheckoutDto,
-  GuestCompleteCheckoutDto,
+  // GuestCompleteCheckoutDto,
   ListCheckoutSessionsDto,
 } from "@/lib/checkout/dto/checkout.dto";
 
@@ -114,27 +114,27 @@ export function useInitializeCheckout() {
 /**
  * Hook to initialize checkout for guest users
  */
-export function useInitializeGuestCheckout() {
-  const queryClient = useQueryClient();
+// export function useInitializeGuestCheckout() {
+//   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async (values: GuestInitCheckoutDto) => {
-      const result = await initializeGuestCheckoutAction(values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (data) => {
-      toast.success("Guest checkout initialized successfully");
-      // Cache the session data
-      queryClient.setQueryData(checkoutKeys.session(data.sessionId), data);
-    },
-    onError: (error) => {
-      toast.error(`Failed to initialize guest checkout: ${error.message}`);
-    },
-  });
-}
+//   return useMutation({
+//     mutationFn: async (values: GuestInitCheckoutDto) => {
+//       const result = await initializeGuestCheckoutAction(values);
+//       if (!result.success) {
+//         throw new Error(result.error);
+//       }
+//       return result.data;
+//     },
+//     onSuccess: (data) => {
+//       toast.success("Guest checkout initialized successfully");
+//       // Cache the session data
+//       queryClient.setQueryData(checkoutKeys.session(data.sessionId), data);
+//     },
+//     onError: (error) => {
+//       toast.error(`Failed to initialize guest checkout: ${error.message}`);
+//     },
+//   });
+// }
 
 /**
  * Hook to calculate shipping options
@@ -235,47 +235,47 @@ export function useCompleteCheckout() {
 /**
  * Hook to complete checkout for guest users
  */
-export function useCompleteGuestCheckout() {
-  const queryClient = useQueryClient();
+// export function useCompleteGuestCheckout() {
+//   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async (values: GuestCompleteCheckoutDto) => {
-      const result = await completeGuestCheckoutAction(values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (data, variables) => {
-      toast.success("Guest order placed successfully!");
+//   return useMutation({
+//     mutationFn: async (values: GuestCompleteCheckoutDto) => {
+//       const result = await completeGuestCheckoutAction(values);
+//       if (!result.success) {
+//         throw new Error(result.error);
+//       }
+//       return result.data;
+//     },
+//     onSuccess: (data, variables) => {
+//       toast.success("Guest order placed successfully!");
 
-      // Clear checkout session from cache
-      queryClient.removeQueries({
-        queryKey: checkoutKeys.session(variables.sessionId),
-      });
+//       // Clear checkout session from cache
+//       queryClient.removeQueries({
+//         queryKey: checkoutKeys.session(variables.sessionId),
+//       });
 
-      // Cache the order confirmation data
-      const confirmationData = {
-        orderId: data.orderId,
-        orderNumber: data.orderNumber,
-        status: "PENDING",
-        totalAmount: data.totalAmount,
-        paymentStatus: data.paymentRequired ? "PENDING" : "COMPLETED",
-        nextSteps: data.nextSteps,
-        estimatedDelivery: data.estimatedDelivery,
-        createdAt: new Date().toISOString(),
-      };
+//       // Cache the order confirmation data
+//       const confirmationData = {
+//         orderId: data.orderId,
+//         orderNumber: data.orderNumber,
+//         status: "PENDING",
+//         totalAmount: data.totalAmount,
+//         paymentStatus: data.paymentRequired ? "PENDING" : "COMPLETED",
+//         nextSteps: data.nextSteps,
+//         estimatedDelivery: data.estimatedDelivery,
+//         createdAt: new Date().toISOString(),
+//       };
 
-      queryClient.setQueryData(
-        checkoutKeys.confirmation(data.orderId),
-        confirmationData
-      );
-    },
-    onError: (error) => {
-      toast.error(`Failed to complete guest checkout: ${error.message}`);
-    },
-  });
-}
+//       queryClient.setQueryData(
+//         checkoutKeys.confirmation(data.orderId),
+//         confirmationData
+//       );
+//     },
+//     onError: (error) => {
+//       toast.error(`Failed to complete guest checkout: ${error.message}`);
+//     },
+//   });
+// }
 
 /**
  * Hook to get session time remaining in minutes

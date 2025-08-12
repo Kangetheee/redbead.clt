@@ -4,11 +4,11 @@ import { getErrorMessage } from "../get-error-message";
 import { ActionResponse } from "../shared/types";
 import {
   InitCheckoutDto,
-  GuestInitCheckoutDto,
+  // GuestInitCheckoutDto,
   ShippingCalculationDto,
   ValidateCheckoutDto,
   CompleteCheckoutDto,
-  GuestCompleteCheckoutDto,
+  // GuestCompleteCheckoutDto,
   ListCheckoutSessionsDto,
 } from "./dto/checkout.dto";
 import {
@@ -37,19 +37,19 @@ export async function initializeCheckoutAction(
   }
 }
 
-/**
- * Initialize checkout for guest users with custom items
- */
-export async function initializeGuestCheckoutAction(
-  values: GuestInitCheckoutDto
-): Promise<ActionResponse<CheckoutSession>> {
-  try {
-    const res = await checkoutService.initializeGuestCheckout(values);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
+// /**
+//  * Initialize checkout for guest users with custom items
+//  */
+// export async function initializeGuestCheckoutAction(
+//   values: GuestInitCheckoutDto
+// ): Promise<ActionResponse<CheckoutSession>> {
+//   try {
+//     const res = await checkoutService.initializeGuestCheckout(values);
+//     return { success: true, data: res };
+//   } catch (error) {
+//     return { success: false, error: getErrorMessage(error) };
+//   }
+// }
 
 /**
  * Calculate available shipping options and costs for checkout
@@ -93,19 +93,19 @@ export async function completeCheckoutAction(
   }
 }
 
-/**
- * Complete the checkout process for guest users
- */
-export async function completeGuestCheckoutAction(
-  values: GuestCompleteCheckoutDto
-): Promise<ActionResponse<CheckoutResponse>> {
-  try {
-    const res = await checkoutService.completeGuestCheckout(values);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
+// /**
+//  * Complete the checkout process for guest users
+//  */
+// export async function completeGuestCheckoutAction(
+//   values: GuestCompleteCheckoutDto
+// ): Promise<ActionResponse<CheckoutResponse>> {
+//   try {
+//     const res = await checkoutService.completeGuestCheckout(values);
+//     return { success: true, data: res };
+//   } catch (error) {
+//     return { success: false, error: getErrorMessage(error) };
+//   }
+// }
 
 /**
  * Retrieve checkout session details (no authentication required)

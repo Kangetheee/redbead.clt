@@ -1,6 +1,7 @@
 export interface AddressResponse {
   id: string;
   name: string;
+  type: string;
   email?: string;
   recipientName: string;
   companyName: string | null;

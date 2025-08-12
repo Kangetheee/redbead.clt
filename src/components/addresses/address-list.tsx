@@ -398,14 +398,14 @@ export function AddressList({
       {/* Header */}
       {showHeader && (
         <div className="flex items-center justify-between">
-          <div>
+          {/* <div>
             <h2 className="text-2xl font-bold">
               My Addresses ({filteredAddresses.length})
             </h2>
             <p className="text-muted-foreground">
               Manage your shipping and billing addresses
             </p>
-          </div>
+          </div> */}
           {onAdd && (
             <Button onClick={onAdd}>
               <Plus className="w-4 h-4 mr-2" />

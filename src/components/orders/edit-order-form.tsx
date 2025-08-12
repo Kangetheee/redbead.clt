@@ -126,7 +126,7 @@ const getStatusConfig = (status: string) => {
   );
 };
 
-// Helper function to format order items properly
+// Helper function to format order items properly - Updated to use correct field names
 const formatOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
   if (!Array.isArray(orderItems)) return [];
 
@@ -134,13 +134,34 @@ const formatOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
     if (typeof item === "string") {
       return {
         id: item,
-        templateId: "Unknown",
-        sizeVariantId: "Unknown",
+        productId: "Unknown", // Changed from templateId to productId
+        variantId: "Unknown", // Changed from sizeVariantId to variantId
         quantity: 1,
       };
     }
     return item;
   });
+};
+
+// Helper function to format customizations display
+const formatCustomizations = (
+  customizations?:
+    | Array<{ name: string; value: string }>
+    | Record<string, string>
+): string => {
+  if (!customizations) return "None";
+
+  if (Array.isArray(customizations)) {
+    return customizations.map((c) => `${c.name}: ${c.value}`).join(", ");
+  }
+
+  if (typeof customizations === "object") {
+    return Object.entries(customizations)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(", ");
+  }
+
+  return "None";
 };
 
 export default function EditOrderForm({
@@ -212,6 +233,7 @@ export default function EditOrderForm({
     return <Badge className={config.color}>{config.label}</Badge>;
   };
 
+  // Updated to use correct field names and handle customizations properly
   const renderOrderItem = (item: OrderItem, index: number) => (
     <div
       key={item.id || index}
@@ -219,23 +241,17 @@ export default function EditOrderForm({
     >
       <div className="space-y-1">
         <p className="font-medium">
-          {item.template?.name || `Template ID: ${item.templateId}`}
+          {item.template?.name || `Product ID: ${item.productId}`}
         </p>
         <p className="text-sm text-muted-foreground">
-          Size: {item.sizeVariant?.displayName || item.sizeVariantId}
+          Variant: {item.sizeVariant?.displayName || item.variantId}
         </p>
         <p className="text-sm text-muted-foreground">
           Quantity: {item.quantity}
         </p>
-        {item.customizations && item.customizations.length > 0 && (
+        {item.customizations && (
           <p className="text-xs text-muted-foreground">
-            Customizations:{" "}
-            {item.customizations.map((c, i) => (
-              <span key={i}>
-                {c.customValue || c.valueId}
-                {i < item.customizations!.length - 1 && ", "}
-              </span>
-            ))}
+            Customizations: {formatCustomizations(item.customizations)}
           </p>
         )}
         {item.status && (
@@ -664,6 +680,23 @@ export default function EditOrderForm({
                   </p>
                 )}
               </div>
+
+              {/* Additional Order Information */}
+              {order.designApprovalRequired && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-blue-800">
+                      Design Approval Required
+                    </span>
+                  </div>
+                  {order.designApprovalStatus && (
+                    <p className="text-sm text-blue-600 mt-1">
+                      Status: {order.designApprovalStatus.replace(/_/g, " ")}
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 

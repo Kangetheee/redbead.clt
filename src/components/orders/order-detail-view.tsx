@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Building,
   Loader2,
+  XCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -75,15 +76,15 @@ interface CustomerInfo {
   isGuest: boolean;
 }
 
-// Helper function to format currency
+// Helper function to format currency for Kenya
 const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-KE", {
     style: "currency",
-    currency: "USD",
+    currency: "KES",
   }).format(amount);
 };
 
-// Helper function to safely extract order items
+// Helper function to safely extract order items - Updated to use correct field names
 const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
   if (!Array.isArray(orderItems)) return [];
 
@@ -91,8 +92,8 @@ const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
     if (typeof item === "string") {
       return {
         id: item,
-        templateId: `unknown-${index}`,
-        sizeVariantId: "unknown",
+        productId: `unknown-${index}`, // Updated from templateId
+        variantId: "unknown", // Updated from sizeVariantId
         quantity: 1,
       };
     }
@@ -100,9 +101,31 @@ const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
   });
 };
 
-// Helper function to get template name
-const getTemplateName = (item: OrderItem): string => {
-  return item.template?.name || `Template ${item.templateId}`;
+// Helper function to get product name - Updated to use correct field
+const getProductName = (item: OrderItem): string => {
+  return item.template?.name || `Product ${item.productId}`;
+};
+
+// Helper function to format customizations - Updated to handle both formats
+const formatCustomizations = (
+  customizations?:
+    | Array<{ name: string; value: string }>
+    | Record<string, string>
+): Array<{ name: string; value: string }> => {
+  if (!customizations) return [];
+
+  if (Array.isArray(customizations)) {
+    return customizations;
+  }
+
+  if (typeof customizations === "object") {
+    return Object.entries(customizations).map(([key, value]) => ({
+      name: key,
+      value,
+    }));
+  }
+
+  return [];
 };
 
 // Status configuration with proper typing
@@ -134,7 +157,7 @@ const getStatusConfig = (status: string) => {
     DESIGN_REJECTED: {
       color: "bg-red-100 text-red-800",
       label: "Design Rejected",
-      icon: AlertTriangle,
+      icon: XCircle,
     },
     PAYMENT_PENDING: {
       color: "bg-orange-100 text-orange-800",
@@ -169,7 +192,7 @@ const getStatusConfig = (status: string) => {
     CANCELLED: {
       color: "bg-red-100 text-red-800",
       label: "Cancelled",
-      icon: AlertTriangle,
+      icon: XCircle,
     },
     REFUNDED: {
       color: "bg-gray-100 text-gray-800",
@@ -225,20 +248,15 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
     );
   };
 
-  // Helper function to format address
+  // Helper function to format address - Updated to match AddressResponse type
   const formatAddress = (
     address: AddressResponse | null | undefined
   ): string => {
     if (!address) return "No address provided";
 
-    // Use formattedAddress if available, otherwise construct from parts
-    if (address.formattedAddress) {
-      return address.formattedAddress;
-    }
-
     const parts = [
+      address.recipientName || address.name,
       address.street,
-      address.street2,
       address.city,
       address.state,
       address.postalCode,
@@ -290,22 +308,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
             <p className="font-medium">
               {address.recipientName || address.name || "No name provided"}
             </p>
-            {address.name && address.name !== address.recipientName && (
-              <p className="text-sm text-muted-foreground">({address.name})</p>
-            )}
           </div>
-
-          {address.companyName && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase">
-                Company
-              </p>
-              <div className="flex items-center gap-2">
-                <Building className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm">{address.companyName}</p>
-              </div>
-            </div>
-          )}
 
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase">
@@ -313,7 +316,6 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
             </p>
             <div className="space-y-1">
               {address.street && <p className="text-sm">{address.street}</p>}
-              {address.street2 && <p className="text-sm">{address.street2}</p>}
               <p className="text-sm">
                 {[address.city, address.state, address.postalCode]
                   .filter(Boolean)
@@ -344,29 +346,8 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
             </div>
           )}
 
-          {address.email && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase">
-                Email
-              </p>
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm">{address.email}</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard(address.email!)}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          )}
-
           <div className="flex items-center gap-2">
-            {address.addressType && (
-              <Badge variant="outline">{address.addressType}</Badge>
-            )}
+            {address.type && <Badge variant="outline">{address.type}</Badge>}
             {address.isDefault && <Badge variant="secondary">Default</Badge>}
           </div>
         </CardContent>
@@ -402,7 +383,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
     // Fallback for guest orders without customer info
     return {
-      displayName: "Guest Customer",
+      displayName: "Customer",
       initials: "GU",
       isGuest: true,
     };
@@ -630,23 +611,6 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                     {/* Customer contact info from shipping address */}
                     {order.shippingAddress && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t">
-                        {order.shippingAddress.email && (
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">
-                              {order.shippingAddress.email}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                copyToClipboard(order.shippingAddress.email!)
-                              }
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
                         {order.shippingAddress.phone && (
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4 text-muted-foreground" />
@@ -845,7 +809,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <h4 className="font-medium">
-                                {getTemplateName(item)}
+                                {getProductName(item)}
                               </h4>
                               <Badge variant="outline">
                                 Qty: {item.quantity}
@@ -857,57 +821,57 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                               )}
                             </div>
 
-                            {item.sizeVariant && (
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground uppercase">
+                                Product ID
+                              </p>
+                              <p className="text-sm font-mono">
+                                {item.productId}
+                              </p>
+                            </div>
+
+                            {item.variantId && (
                               <div>
                                 <p className="text-xs font-medium text-muted-foreground uppercase">
-                                  Size
+                                  Variant
                                 </p>
                                 <p className="text-sm">
-                                  {item.sizeVariant.displayName} (
-                                  {item.sizeVariant.dimensions.width}x
-                                  {item.sizeVariant.dimensions.height}{" "}
-                                  {item.sizeVariant.dimensions.unit})
+                                  {item.sizeVariant?.displayName ||
+                                    item.variantId}
                                 </p>
+                                {item.sizeVariant?.dimensions && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.sizeVariant.dimensions.width}x
+                                    {item.sizeVariant.dimensions.height}{" "}
+                                    {item.sizeVariant.dimensions.unit}
+                                  </p>
+                                )}
                               </div>
                             )}
 
-                            {item.customizations &&
-                              item.customizations.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-medium text-muted-foreground uppercase">
-                                    Customizations
-                                  </p>
-                                  <div className="mt-1 space-y-1">
-                                    {item.customizations.map(
-                                      (customization, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="text-sm p-2 bg-muted rounded"
-                                        >
-                                          <span className="font-medium">
-                                            Option:
-                                          </span>{" "}
-                                          {customization.optionId} |
-                                          <span className="font-medium">
-                                            {" "}
-                                            Value:
-                                          </span>{" "}
-                                          {customization.valueId}
-                                          {customization.customValue && (
-                                            <>
-                                              <br />
-                                              <span className="font-medium">
-                                                Custom:
-                                              </span>{" "}
-                                              {customization.customValue}
-                                            </>
-                                          )}
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
+                            {/* Updated customizations handling */}
+                            {item.customizations && (
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">
+                                  Customizations
+                                </p>
+                                <div className="mt-1 space-y-1">
+                                  {formatCustomizations(
+                                    item.customizations
+                                  ).map((customization, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="text-sm p-2 bg-muted rounded"
+                                    >
+                                      <span className="font-medium">
+                                        {customization.name}:
+                                      </span>{" "}
+                                      {customization.value}
+                                    </div>
+                                  ))}
                                 </div>
-                              )}
+                              </div>
+                            )}
 
                             {item.designId && (
                               <div>
@@ -1109,9 +1073,17 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Design approval not yet requested
-                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Status</span>
+                      <Badge variant="outline">
+                        {order.designApprovalStatus || "Not Requested"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Design approval has not been requested yet
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>

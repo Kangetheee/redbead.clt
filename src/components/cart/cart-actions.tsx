@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 "use client";
 
 import { useState } from "react";
@@ -28,6 +30,7 @@ import { useClearCart /*useCartSummary*/ } from "@/hooks/use-cart";
 import { useUserProfile } from "@/hooks/use-users";
 import { useRouter } from "next/navigation";
 import { CartResponse } from "@/lib/cart/types/cart.types";
+import { formatCurrency } from "@/lib/utils";
 
 interface CartActionsProps {
   cart: CartResponse;
@@ -103,10 +106,10 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
         <ShoppingCart className="mr-2 h-5 w-5" />
         {isLoading
           ? "Processing..."
-          : `Proceed to Checkout (KES ${cart.summary.total.toLocaleString()})`}
+          : `Proceed to Checkout (${formatCurrency(cart.summary.total)})`}
       </Button>
 
-      {/* Guest Email Dialog */}
+      {/* Guest Email Dialog
       <Dialog open={isGuestDialogOpen} onOpenChange={setIsGuestDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -155,7 +158,7 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
             <Button onClick={handleGuestCheckout}>Continue to Checkout</Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
 
       {/* Clear Cart Button */}
       {!isEmpty && (

@@ -45,7 +45,6 @@ export const shippingCalculationSchema = z.object({
     .enum(["NORMAL", "EXPEDITED", "RUSH", "EMERGENCY"])
     .default("NORMAL"),
 });
-
 export type ShippingCalculationDto = z.infer<typeof shippingCalculationSchema>;
 
 export const validateCheckoutSchema = z.object({
@@ -62,19 +61,10 @@ export const validateCheckoutSchema = z.object({
 
 export type ValidateCheckoutDto = z.infer<typeof validateCheckoutSchema>;
 
-export const guestInfoSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email address"),
-  company: z.string().optional(),
-});
-
 export const completeCheckoutSchema = z.object({
   sessionId: z.string().min(1, "Session ID is required"),
   shippingAddressId: z.string().optional(), // For authenticated users
   billingAddressId: z.string().optional(), // For authenticated users
-  shippingAddress: addressInputSchema.optional(), // For guests
-  billingAddress: addressInputSchema.optional(), // For guests
-  guestInfo: guestInfoSchema.optional(), // For guests
   selectedShippingOption: z.string().min(1, "Shipping option is required"),
   paymentMethod: z.enum(["MPESA", "BANK_TRANSFER", "CARD"]),
   customerPhone: z
@@ -86,33 +76,6 @@ export const completeCheckoutSchema = z.object({
 });
 
 export type CompleteCheckoutDto = z.infer<typeof completeCheckoutSchema>;
-
-// Guest-specific schemas
-export const guestInitCheckoutSchema = z.object({
-  guestEmail: z.string().email("Invalid email address"),
-  items: z.array(checkoutItemSchema).min(1, "At least one item is required"),
-  couponCode: z.string().optional(),
-});
-
-export type GuestInitCheckoutDto = z.infer<typeof guestInitCheckoutSchema>;
-
-export const guestCompleteCheckoutSchema = z.object({
-  sessionId: z.string().min(1, "Session ID is required"),
-  guestInfo: guestInfoSchema,
-  shippingAddress: addressInputSchema,
-  billingAddress: addressInputSchema.optional(),
-  selectedShippingOption: z.string().min(1, "Shipping option is required"),
-  paymentMethod: z.enum(["MPESA", "BANK_TRANSFER", "CARD"]),
-  customerPhone: z
-    .string()
-    .refine(isValidPhoneNumber, { message: "Invalid phone number" }),
-  notes: z.string().optional(),
-  specialInstructions: z.string().optional(),
-});
-
-export type GuestCompleteCheckoutDto = z.infer<
-  typeof guestCompleteCheckoutSchema
->;
 
 export const listCheckoutSessionsSchema = z.object({
   pageIndex: z.number().default(0),

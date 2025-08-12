@@ -68,17 +68,22 @@ export const getOrdersSchema = z.object({
 
 export type GetOrdersDto = z.infer<typeof getOrdersSchema>;
 
+// Updated to match actual API requirements
 export const orderItemCustomizationSchema = z.object({
   optionId: z.string(),
   valueId: z.string(),
   customValue: z.string().optional(),
 });
 
+// Updated schema to match API expectations
 export const orderItemSchema = z.object({
-  templateId: z.string(),
-  sizeVariantId: z.string(),
+  // Use productId instead of templateId based on the error
+  productId: z.string().min(1, "Product ID is required"),
+  // Use variantId instead of sizeVariantId
+  variantId: z.string().min(1, "Variant ID is required"),
   quantity: z.number().min(1),
-  customizations: z.array(orderItemCustomizationSchema).optional(),
+  // Customizations should be an object, not an array
+  customizations: z.record(z.string()).optional().default({}),
   designId: z.string().optional(),
 });
 

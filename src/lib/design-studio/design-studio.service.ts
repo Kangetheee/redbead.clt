@@ -73,10 +73,14 @@ export class DesignStudioService {
    * Uses POST /v1/design-studio/designs
    */
   async createDesign(values: CreateDesignDto): Promise<DesignResponse> {
-    return this.fetcher.request<DesignResponse>("/v1/design-studio/designs", {
-      method: "POST",
-      data: values,
-    });
+    return this.fetcher.request<DesignResponse>(
+      "/v1/design-studio/designs",
+      {
+        method: "POST",
+        data: values,
+      },
+      { auth: false }
+    );
   }
 
   /**
@@ -116,7 +120,8 @@ export class DesignStudioService {
   async getDesign(designId: string): Promise<DesignResponse> {
     return this.fetcher.request<DesignResponse>(
       `/v1/design-studio/designs/${designId}`,
-      { method: "GET" }
+      { method: "GET" },
+      { auth: false }
     );
   }
 
@@ -133,7 +138,8 @@ export class DesignStudioService {
       {
         method: "PATCH",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -156,7 +162,8 @@ export class DesignStudioService {
   ): Promise<TemplatePresetsResponse> {
     return this.fetcher.request<TemplatePresetsResponse>(
       `/v1/design-studio/templates/${templateId}/presets`,
-      { method: "GET" }
+      { method: "GET" },
+      { auth: false }
     );
   }
 
@@ -173,7 +180,8 @@ export class DesignStudioService {
       {
         method: "POST",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -190,7 +198,8 @@ export class DesignStudioService {
       {
         method: "POST",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -207,7 +216,8 @@ export class DesignStudioService {
       {
         method: "POST",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
@@ -218,7 +228,8 @@ export class DesignStudioService {
   async getSharedDesign(token: string): Promise<DesignResponse> {
     return this.fetcher.request<DesignResponse>(
       `/v1/design-studio/shared/${token}`,
-      { method: "GET" }
+      { method: "GET" },
+      { auth: false }
     );
   }
 
@@ -241,9 +252,13 @@ export class DesignStudioService {
 
     const url = `/v1/design-studio/fonts${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
 
-    return this.fetcher.request<Font[]>(url, {
-      method: "GET",
-    });
+    return this.fetcher.request<Font[]>(
+      url,
+      {
+        method: "GET",
+      },
+      { auth: false }
+    );
   }
 
   /**
@@ -268,10 +283,14 @@ export class DesignStudioService {
       formData.append("tags", JSON.stringify(assetData.tags));
     }
 
-    return this.fetcher.request<AssetResponse>("/v1/design-studio/assets", {
-      method: "POST",
-      data: formData,
-    });
+    return this.fetcher.request<AssetResponse>(
+      "/v1/design-studio/assets",
+      {
+        method: "POST",
+        data: formData,
+      },
+      { auth: false }
+    );
   }
 
   /**
@@ -290,8 +309,12 @@ export class DesignStudioService {
 
     const url = `/v1/design-studio/assets${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
 
-    return this.fetcher.request<AssetResponse[]>(url, {
-      method: "GET",
-    });
+    return this.fetcher.request<AssetResponse[]>(
+      url,
+      {
+        method: "GET",
+      },
+      { auth: false }
+    );
   }
 }
