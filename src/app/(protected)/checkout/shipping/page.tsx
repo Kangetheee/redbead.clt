@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,7 +52,8 @@ import { toast } from "sonner";
 
 type AddressForm = z.infer<typeof addressInputSchema>;
 
-export default function CheckoutShippingPage() {
+// Component that uses useSearchParams
+function CheckoutShippingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
@@ -750,6 +751,27 @@ export default function CheckoutShippingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function CheckoutShippingLoading() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+        <p>Loading shipping page...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function CheckoutShippingPage() {
+  return (
+    <Suspense fallback={<CheckoutShippingLoading />}>
+      <CheckoutShippingContent />
+    </Suspense>
   );
 }
 

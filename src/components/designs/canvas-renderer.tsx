@@ -1,14 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useRef, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
+import fabric from "fabric";
 import { UseFormReturn } from "react-hook-form";
 import { Palette, Image as ImageIcon } from "lucide-react";
-
+import { FabricObject } from "fabric";
 import { CanvasElement } from "@/lib/design-studio/types/design-studio.types";
 
-interface CanvasRendererProps {
+interface FabricCanvasRendererProps {
   canvasElements: CanvasElement[];
   selectedElement: CanvasElement | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   designForm: UseFormReturn<any>;
   isPreviewMode: boolean;
   canvasWidth: number;
@@ -20,16 +21,30 @@ interface CanvasRendererProps {
   onElementDelete: (elementId: string) => void;
 }
 
-interface DragState {
-  isDragging: boolean;
-  elementId: string | null;
-  startX: number;
-  startY: number;
-  initialElementX: number;
-  initialElementY: number;
+interface FabricObjectWithData extends FabricObject {
+  data?: CanvasElement;
 }
 
-export default function CanvasRenderer({
+declare module "fabric" {
+  interface CanvasEvents {
+    "key:down": KeyboardEvent; // custom event
+  }
+
+  interface FabricObject<
+    Props extends fabric.TFabricObjectProps = Partial<fabric.FabricObjectProps>,
+    SProps extends fabric.SerializedObjectProps = fabric.SerializedObjectProps,
+    EventSpec extends fabric.ObjectEvents = fabric.ObjectEvents,
+  > {
+    data?: { id?: string; [key: string]: any };
+  }
+}
+
+// Store canvas instance globally for external access
+let globalFabricCanvas: fabric.Canvas | null = null;
+
+export const getFabricCanvas = () => globalFabricCanvas;
+
+export default function FabricCanvasRenderer({
   canvasElements,
   selectedElement,
   designForm,
@@ -41,278 +56,602 @@ export default function CanvasRenderer({
   onElementUpdate,
   onElementDuplicate,
   onElementDelete,
-}: CanvasRendererProps) {
-  const [dragState, setDragState] = useState<DragState>({
-    isDragging: false,
-    elementId: null,
-    startX: 0,
-    startY: 0,
-    initialElementX: 0,
-    initialElementY: 0,
-  });
+}: FabricCanvasRendererProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const canvasRef = useRef<HTMLDivElement>(null);
+  // Initialize Fabric.js canvas
+  useEffect(() => {
+    if (!canvasRef.current || isInitialized) return;
 
-  const backgroundColor = designForm.getValues(
-    "customizations.backgroundColor"
-  );
+    // Configure Fabric.js defaults
+    fabric.Object.prototype.transparentCorners = false;
+    fabric.Object.prototype.cornerColor = "#2563eb";
+    fabric.Object.prototype.cornerStyle = "circle";
+    fabric.Object.prototype.cornerSize = 8;
+    fabric.Object.prototype.borderColor = "#2563eb";
+    fabric.Object.prototype.borderScaleFactor = 2;
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent, element: CanvasElement) => {
-      if (isPreviewMode) return;
+    const canvas = new fabric.Canvas(canvasRef.current, {
+      width: canvasWidth,
+      height: canvasHeight,
+      backgroundColor:
+        designForm.getValues("customizations.backgroundColor") || "#ffffff",
+      selection: !isPreviewMode,
+      interactive: !isPreviewMode,
+      preserveObjectStacking: true,
+      allowTouchScrolling: false,
+      imageSmoothingEnabled: true,
+      enableRetinaScaling: true,
+    });
 
-      e.preventDefault();
-      e.stopPropagation();
+    fabricCanvasRef.current = canvas;
+    globalFabricCanvas = canvas;
+    setIsInitialized(true);
 
-      // Select the element
-      onElementSelect(element);
+    // Set up event handlers
+    setupCanvasEvents(canvas);
 
-      // Start dragging
-      setDragState({
-        isDragging: true,
-        elementId: element.id,
-        startX: e.clientX,
-        startY: e.clientY,
-        initialElementX: element.x,
-        initialElementY: element.y,
-      });
-    },
-    [isPreviewMode, onElementSelect]
-  );
+    return () => {
+      canvas.dispose();
+      fabricCanvasRef.current = null;
+      globalFabricCanvas = null;
+      setIsInitialized(false);
+    };
+  }, [canvasWidth, canvasHeight, isInitialized]);
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!dragState.isDragging || !dragState.elementId || isPreviewMode)
-        return;
+  // Setup canvas event handlers
+  const setupCanvasEvents = (canvas: fabric.Canvas) => {
+    // Object selection events
+    canvas.on("selection:created", (e) => {
+      const selected = (e.selected || []) as FabricObjectWithData[];
+      const activeObject = selected[0];
 
-      const deltaX = (e.clientX - dragState.startX) / scale;
-      const deltaY = (e.clientY - dragState.startY) / scale;
+      if (activeObject?.data) {
+        onElementSelect(activeObject.data);
+      }
+    });
 
-      const newX = Math.max(0, dragState.initialElementX + deltaX);
-      const newY = Math.max(0, dragState.initialElementY + deltaY);
+    canvas.on("selection:updated", (e) => {
+      const selected = (e.selected || []) as FabricObjectWithData[];
+      const activeObject = selected[0];
 
-      // Get canvas bounds to constrain movement
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const element = canvasElements.find(
-          (el) => el.id === dragState.elementId
+      if (activeObject?.data) {
+        onElementSelect(activeObject.data);
+      }
+    });
+
+    canvas.on("selection:cleared", () => {
+      onElementSelect(null);
+    });
+
+    // Object modification events
+    canvas.on("object:modified", (e) => {
+      const obj = e.target as FabricObjectWithData;
+
+      if (!obj?.data) return;
+
+      const element = obj.data;
+      const updates: Partial<CanvasElement> = {
+        x: Math.round(obj.left ?? 0),
+        y: Math.round(obj.top ?? 0),
+        width: Math.round((obj.width ?? 0) * (obj.scaleX ?? 1)),
+        height: Math.round((obj.height ?? 0) * (obj.scaleY ?? 1)),
+        rotation: Math.round(obj.angle ?? 0),
+      };
+
+      // Handle text-specific updates
+      if (element.type === "text" && obj.type === "i-text") {
+        const textObj = obj as fabric.IText;
+        updates.content = textObj.text ?? "";
+        updates.fontSize = textObj.fontSize ?? updates.fontSize;
+        updates.fontWeight = textObj.fontWeight as string;
+        updates.color = textObj.fill as string;
+        updates.font = textObj.fontFamily ?? updates.font;
+      }
+
+      // Handle shape-specific updates
+      if (element.type === "shape") {
+        updates.color = obj.fill as string;
+      }
+
+      // Reset scale to 1 after updating dimensions
+      obj.set({ scaleX: 1, scaleY: 1 });
+
+      onElementUpdate(element.id, updates);
+    });
+
+    // Object moving events
+    canvas.on("object:moving", (e) => {
+      setIsDragging(true);
+    });
+
+    canvas.on("object:modified", (e) => {
+      const obj = e.target as
+        | (fabric.Object & { data?: CanvasElement })
+        | undefined;
+      if (obj?.data) {
+        const element = obj.data;
+        onElementUpdate(element.id, {
+          x: Math.round(obj.left ?? 0),
+          y: Math.round(obj.top ?? 0),
+        });
+      }
+    });
+
+    // Attach listener to the actual canvas DOM element
+    canvas.upperCanvasEl.tabIndex = 1000; // Make it focusable
+    canvas.upperCanvasEl.focus();
+
+    canvas.upperCanvasEl.addEventListener("keydown", (e: KeyboardEvent) => {
+      const activeObject = canvas.getActiveObject() as
+        | (fabric.Object & { data?: CanvasElement })
+        | null;
+      if (!activeObject || !activeObject.data) return;
+
+      const element = activeObject.data;
+
+      switch (e.key) {
+        case "Delete":
+        case "Backspace":
+          e.preventDefault();
+          onElementDelete(element.id);
+          break;
+
+        case "d":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            onElementDuplicate(element.id);
+          }
+          break;
+
+        case "ArrowLeft":
+        case "ArrowRight":
+        case "ArrowUp":
+        case "ArrowDown":
+          e.preventDefault();
+          handleArrowKeyMovement(e.key, e.shiftKey, activeObject);
+          break;
+      }
+    });
+    // Enable keyboard events
+    canvas.wrapperEl.tabIndex = 0;
+    canvas.wrapperEl.addEventListener("keydown", (e) => {
+      canvas.fire("key:down", e);
+    });
+
+    // Listen for the custom event
+    canvas.on("key:down", (e) => {
+      console.log("Key pressed:", e.key);
+    });
+  };
+
+  const handleArrowKeyMovement = (
+    key: string,
+    shiftKey: boolean,
+    obj: FabricObjectWithData
+  ) => {
+    const moveDistance = shiftKey ? 10 : 1;
+    const currentLeft = obj.left || 0;
+    const currentTop = obj.top || 0;
+
+    let newLeft = currentLeft;
+    let newTop = currentTop;
+
+    switch (key) {
+      case "ArrowLeft":
+        newLeft = Math.max(0, currentLeft - moveDistance);
+        break;
+      case "ArrowRight":
+        newLeft = Math.min(
+          canvasWidth - (obj.getScaledWidth() || 0),
+          currentLeft + moveDistance
         );
+        break;
+      case "ArrowUp":
+        newTop = Math.max(0, currentTop - moveDistance);
+        break;
+      case "ArrowDown":
+        newTop = Math.min(
+          canvasHeight - (obj.getScaledHeight() || 0),
+          currentTop + moveDistance
+        );
+        break;
+    }
 
-        if (element) {
-          const maxX = canvasWidth - element.width;
-          const maxY = canvasHeight - element.height;
+    obj.set({ left: newLeft, top: newTop });
+    fabricCanvasRef.current?.renderAll();
 
-          const constrainedX = Math.min(Math.max(0, newX), maxX);
-          const constrainedY = Math.min(Math.max(0, newY), maxY);
+    if (obj.data && typeof obj.data === "object" && "id" in obj.data) {
+      const element = obj.data as CanvasElement;
+      onElementUpdate(element.id, { x: newLeft, y: newTop });
+    }
+  };
 
-          onElementUpdate(dragState.elementId, {
-            x: constrainedX,
-            y: constrainedY,
+  useEffect(() => {
+    if (!fabricCanvasRef.current) return;
+
+    const backgroundColor = designForm.watch("customizations.backgroundColor");
+
+    // ✅ Fabric.js v5 way
+    fabricCanvasRef.current.backgroundColor = backgroundColor;
+    fabricCanvasRef.current.renderAll();
+  }, [designForm, designForm.watch("customizations.backgroundColor")]);
+
+  // Update canvas dimensions
+  useEffect(() => {
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.setDimensions({
+        width: canvasWidth,
+        height: canvasHeight,
+      });
+    }
+  }, [canvasWidth, canvasHeight]);
+
+  // Update canvas interaction mode
+  useEffect(() => {
+    if (!fabricCanvasRef.current) return;
+
+    const canvas = fabricCanvasRef.current;
+
+    // Allow/disallow selection of multiple objects
+    canvas.selection = !isPreviewMode;
+
+    // For each object on the canvas
+    canvas.forEachObject((obj) => {
+      obj.selectable = !isPreviewMode; // can click/select
+      obj.evented = !isPreviewMode; // can trigger events like drag
+      obj.hoverCursor = isPreviewMode ? "default" : "move";
+      obj.moveCursor = isPreviewMode ? "default" : "move";
+    });
+
+    canvas.renderAll();
+  }, [isPreviewMode]);
+
+  // Sync canvas elements with state
+  useEffect(() => {
+    if (!fabricCanvasRef.current) return;
+
+    const canvas = fabricCanvasRef.current;
+
+    // ✅ Get a snapshot of objects
+    const currentObjects = canvas.getObjects();
+    const currentElementIds = currentObjects
+      .map((obj) => obj.data?.id)
+      .filter(Boolean);
+
+    const newElementIds = canvasElements.map((el) => el.id);
+
+    // ✅ Remove objects that are not in newElementIds
+    currentObjects.forEach((obj) => {
+      const objId = obj.data?.id;
+      if (objId && !newElementIds.includes(objId)) {
+        canvas.remove(obj);
+      }
+    });
+
+    // ✅ Add or update elements
+    canvasElements.forEach((element) => {
+      const existingObject = canvas
+        .getObjects()
+        .find((obj) => obj.data?.id === element.id);
+
+      if (existingObject) {
+        // Update existing object without replacing it
+        updateFabricObject(existingObject, element);
+      } else {
+        // Create new Fabric object for this element
+        addElementToCanvas(canvas, element);
+      }
+    });
+
+    canvas.renderAll();
+  }, [canvasElements]);
+
+  // Update existing Fabric object with new element data
+  const updateFabricObject = (
+    fabricObject: fabric.Object,
+    element: CanvasElement
+  ) => {
+    const updates: any = {
+      left: element.x,
+      top: element.y,
+      width: element.width,
+      height: element.height,
+      angle: element.rotation || 0,
+    };
+
+    if (element.type === "text") {
+      Object.assign(updates, {
+        text: element.content,
+        fontSize: element.fontSize,
+        fontWeight: element.fontWeight,
+        fill: element.color,
+        fontFamily: element.font,
+      });
+    }
+
+    if (element.type === "shape") {
+      updates.fill = element.color;
+    }
+
+    fabricObject.set(updates);
+    fabricObject.data = element;
+  };
+
+  // Add element to Fabric canvas
+  const addElementToCanvas = (
+    canvas: fabric.Canvas,
+    element: CanvasElement
+  ) => {
+    let fabricObject: fabric.Object;
+
+    switch (element.type) {
+      case "text":
+        fabricObject = new fabric.IText(element.content || "Text", {
+          left: element.x,
+          top: element.y,
+          width: element.width,
+          height: element.height,
+          fontFamily: element.font || "Arial",
+          fontSize: element.fontSize || 16,
+          fontWeight: element.fontWeight || "normal",
+          fill: element.color || "#000000",
+          angle: element.rotation || 0,
+          editable: !isPreviewMode,
+        });
+        break;
+
+      case "shape":
+        if (element.shapeType === "circle") {
+          fabricObject = new fabric.Circle({
+            left: element.x,
+            top: element.y,
+            radius: Math.min(element.width, element.height) / 2,
+            fill: element.color || "#0066cc",
+            angle: element.rotation || 0,
+          });
+        } else if (element.shapeType === "triangle") {
+          fabricObject = new fabric.Triangle({
+            left: element.x,
+            top: element.y,
+            width: element.width,
+            height: element.height,
+            fill: element.color || "#0066cc",
+            angle: element.rotation || 0,
+          });
+        } else {
+          fabricObject = new fabric.Rect({
+            left: element.x,
+            top: element.y,
+            width: element.width,
+            height: element.height,
+            fill: element.color || "#0066cc",
+            angle: element.rotation || 0,
           });
         }
-      }
-    },
-    [
-      dragState,
-      isPreviewMode,
-      onElementUpdate,
-      canvasElements,
-      canvasWidth,
-      canvasHeight,
-      scale,
-    ]
-  );
+        break;
 
-  const handleMouseUp = useCallback(() => {
-    if (dragState.isDragging) {
-      setDragState({
-        isDragging: false,
-        elementId: null,
-        startX: 0,
-        startY: 0,
-        initialElementX: 0,
-        initialElementY: 0,
-      });
+      case "image":
+        if (element.mediaId) {
+          // Load image from URL (Promise-based API)
+          fabric.Image.fromURL(`/api/media/${element.mediaId}`, {
+            crossOrigin: "anonymous",
+          })
+            .then((img) => {
+              img.set({
+                left: element.x,
+                top: element.y,
+                angle: element.rotation || 0,
+              });
+              img.scaleToWidth(element.width);
+              img.scaleToHeight(element.height);
+              (img as any).data = element; // Keep your custom data
+              img.selectable = !isPreviewMode;
+              img.evented = !isPreviewMode;
+              canvas.add(img);
+              canvas.renderAll();
+            })
+            .catch((err) => {
+              console.error("Error loading image:", err);
+            });
+
+          return; // Early return for async image loading
+        } else {
+          // Placeholder rectangle for empty image
+          fabricObject = new fabric.Rect({
+            left: element.x,
+            top: element.y,
+            width: element.width,
+            height: element.height,
+            fill: "#f0f0f0",
+            stroke: "#cccccc",
+            strokeWidth: 2,
+            strokeDashArray: [5, 5],
+            angle: element.rotation || 0,
+          });
+        }
+        break;
+      default:
+        return;
     }
-  }, [dragState.isDragging]);
 
-  // Attach global mouse events for dragging
-  React.useEffect(() => {
-    if (dragState.isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "grabbing";
-      document.body.style.userSelect = "none";
+    // Store element data in fabric object
+    fabricObject.data = element;
 
-      return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
-    }
-  }, [dragState.isDragging, handleMouseMove, handleMouseUp]);
+    // Set selection properties
+    fabricObject.selectable = !isPreviewMode;
+    fabricObject.evented = !isPreviewMode;
+    fabricObject.hoverCursor = isPreviewMode ? "default" : "move";
+    fabricObject.moveCursor = isPreviewMode ? "default" : "move";
+
+    canvas.add(fabricObject);
+  };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
-    // Deselect element when clicking on empty canvas
-    if (e.target === e.currentTarget) {
-      onElementSelect(null);
+    // Focus canvas for keyboard events
+    if (canvasRef.current?.parentElement) {
+      (canvasRef.current.parentElement as HTMLElement).focus();
     }
   };
 
   return (
     <div
-      ref={canvasRef}
-      className="border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center relative bg-white overflow-hidden"
+      className="relative border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white"
       style={{
-        backgroundColor,
         width: `${canvasWidth}px`,
         height: `${canvasHeight}px`,
         transform: `scale(${scale})`,
         transformOrigin: "top left",
       }}
       onClick={handleCanvasClick}
+      tabIndex={0}
     >
-      {/* Render Canvas Elements */}
-      {canvasElements.map((element) => (
-        <CanvasElementRenderer
-          key={element.id}
-          element={element}
-          isSelected={selectedElement?.id === element.id}
-          isPreviewMode={isPreviewMode}
-          isDragging={
-            dragState.isDragging && dragState.elementId === element.id
-          }
-          onMouseDown={(e) => handleMouseDown(e, element)}
-        />
-      ))}
+      <canvas ref={canvasRef} />
 
       {/* Empty State */}
       {canvasElements.length === 0 && (
-        <div className="text-center text-gray-500 pointer-events-none">
-          <Palette className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <p>Start creating your design</p>
-          <p className="text-sm">
-            Add text, images, or shapes from the toolbar
-          </p>
+        <div className="absolute inset-0 flex items-center justify-center text-gray-500 pointer-events-none">
+          <div className="text-center">
+            <Palette className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+            <p>Start creating your design</p>
+            <p className="text-sm">
+              Add text, images, or shapes from the toolbar
+            </p>
+          </div>
         </div>
       )}
 
       {/* Drag indicator */}
-      {dragState.isDragging && (
+      {isDragging && (
         <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded text-xs pointer-events-none">
-          Dragging...
+          Moving...
+        </div>
+      )}
+
+      {/* Selection indicator */}
+      {selectedElement && !isPreviewMode && (
+        <div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-xs pointer-events-none">
+          Selected: {selectedElement.type}
         </div>
       )}
     </div>
   );
 }
 
-interface CanvasElementRendererProps {
-  element: CanvasElement;
-  isSelected: boolean;
-  isPreviewMode: boolean;
-  isDragging: boolean;
-  onMouseDown: (e: React.MouseEvent) => void;
-}
+// Export utility functions for external use
+export const fabricCanvasUtils = {
+  addText: (text: string = "New Text") => {
+    if (!globalFabricCanvas) return;
 
-function CanvasElementRenderer({
-  element,
-  isSelected,
-  isPreviewMode,
-  isDragging,
-  onMouseDown,
-}: CanvasElementRendererProps) {
-  const getCursor = () => {
-    if (isPreviewMode) return "default";
-    if (isDragging) return "grabbing";
-    return "grab";
-  };
+    const textObject = new fabric.IText(text, {
+      left: 100,
+      top: 100,
+      fontFamily: "Arial",
+      fontSize: 20,
+      fill: "#000000",
+    });
 
-  return (
-    <div
-      className={`absolute border-2 transition-all duration-150 ${
-        isSelected && !isPreviewMode
-          ? "border-blue-500 shadow-lg"
-          : isPreviewMode
-            ? "border-transparent"
-            : "border-transparent hover:border-blue-300 hover:shadow-md"
-      } ${isDragging ? "z-50" : "z-10"}`}
-      style={{
-        left: element.x,
-        top: element.y,
-        width: element.width,
-        height: element.height,
-        transform: element.rotation
-          ? `rotate(${element.rotation}deg)`
-          : undefined,
-        cursor: getCursor(),
-        pointerEvents: isPreviewMode ? "none" : "auto",
-      }}
-      onMouseDown={onMouseDown}
-    >
-      {/* Element Content */}
-      {element.type === "text" && (
-        <div
-          style={{
-            fontFamily: element.font,
-            fontSize: element.fontSize,
-            fontWeight: element.fontWeight,
-            color: element.color,
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            userSelect: isPreviewMode ? "none" : "auto",
-            pointerEvents: isPreviewMode ? "none" : "auto",
-          }}
-        >
-          {element.content}
-        </div>
-      )}
+    globalFabricCanvas.add(textObject);
+    globalFabricCanvas.setActiveObject(textObject);
+    globalFabricCanvas.renderAll();
 
-      {element.type === "shape" && (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            backgroundColor: element.color,
-            borderRadius: element.shapeType === "circle" ? "50%" : "0",
-          }}
-        />
-      )}
+    return textObject;
+  },
 
-      {element.type === "image" && (
-        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-          {element.mediaId ? (
-            <img
-              src={`/api/media/${element.mediaId}`}
-              alt="Uploaded content"
-              className="w-full h-full object-contain"
-              draggable={false}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = "none";
-                target.nextElementSibling?.classList.remove("hidden");
-              }}
-            />
-          ) : (
-            <ImageIcon className="w-8 h-8 text-gray-400" />
-          )}
-        </div>
-      )}
+  addShape: (type: "rect" | "circle" | "triangle") => {
+    if (!globalFabricCanvas) return;
 
-      {/* Selection Handles */}
-      {isSelected && !isPreviewMode && (
-        <>
-          {/* Corner handles for resizing (you can implement resize functionality later) */}
-          <div className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-nw-resize" />
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-ne-resize" />
-          <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-sw-resize" />
-          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-se-resize" />
-        </>
-      )}
-    </div>
-  );
-}
+    let shape: fabric.Object;
+
+    switch (type) {
+      case "circle":
+        shape = new fabric.Circle({
+          left: 100,
+          top: 100,
+          radius: 50,
+          fill: "#0066cc",
+        });
+        break;
+      case "triangle":
+        shape = new fabric.Triangle({
+          left: 100,
+          top: 100,
+          width: 100,
+          height: 100,
+          fill: "#0066cc",
+        });
+        break;
+      default:
+        shape = new fabric.Rect({
+          left: 100,
+          top: 100,
+          width: 100,
+          height: 100,
+          fill: "#0066cc",
+        });
+    }
+
+    globalFabricCanvas.add(shape);
+    globalFabricCanvas.setActiveObject(shape);
+    globalFabricCanvas.renderAll();
+
+    return shape;
+  },
+
+  addImageFromUrl: async (url: string) => {
+    if (!globalFabricCanvas) return;
+
+    try {
+      const img = await fabric.Image.fromURL(url, {
+        crossOrigin: "anonymous",
+      });
+
+      img.set({
+        left: 100,
+        top: 100,
+        scaleX: 0.5,
+        scaleY: 0.5,
+      });
+
+      globalFabricCanvas.add(img);
+      globalFabricCanvas.setActiveObject(img);
+      globalFabricCanvas.renderAll();
+    } catch (err) {
+      console.error("Error loading image:", err);
+    }
+  },
+};
+
+export const canvasUtils = {
+  exportCanvas: (
+    format: "png" | "jpg" | "jpeg" | "svg" | "pdf" = "png",
+    quality: number = 1
+  ): string | null => {
+    if (!globalFabricCanvas) return null;
+
+    const fmt = format.toLowerCase();
+
+    if (fmt === "svg") {
+      return globalFabricCanvas.toSVG();
+    }
+
+    if (fmt === "jpg" || fmt === "jpeg") {
+      return globalFabricCanvas.toDataURL({
+        format: "jpeg",
+        quality,
+        multiplier: 1,
+      });
+    }
+
+    return globalFabricCanvas.toDataURL({
+      format: "png",
+      quality,
+      multiplier: 1,
+    });
+  },
+
+  getCanvas: (): fabric.Canvas | null => globalFabricCanvas ?? null,
+};

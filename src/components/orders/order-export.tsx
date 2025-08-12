@@ -307,7 +307,7 @@ export default function OrderExport({
           break;
         case "templateNames":
           data[fieldKey] = order.orderItems
-            .map((item) => item.template?.name || `Template ${item.templateId}`)
+            .map((item) => item.template?.name || `Template ${item.template}`)
             .join(", ");
           break;
         case "designApprovalRequired":

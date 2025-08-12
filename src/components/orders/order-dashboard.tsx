@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -72,8 +72,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useOrders } from "@/hooks/use-orders";
-import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
-import { OrderResponse } from "@/lib/orders/types/orders.types";
+import {
+  GetOrdersDto,
+  ORDER_STATUS,
+  URGENCY_LEVELS,
+} from "@/lib/orders/dto/orders.dto";
+import { OrderResponse, OrderItem } from "@/lib/orders/types/orders.types";
 import OrderAnalytics from "./order-analytics";
 import OrderExport from "./order-export";
 
@@ -198,9 +202,28 @@ const getStatusConfig = (status: string) => {
 };
 
 // Helper function to safely extract order items count
-const getOrderItemsCount = (orderItems: any[]): number => {
+const getOrderItemsCount = (orderItems: (OrderItem | string)[]): number => {
   if (!Array.isArray(orderItems)) return 0;
   return orderItems.length;
+};
+
+// Helper function to extract product name from order items
+const getMainProductName = (orderItems: (OrderItem | string)[]): string => {
+  if (!Array.isArray(orderItems) || orderItems.length === 0)
+    return "No products";
+
+  const firstItem = orderItems[0];
+  if (typeof firstItem === "string") return "Unknown product";
+
+  return firstItem.template?.name || `Product ${firstItem.productId}`;
+};
+
+// Helper function to format currency for Kenya
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+  }).format(amount);
 };
 
 export default function OrdersDashboard() {
@@ -263,7 +286,7 @@ export default function OrdersDashboard() {
       {
         id: "revenue",
         label: "Revenue",
-        value: `$${totalRevenue.toLocaleString()}`,
+        value: formatCurrency(totalRevenue),
         change: {
           value: 8.2,
           type: "increase",
@@ -275,7 +298,7 @@ export default function OrdersDashboard() {
       {
         id: "avg_order_value",
         label: "Avg Order Value",
-        value: `$${avgOrderValue.toFixed(2)}`,
+        value: formatCurrency(avgOrderValue),
         change: {
           value: 3.1,
           type: "decrease",
@@ -308,7 +331,7 @@ export default function OrdersDashboard() {
     ];
   }, [orders]);
 
-  // Mock recent activities
+  // Mock recent activities - would be replaced with real activity data
   const recentActivities: RecentActivity[] = [
     {
       id: "1",
@@ -329,10 +352,10 @@ export default function OrdersDashboard() {
       id: "2",
       type: "payment_received",
       title: "Payment confirmed",
-      description: "M-PESA payment of $89.50 received",
+      description: "M-PESA payment of KES 8,950 received",
       timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
       metadata: {
-        amount: 89.5,
+        amount: 8950,
       },
     },
     {
@@ -388,28 +411,28 @@ export default function OrdersDashboard() {
       id: "1",
       name: "Acme Corporation",
       orders: 23,
-      revenue: 4580.99,
+      revenue: 458099,
       avatar: "AC",
     },
     {
       id: "2",
       name: "Tech Solutions Ltd",
       orders: 18,
-      revenue: 3420.5,
+      revenue: 342050,
       avatar: "TS",
     },
     {
       id: "3",
       name: "Creative Agency",
       orders: 15,
-      revenue: 2890.25,
+      revenue: 289025,
       avatar: "CA",
     },
     {
       id: "4",
       name: "Startup Hub",
       orders: 12,
-      revenue: 2150.75,
+      revenue: 215075,
       avatar: "SH",
     },
   ];
@@ -570,11 +593,10 @@ export default function OrdersDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="bulk">Bulk Actions</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
@@ -685,8 +707,8 @@ export default function OrdersDashboard() {
                       <div className="flex-1">
                         <p className="text-sm font-medium">{customer.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {customer.orders} orders • $
-                          {customer.revenue.toFixed(2)}
+                          {customer.orders} orders •{" "}
+                          {formatCurrency(customer.revenue)}
                         </p>
                       </div>
                     </div>
@@ -731,7 +753,7 @@ export default function OrdersDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Order</TableHead>
-                      <TableHead>Template</TableHead>
+                      <TableHead>Product</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Date</TableHead>
@@ -748,14 +770,25 @@ export default function OrdersDashboard() {
                           >
                             {order.orderNumber}
                           </Link>
+                          {order.urgencyLevel &&
+                            order.urgencyLevel !== "NORMAL" && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-2 text-xs"
+                              >
+                                {order.urgencyLevel}
+                              </Badge>
+                            )}
                         </TableCell>
                         <TableCell>
                           <span className="text-sm text-muted-foreground">
-                            {order.templateId || "No template"}
+                            {getMainProductName(order.orderItems)}
                           </span>
                         </TableCell>
                         <TableCell>{getStatusBadge(order.status)}</TableCell>
-                        <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {formatCurrency(order.totalAmount)}
+                        </TableCell>
                         <TableCell>
                           {format(new Date(order.createdAt), "MMM dd")}
                         </TableCell>
@@ -840,7 +873,7 @@ export default function OrdersDashboard() {
                     <TableRow>
                       <TableHead>Order #</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Template</TableHead>
+                      <TableHead>Product</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Date</TableHead>
@@ -857,17 +890,28 @@ export default function OrdersDashboard() {
                           >
                             {order.orderNumber}
                           </Link>
+                          {order.urgencyLevel &&
+                            order.urgencyLevel !== "NORMAL" && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-2 text-xs"
+                              >
+                                {order.urgencyLevel}
+                              </Badge>
+                            )}
                         </TableCell>
                         <TableCell>{getStatusBadge(order.status)}</TableCell>
                         <TableCell>
                           <span className="text-sm text-muted-foreground">
-                            {order.templateId || "No template"}
+                            {getMainProductName(order.orderItems)}
                           </span>
                         </TableCell>
                         <TableCell>
                           {getOrderItemsCount(order.orderItems)} items
                         </TableCell>
-                        <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {formatCurrency(order.totalAmount)}
+                        </TableCell>
                         <TableCell>
                           {format(new Date(order.createdAt), "MMM dd, yyyy")}
                         </TableCell>
@@ -908,31 +952,22 @@ export default function OrdersDashboard() {
           <OrderAnalytics />
         </TabsContent>
 
-        {/* Bulk Actions Tab - Placeholder
-        <TabsContent value="bulk">
+        {/* Reports Tab */}
+        <TabsContent value="reports">
           <Card>
             <CardHeader>
-              <CardTitle>Bulk Operations</CardTitle>
+              <CardTitle>Order Reports</CardTitle>
               <CardDescription>
-                Perform actions on multiple orders at once
+                Generate and export detailed order reports
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                Bulk operations will be implemented here.
+                Order export functionality will be implemented here.
               </p>
             </CardContent>
           </Card>
-        </TabsContent> */}
-
-        {/* Reports Tab
-        <TabsContent value="reports">
-          <OrderExport
-            orders={orders}
-            filters={filters}
-            onExport={(data) => console.log("Exported:", data)}
-          />
-        </TabsContent> */}
+        </TabsContent>
       </Tabs>
     </div>
   );

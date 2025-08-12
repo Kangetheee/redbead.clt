@@ -225,8 +225,7 @@ export function PaymentMethods({
           } else {
             setValidationErrors((prev) => ({
               ...prev,
-              phone:
-                "Please enter a valid Kenyan phone number (e.g., +254712345678)",
+              phone: "Please enter a valid phone number (e.g., +254712345678)",
             }));
           }
           setIsValidating(false);

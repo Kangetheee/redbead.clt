@@ -4,8 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useOrderConfirmation } from "@/hooks/use-checkout";
-import { OrderConfirmation } from "@/lib/checkout/types/checkout.types";
+import { useOrder } from "@/hooks/use-orders"; // Updated to use correct hook
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -51,10 +50,17 @@ import {
   FileText,
   Heart,
   Gift,
+  XCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
-import { Label } from "recharts";
+import { Label } from "@/components/ui/label";
+import {
+  OrderResponse,
+  OrderItem,
+  isOrderItem,
+} from "@/lib/orders/types/orders.types";
+import { ORDER_STATUS } from "@/lib/orders/dto/orders.dto";
 
 interface OrderConfirmationProps {
   orderId: string;
@@ -82,6 +88,46 @@ const ORDER_STATUS_CONFIG = {
     bgColor: "bg-green-50",
     borderColor: "border-green-200",
   },
+  DESIGN_PENDING: {
+    icon: FileText,
+    label: "Design Pending",
+    description: "Waiting for design approval",
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+  },
+  DESIGN_APPROVED: {
+    icon: CheckCircle,
+    label: "Design Approved",
+    description: "Design has been approved",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+  },
+  DESIGN_REJECTED: {
+    icon: XCircle,
+    label: "Design Rejected",
+    description: "Design needs revision",
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+  },
+  PAYMENT_PENDING: {
+    icon: CreditCard,
+    label: "Payment Pending",
+    description: "Awaiting payment confirmation",
+    color: "text-orange-600",
+    bgColor: "bg-orange-50",
+    borderColor: "border-orange-200",
+  },
+  PAYMENT_CONFIRMED: {
+    icon: CheckCircle,
+    label: "Payment Confirmed",
+    description: "Payment successfully processed",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+  },
   PROCESSING: {
     icon: Package,
     label: "Processing",
@@ -90,38 +136,89 @@ const ORDER_STATUS_CONFIG = {
     bgColor: "bg-blue-50",
     borderColor: "border-blue-200",
   },
-  SHIPPED: {
-    icon: Truck,
-    label: "Shipped",
-    description: "Your order is on its way",
+  PRODUCTION: {
+    icon: Package,
+    label: "In Production",
+    description: "Your order is being manufactured",
     color: "text-purple-600",
     bgColor: "bg-purple-50",
     borderColor: "border-purple-200",
   },
-};
-
-const PAYMENT_STATUS_CONFIG = {
-  PENDING: {
-    icon: Clock,
-    label: "Payment Pending",
-    description: "Awaiting payment confirmation",
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-50",
+  SHIPPED: {
+    icon: Truck,
+    label: "Shipped",
+    description: "Your order is on its way",
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
   },
-  COMPLETED: {
+  DELIVERED: {
     icon: CheckCircle,
-    label: "Payment Completed",
-    description: "Payment successfully processed",
+    label: "Delivered",
+    description: "Order successfully delivered",
     color: "text-green-600",
     bgColor: "bg-green-50",
+    borderColor: "border-green-200",
   },
-  FAILED: {
-    icon: AlertTriangle,
-    label: "Payment Failed",
-    description: "Payment was not successful",
+  CANCELLED: {
+    icon: XCircle,
+    label: "Cancelled",
+    description: "Order has been cancelled",
     color: "text-red-600",
     bgColor: "bg-red-50",
+    borderColor: "border-red-200",
   },
+  REFUNDED: {
+    icon: ArrowRight,
+    label: "Refunded",
+    description: "Order has been refunded",
+    color: "text-gray-600",
+    bgColor: "bg-gray-50",
+    borderColor: "border-gray-200",
+  },
+};
+
+// Helper function to format order items - Updated to use correct field names
+const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
+  if (!Array.isArray(orderItems)) return [];
+
+  return orderItems.map((item, index) => {
+    if (typeof item === "string") {
+      return {
+        id: item,
+        productId: `unknown-${index}`, // Updated from templateId
+        variantId: "unknown", // Updated from sizeVariantId
+        quantity: 1,
+      };
+    }
+    return item;
+  });
+};
+
+// Helper function to format customizations - Updated to handle both array and object types
+const formatCustomizations = (
+  customizations?:
+    | Array<{ name: string; value: string }>
+    | Record<string, string>
+): string[] => {
+  if (!customizations) return [];
+
+  if (Array.isArray(customizations)) {
+    return customizations.map((c) => `${c.name}: ${c.value}`);
+  }
+
+  if (typeof customizations === "object") {
+    return Object.entries(customizations).map(
+      ([key, value]) => `${key}: ${value}`
+    );
+  }
+
+  return [];
+};
+
+// Helper function to get product name
+const getProductName = (item: OrderItem): string => {
+  return item.template?.name || `Product ${item.productId}`;
 };
 
 export function OrderConfirmationComponent({
@@ -139,24 +236,24 @@ export function OrderConfirmationComponent({
   const [showDetails, setShowDetails] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
 
-  // Hooks
+  // Updated to use the correct hook
   const {
     data: orderData,
     isLoading,
     error,
     refetch,
-  } = useOrderConfirmation(orderId, !!orderId);
+  } = useOrder(orderId, !!orderId);
 
   // Auto-refresh every 30 seconds for payment updates
   useEffect(() => {
-    if (orderData?.paymentStatus === "PENDING") {
+    if (orderData?.payment?.status === "PENDING") {
       const interval = setInterval(() => {
         refetch();
       }, 30000);
 
       return () => clearInterval(interval);
     }
-  }, [orderData?.paymentStatus, refetch]);
+  }, [orderData?.payment?.status, refetch]);
 
   const handleCopyOrderNumber = () => {
     if (orderData?.orderNumber) {
@@ -176,7 +273,7 @@ export function OrderConfirmationComponent({
     try {
       const shareData = {
         title: `Order ${orderData?.orderNumber || orderId}`,
-        text: `I just placed an order for ${orderData?.totalAmount ? `KES ${orderData.totalAmount.toLocaleString()}` : "my items"}!`,
+        text: `I just placed an order for ${orderData?.totalAmount ? `${formatCurrency(orderData.totalAmount)}` : "my items"}!`,
         url: window.location.href,
       };
 
@@ -208,7 +305,7 @@ export function OrderConfirmationComponent({
 
   const formatAddress = (address: any) => {
     if (!address) return "";
-    return `${address.recipientName}\n${address.formattedAddress}`;
+    return `${address.recipientName || address.name || ""}\n${address.street}\n${address.city}, ${address.state || ""} ${address.postalCode}\n${address.country}`;
   };
 
   // Loading state
@@ -260,12 +357,93 @@ export function OrderConfirmationComponent({
   const statusConfig =
     ORDER_STATUS_CONFIG[orderData.status as keyof typeof ORDER_STATUS_CONFIG] ||
     ORDER_STATUS_CONFIG.PENDING;
-  const paymentConfig =
-    PAYMENT_STATUS_CONFIG[
-      orderData.paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG
-    ] || PAYMENT_STATUS_CONFIG.PENDING;
+
+  // Updated payment status handling to use order payment data
+  const paymentStatus = orderData.payment?.status || "PENDING";
+  const paymentConfig = {
+    PENDING: {
+      icon: Clock,
+      label: "Payment Pending",
+      description: "Awaiting payment confirmation",
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-50",
+    },
+    SUCCESS: {
+      icon: CheckCircle,
+      label: "Payment Completed",
+      description: "Payment successfully processed",
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+    },
+    FAILED: {
+      icon: AlertTriangle,
+      label: "Payment Failed",
+      description: "Payment was not successful",
+      color: "text-red-600",
+      bgColor: "bg-red-50",
+    },
+  }[paymentStatus] || {
+    icon: Clock,
+    label: "Payment Pending",
+    description: "Awaiting payment confirmation",
+    color: "text-yellow-600",
+    bgColor: "bg-yellow-50",
+  };
+
   const StatusIcon = statusConfig.icon;
   const PaymentIcon = paymentConfig.icon;
+
+  // Format order items correctly
+  const formattedOrderItems = extractOrderItems(orderData.orderItems);
+
+  // Generate next steps based on order status
+  const getNextSteps = (status: string): string[] => {
+    switch (status) {
+      case "PENDING":
+        return [
+          "We'll review your order details",
+          "Payment confirmation will be sent",
+          "Design work will begin once payment is confirmed",
+          "You'll receive updates via email",
+        ];
+      case "CONFIRMED":
+        return [
+          "Design work will begin shortly",
+          "You'll receive design previews for approval",
+          "Production will start after design approval",
+          "We'll send shipping updates",
+        ];
+      case "DESIGN_PENDING":
+        return [
+          "Our designers are working on your order",
+          "You'll receive design previews for approval",
+          "Production will start after your approval",
+          "Expected timeline: 2-3 business days",
+        ];
+      case "PROCESSING":
+        return [
+          "Your order is being prepared for production",
+          "Quality checks are being performed",
+          "Shipping will be arranged soon",
+          "Tracking information will be provided",
+        ];
+      case "SHIPPED":
+        return [
+          "Your order is on its way",
+          "Track your package using the tracking number",
+          "Delivery expected within estimated timeframe",
+          "Contact us if you have any concerns",
+        ];
+      default:
+        return [
+          "We'll keep you updated on your order progress",
+          "Check your email for important updates",
+          "Contact support if you have any questions",
+        ];
+    }
+  };
+
+  const nextSteps = getNextSteps(orderData.status);
 
   return (
     <div className={cn("max-w-4xl mx-auto space-y-6", className)}>
@@ -348,8 +526,13 @@ export function OrderConfirmationComponent({
               <div className={cn("text-sm", paymentConfig.color, "opacity-80")}>
                 {paymentConfig.description}
               </div>
+              {orderData.payment?.transactionId && (
+                <div className="text-xs mt-1">
+                  Transaction: {orderData.payment.transactionId}
+                </div>
+              )}
             </div>
-            {orderData.paymentStatus === "PENDING" && (
+            {paymentStatus === "PENDING" && (
               <Badge variant="outline" className="text-xs">
                 <Timer className="h-3 w-3 mr-1" />
                 Auto-refresh
@@ -368,14 +551,14 @@ export function OrderConfirmationComponent({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
-                Order Items ({orderData.items.length})
+                Order Items ({formattedOrderItems.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {orderData.items.map((item, index) => (
+                {formattedOrderItems.map((item, index) => (
                   <div
-                    key={index}
+                    key={item.id || index}
                     className="flex items-center gap-4 p-3 border rounded-lg"
                   >
                     <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center flex-shrink-0">
@@ -383,15 +566,22 @@ export function OrderConfirmationComponent({
                     </div>
 
                     <div className="flex-1">
-                      <div className="font-medium">{item.productName}</div>
+                      <div className="font-medium">{getProductName(item)}</div>
                       <div className="text-sm text-muted-foreground">
                         Quantity: {item.quantity}
                       </div>
 
+                      {/* Variant Information */}
+                      {item.sizeVariant?.displayName && (
+                        <div className="text-sm text-muted-foreground">
+                          Size: {item.sizeVariant.displayName}
+                        </div>
+                      )}
+
                       {/* Customizations */}
-                      {item.customizations.length > 0 && (
+                      {item.customizations && (
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {item.customizations
+                          {formatCustomizations(item.customizations)
                             .slice(0, 3)
                             .map((custom, idx) => (
                               <Badge
@@ -402,12 +592,23 @@ export function OrderConfirmationComponent({
                                 {custom}
                               </Badge>
                             ))}
-                          {item.customizations.length > 3 && (
+                          {formatCustomizations(item.customizations).length >
+                            3 && (
                             <Badge variant="outline" className="text-xs">
-                              +{item.customizations.length - 3} more
+                              +
+                              {formatCustomizations(item.customizations)
+                                .length - 3}{" "}
+                              more
                             </Badge>
                           )}
                         </div>
+                      )}
+
+                      {/* Item Status */}
+                      {item.status && (
+                        <Badge variant="outline" className="text-xs mt-1">
+                          {item.status.replace(/_/g, " ")}
+                        </Badge>
                       )}
                     </div>
                   </div>
@@ -444,8 +645,17 @@ export function OrderConfirmationComponent({
                     </Label>
                     <div className="mt-2 p-3 bg-muted/30 rounded-lg">
                       <div className="text-sm">
-                        {orderData.estimatedDelivery || "To be determined"}
+                        {orderData.expectedDelivery
+                          ? new Date(
+                              orderData.expectedDelivery
+                            ).toLocaleDateString()
+                          : "To be determined"}
                       </div>
+                      {orderData.trackingNumber && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Tracking: {orderData.trackingNumber}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -453,29 +663,63 @@ export function OrderConfirmationComponent({
             </Card>
           )}
 
-          {/* Next Steps */}
-          {orderData.nextSteps.length > 0 && (
-            <Card>
+          {/* Design Approval Section */}
+          {orderData.designApprovalRequired && (
+            <Card className="border-blue-200 bg-blue-50">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ArrowRight className="h-5 w-5" />
-                  What Happens Next
+                <CardTitle className="flex items-center gap-2 text-blue-800">
+                  <FileText className="h-5 w-5" />
+                  Design Approval Required
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {orderData.nextSteps.map((step, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium mt-0.5 flex-shrink-0">
-                        {index + 1}
-                      </div>
-                      <span className="text-sm">{step}</span>
+                  <p className="text-sm text-blue-700">
+                    Your order requires design approval before production can
+                    begin.
+                  </p>
+                  {orderData.designApprovalStatus && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Status:</span>
+                      <Badge variant="outline" className="text-blue-600">
+                        {orderData.designApprovalStatus.replace(/_/g, " ")}
+                      </Badge>
                     </div>
-                  ))}
+                  )}
+                  {orderData.designApprovalRequestedAt && (
+                    <p className="text-xs text-blue-600">
+                      Requested:{" "}
+                      {new Date(
+                        orderData.designApprovalRequestedAt
+                      ).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Next Steps */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ArrowRight className="h-5 w-5" />
+                What Happens Next
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {nextSteps.map((step, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium mt-0.5 flex-shrink-0">
+                      {index + 1}
+                    </div>
+                    <span className="text-sm">{step}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -487,7 +731,34 @@ export function OrderConfirmationComponent({
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-2xl font-bold text-center">
-                KES {orderData.totalAmount.toLocaleString()}
+                {formatCurrency(orderData.totalAmount)}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(orderData.subtotalAmount)}</span>
+                </div>
+                {orderData.discountAmount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount:</span>
+                    <span>- {formatCurrency(orderData.discountAmount)}</span>
+                  </div>
+                )}
+                {orderData.taxAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span>Tax:</span>
+                    <span>{formatCurrency(orderData.taxAmount)}</span>
+                  </div>
+                )}
+                {orderData.shippingAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span>Shipping:</span>
+                    <span> {formatCurrency(orderData.shippingAmount)}</span>
+                  </div>
+                )}
               </div>
 
               <Separator />
@@ -507,8 +778,17 @@ export function OrderConfirmationComponent({
                 </div>
                 <div className="flex justify-between">
                   <span>Items:</span>
-                  <span>{orderData.items.length}</span>
+                  <span>{formattedOrderItems.length}</span>
                 </div>
+                {orderData.urgencyLevel &&
+                  orderData.urgencyLevel !== "NORMAL" && (
+                    <div className="flex justify-between">
+                      <span>Priority:</span>
+                      <Badge variant="outline" className="text-orange-600">
+                        {orderData.urgencyLevel}
+                      </Badge>
+                    </div>
+                  )}
               </div>
             </CardContent>
           </Card>
@@ -636,6 +916,23 @@ export function OrderConfirmationComponent({
           </div>
         </CardContent>
       </Card>
+
+      {/* Special Instructions */}
+      {orderData.specialInstructions && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Special Instructions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="p-3 bg-muted/30 rounded-lg text-sm">
+              {orderData.specialInstructions}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Debug Information (Development Only) */}
       {process.env.NODE_ENV === "development" && (

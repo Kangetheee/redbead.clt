@@ -122,15 +122,15 @@ const PAYMENT_STATUS_CONFIG: Record<string, PaymentStatusConfig> = {
   },
 };
 
-// Helper function to format currency
+// Helper function to format currency for Kenya
 const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-KE", {
     style: "currency",
-    currency: "USD",
+    currency: "KES",
   }).format(amount);
 };
 
-// Helper function to safely extract order items
+// Helper function to safely extract order items - Updated to use correct field names
 const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
   if (!Array.isArray(orderItems)) return [];
 
@@ -138,8 +138,8 @@ const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
     if (typeof item === "string") {
       return {
         id: item,
-        templateId: `unknown-${index}`,
-        sizeVariantId: "unknown",
+        productId: `unknown-${index}`, // Updated from templateId
+        variantId: "unknown", // Updated from sizeVariantId
         quantity: 1,
       };
     }
@@ -147,9 +147,9 @@ const extractOrderItems = (orderItems: (OrderItem | string)[]): OrderItem[] => {
   });
 };
 
-// Helper function to get template name
-const getTemplateName = (item: OrderItem): string => {
-  return item.template?.name || `Template ${item.templateId}`;
+// Helper function to get product name - Updated to use correct field
+const getProductName = (item: OrderItem): string => {
+  return item.template?.name || `Product ${item.productId}`;
 };
 
 // Helper function to format company address
@@ -467,7 +467,7 @@ export default function OrderInvoice({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item</TableHead>
-                    <TableHead>Template</TableHead>
+                    <TableHead>Product</TableHead>
                     <TableHead>Size</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead className="text-right">Unit Price</TableHead>
@@ -488,6 +488,7 @@ export default function OrderInvoice({
                                 Item #{index + 1}
                               </div>
                               {item.customizations &&
+                                Array.isArray(item.customizations) &&
                                 item.customizations.length > 0 && (
                                   <div className="text-xs text-muted-foreground mt-1">
                                     {item.customizations.length}{" "}
@@ -499,7 +500,7 @@ export default function OrderInvoice({
                           <TableCell>
                             <div>
                               <div className="font-medium">
-                                {getTemplateName(item)}
+                                {getProductName(item)}
                               </div>
                               {item.template?.slug && (
                                 <div className="text-xs text-muted-foreground">
@@ -512,12 +513,14 @@ export default function OrderInvoice({
                             <div>
                               <div>
                                 {item.sizeVariant?.displayName ||
-                                  item.sizeVariantId}
+                                  item.variantId}
                               </div>
                               {item.sizeVariant?.dimensions && (
                                 <div className="text-xs text-muted-foreground">
-                                  {item.sizeVariant.dimensions.width}&quot; ×{" "}
-                                  {item.sizeVariant.dimensions.height}&quot;
+                                  {item.sizeVariant.dimensions.width}
+                                  {item.sizeVariant.dimensions.unit} ×{" "}
+                                  {item.sizeVariant.dimensions.height}
+                                  {item.sizeVariant.dimensions.unit}
                                 </div>
                               )}
                             </div>

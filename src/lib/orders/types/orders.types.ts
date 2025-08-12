@@ -43,7 +43,8 @@ export interface OrderItem {
   variantId: string;
   quantity: number;
   // Customizations should be an object, not an array
-  customizations?: Record<string, string>;
+  customizations?: Array<{ name: string; value: string }>;
+
   designId?: string;
   status?:
     | "PROCESSING"

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,7 +44,8 @@ interface ApiError {
   message?: string;
 }
 
-export default function CheckoutPaymentPage() {
+// Component that uses useSearchParams
+function CheckoutPaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
@@ -664,5 +665,26 @@ export default function CheckoutPaymentPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function CheckoutPaymentLoading() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+        <p>Loading payment page...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function CheckoutPaymentPage() {
+  return (
+    <Suspense fallback={<CheckoutPaymentLoading />}>
+      <CheckoutPaymentContent />
+    </Suspense>
   );
 }
