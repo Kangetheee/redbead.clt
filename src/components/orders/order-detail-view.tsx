@@ -383,7 +383,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
 
     // Fallback for guest orders without customer info
     return {
-      displayName: "Guest Customer",
+      displayName: "Customer",
       initials: "GU",
       isGuest: true,
     };
