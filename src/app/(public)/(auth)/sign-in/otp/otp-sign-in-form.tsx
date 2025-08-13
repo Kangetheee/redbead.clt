@@ -28,7 +28,7 @@ export default function OtpSignInForm() {
 
   const searchParamsString = searchParams?.toString() || "";
   const callbackUrl =
-    new URLSearchParams(searchParamsString).get("callbackUrl") || "/dashboard";
+    new URLSearchParams(searchParamsString).get("callbackUrl") || "";
 
   const otherParams = new URLSearchParams(searchParamsString);
   otherParams.delete("callbackUrl");
