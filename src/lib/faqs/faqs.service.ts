@@ -1,31 +1,41 @@
 import { Fetcher } from "../api/api.service";
-import { CreateFaqDto } from "./dto/faq.dto";
-import { Faq } from "./types/faq.types";
+import { CreateFaqDto, UpdateFaqDto } from "./dto/faq.dto";
+import { Faq, FaqsQueryParams, PaginatedFaqsResponse } from "./types/faq.types";
 
 export class FaqsService {
   constructor(private fetcher = new Fetcher()) {}
 
-  async find(query?: string) {
-    return await this.fetcher.request<Faq[]>(
-      `/v1/faqs${query ? `?${query}` : ""}`
-    );
+  async getAll(params?: FaqsQueryParams): Promise<PaginatedFaqsResponse> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `/v1/faqs?${queryString}` : "/v1/faqs";
+
+    return await this.fetcher.request<PaginatedFaqsResponse>(url);
   }
 
-  async create(data: CreateFaqDto) {
+  async getById(id: string): Promise<Faq> {
+    return await this.fetcher.request<Faq>(`/v1/faqs/${id}`);
+  }
+
+  async create(data: CreateFaqDto): Promise<{ id: string }> {
     return await this.fetcher.request<{ id: string }>("/v1/faqs", {
       method: "POST",
       data,
     });
   }
 
-  async update(id: string, data: CreateFaqDto) {
+  async update(id: string, data: UpdateFaqDto): Promise<{ id: string }> {
     return await this.fetcher.request<{ id: string }>(`/v1/faqs/${id}`, {
       method: "PATCH",
       data,
     });
   }
 
-  async delete(id: string) {
+  async delete(id: string): Promise<{ id: string }> {
     return await this.fetcher.request<{ id: string }>(`/v1/faqs/${id}`, {
       method: "DELETE",
     });

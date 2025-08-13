@@ -1,45 +1,37 @@
-import { useEffect, useRef } from "react";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { gsap } from "gsap";
-
-const FAQ_DATA = [
-  {
-    question: "What's your minimum order quantity?",
-    answer:
-      "Our minimum order quantity varies by product. For most items like lanyards and wristbands, we start from 50 pieces. Contact us for specific requirements.",
-  },
-  {
-    question: "How long does production take?",
-    answer:
-      "Standard production time is 3-7 business days depending on the product and quantity. Rush orders can be completed in 24-48 hours for an additional fee.",
-  },
-  {
-    question: "Do you provide design services?",
-    answer:
-      "Yes! Our experienced design team can help create or refine your artwork. We offer free design consultations and revisions until you're completely satisfied.",
-  },
-  {
-    question: "What file formats do you accept?",
-    answer:
-      "We accept AI, PDF, PNG, JPG, and EPS files. For best results, we recommend vector files (AI or PDF) with 300 DPI resolution.",
-  },
-  {
-    question: "Do you offer samples before bulk orders?",
-    answer:
-      "Yes, we can provide samples for most products. Sample costs vary and can often be credited towards your final order.",
-  },
-  {
-    question: "What are your payment terms?",
-    answer:
-      "We accept M-Pesa, bank transfers, and cash payments. For large orders, we typically require 50% upfront with the balance due upon completion.",
-  },
-];
+import { Faq } from "@/lib/faqs/types/faq.types";
 
 export function FAQSection() {
+  const [faqData, setFaqData] = useState<Faq[]>([]);
   const scrollContainer = useRef<HTMLDivElement>(null);
 
+  // Get FAQs from the data provider on mount
+  useEffect(() => {
+    const faqDataContainer = document.getElementById("faq-data-container");
+    if (faqDataContainer && faqDataContainer.dataset.faqs) {
+      try {
+        const parsedData = JSON.parse(faqDataContainer.dataset.faqs);
+        // Make sure we're working with an array
+        if (Array.isArray(parsedData)) {
+          setFaqData(parsedData);
+        } else {
+          console.error("FAQ data is not an array:", parsedData);
+          setFaqData([]);
+        }
+      } catch (error) {
+        console.error("Failed to parse FAQ data:", error);
+        setFaqData([]);
+      }
+    }
+  }, []);
+
   // Duplicate FAQ data for seamless infinite scroll
-  const duplicatedFaqs = [...FAQ_DATA, ...FAQ_DATA, ...FAQ_DATA];
+  const duplicatedFaqs =
+    faqData.length > 0 ? [...faqData, ...faqData, ...faqData] : [];
 
   useEffect(() => {
     if (scrollContainer.current) {
@@ -114,7 +106,7 @@ export function FAQSection() {
         tl.kill();
       };
     }
-  }, []);
+  }, [faqData]); // Re-run when faqData changes
 
   return (
     <section className="py-20 bg-gray-50 overflow-hidden">
@@ -128,47 +120,57 @@ export function FAQSection() {
           </p>
         </div>
 
-        {/* Infinite Scroll Container - Desktop */}
-        <div className="relative overflow-hidden hidden md:block">
-          <div
-            ref={scrollContainer}
-            className="flex space-x-6"
-            style={{ width: "max-content" }}
-          >
-            {duplicatedFaqs.map((faq, index) => (
-              <Card
-                key={index}
-                className="faq-card p-6 flex-shrink-0 w-80 hover:shadow-lg transition-shadow duration-300"
-                style={{ opacity: 1, transform: "scale(1)" }}
+        {faqData.length > 0 ? (
+          <>
+            {/* Infinite Scroll Container - Desktop */}
+            <div className="relative overflow-hidden hidden md:block">
+              <div
+                ref={scrollContainer}
+                className="flex space-x-6"
+                style={{ width: "max-content" }}
               >
-                <CardContent className="space-y-3">
-                  <h3 className="font-semibold text-gray-900 text-lg leading-tight">
-                    {faq.question}
-                  </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {faq.answer}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+                {duplicatedFaqs.map((faq, index) => (
+                  <Card
+                    key={`${faq.id}-${index}`}
+                    className="faq-card p-6 flex-shrink-0 w-80 hover:shadow-lg transition-shadow duration-300"
+                    style={{ opacity: 1, transform: "scale(1)" }}
+                  >
+                    <CardContent className="space-y-3">
+                      <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+                        {faq.question}
+                      </h3>
+                      <p className="text-gray-600 text-sm leading-relaxed">
+                        {faq.answer}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Enhanced Gradient Overlays */}
+              <div className="absolute top-0 left-0 w-32 h-full bg-gradient-to-r from-gray-50 via-gray-50/80 to-transparent pointer-events-none z-10" />
+              <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-gray-50 via-gray-50/80 to-transparent pointer-events-none z-10" />
+            </div>
+
+            {/* Static FAQ Grid for Mobile */}
+            <div className="md:hidden mt-8 grid gap-6">
+              {faqData.map((faq) => (
+                <Card key={faq.id} className="p-6">
+                  <CardContent className="space-y-3">
+                    <h3 className="font-semibold text-gray-900">
+                      {faq.question}
+                    </h3>
+                    <p className="text-gray-600 text-sm">{faq.answer}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-gray-600">Loading FAQs...</p>
           </div>
-
-          {/* Enhanced Gradient Overlays */}
-          <div className="absolute top-0 left-0 w-32 h-full bg-gradient-to-r from-gray-50 via-gray-50/80 to-transparent pointer-events-none z-10" />
-          <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-gray-50 via-gray-50/80 to-transparent pointer-events-none z-10" />
-        </div>
-
-        {/* Static FAQ Grid for Mobile */}
-        <div className="md:hidden mt-8 grid gap-6">
-          {FAQ_DATA.map((faq, index) => (
-            <Card key={index} className="p-6">
-              <CardContent className="space-y-3">
-                <h3 className="font-semibold text-gray-900">{faq.question}</h3>
-                <p className="text-gray-600 text-sm">{faq.answer}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        )}
       </div>
     </section>
   );
