@@ -88,10 +88,10 @@ export default function AccountDropdown() {
             <AvatarFallback>{getInitials(userName)}</AvatarFallback>
           </Avatar>
 
-          <div className="ml-2 hidden flex-col capitalize md:flex">
+          {/* <div className="ml-2 hidden flex-col capitalize md:flex">
             <p className="text-sm">{userName}</p>
             <p className="text-xs text-muted-foreground">{userRole}</p>
-          </div>
+          </div> */}
           <FiChevronDown className="hidden h-5 w-5 md:block" />
           <span className="sr-only">Toggle user menu</span>
         </Button>
@@ -128,12 +128,12 @@ export default function AccountDropdown() {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem asChild>
+        {/* <DropdownMenuItem asChild>
           <div className="px-2 py-1.5">
             <ThemeToggle />
             Appearance
           </div>
-        </DropdownMenuItem>
+        </DropdownMenuItem> */}
 
         <DropdownMenuSeparator />
 

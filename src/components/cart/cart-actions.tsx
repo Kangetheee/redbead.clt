@@ -110,57 +110,6 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
         </Button>
       </Link>
 
-      {/* Guest Email Dialog
-      <Dialog open={isGuestDialogOpen} onOpenChange={setIsGuestDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Enter Your Email
-            </DialogTitle>
-            <DialogDescription>
-              Please provide your email address to continue with checkout.
-              We&apos;ll use this to send you order updates and receipts.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="guest-email">Email Address</Label>
-              <Input
-                id="guest-email"
-                type="email"
-                placeholder="your@email.com"
-                value={guestEmail}
-                onChange={(e) => {
-                  setGuestEmail(e.target.value);
-                  if (emailError) setEmailError("");
-                }}
-                className={emailError ? "border-red-500" : ""}
-                autoFocus
-              />
-              {emailError && (
-                <p className="text-sm text-red-500">{emailError}</p>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsGuestDialogOpen(false);
-                setGuestEmail("");
-                setEmailError("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleGuestCheckout}>Continue to Checkout</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog> */}
-
       {/* Clear Cart Button */}
       {!isEmpty && (
         <AlertDialog>
