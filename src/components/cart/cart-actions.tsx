@@ -31,6 +31,7 @@ import { useUserProfile } from "@/hooks/use-users";
 import { useRouter } from "next/navigation";
 import { CartResponse } from "@/lib/cart/types/cart.types";
 import { formatCurrency } from "@/lib/utils";
+import Link from "next/link";
 
 interface CartActionsProps {
   cart: CartResponse;
@@ -96,18 +97,18 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
 
   return (
     <div className="space-y-3">
-      {/* Checkout Button */}
-      <Button
-        onClick={handleCheckout}
-        disabled={isEmpty || disabled || isLoading}
-        className="w-full bg-green-600 hover:bg-green-700"
-        size="lg"
-      >
-        <ShoppingCart className="mr-2 h-5 w-5" />
-        {isLoading
-          ? "Processing..."
-          : `Proceed to Checkout (${formatCurrency(cart.summary.total)})`}
-      </Button>
+      <Link href="/checkout">
+        <Button
+          disabled={isEmpty || disabled || isLoading}
+          className="w-full bg-green-600 hover:bg-green-700"
+          size="lg"
+        >
+          <ShoppingCart className="mr-2 h-5 w-5" />
+          {isLoading
+            ? "Processing..."
+            : `Proceed to Checkout (${formatCurrency(cart.summary.total)})`}
+        </Button>
+      </Link>
 
       {/* Guest Email Dialog
       <Dialog open={isGuestDialogOpen} onOpenChange={setIsGuestDialogOpen}>

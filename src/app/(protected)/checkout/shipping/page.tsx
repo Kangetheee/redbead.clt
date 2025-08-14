@@ -877,7 +877,7 @@ function AddressForm({
       </div>
 
       <div>
-        <Label htmlFor="phone">Phone Number (Optional)</Label>
+        <Label htmlFor="phone">Phone Number</Label>
         <Input
           id="phone"
           type="tel"
