@@ -1,6 +1,5 @@
 "use client";
 
-import { CustomerNavbar } from "@/components/layouts/customer-nav";
 import { ContactInfo } from "./contact-info";
 import { ContactForm } from "./contact-form";
 import { FAQSection } from "./faq-section";
@@ -9,8 +8,6 @@ import { MapSection } from "./map-section";
 export default function ContactPageClient() {
   return (
     <div className="min-h-screen bg-white">
-      <CustomerNavbar />
-
       {/* Contact Information & Form */}
       <section className="py-20">
         <div className="container mx-auto px-4">

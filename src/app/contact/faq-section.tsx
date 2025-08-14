@@ -147,12 +147,10 @@ export function FAQSection() {
                 ))}
               </div>
 
-              {/* Enhanced Gradient Overlays */}
               <div className="absolute top-0 left-0 w-32 h-full bg-gradient-to-r from-gray-50 via-gray-50/80 to-transparent pointer-events-none z-10" />
               <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-gray-50 via-gray-50/80 to-transparent pointer-events-none z-10" />
             </div>
 
-            {/* Static FAQ Grid for Mobile */}
             <div className="md:hidden mt-8 grid gap-6">
               {faqData.map((faq) => (
                 <Card key={faq.id} className="p-6">
