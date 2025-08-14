@@ -294,12 +294,11 @@ function CheckoutShippingContent() {
           calculatedTotals,
           checkoutSession,
           shippingAddressId: selectedAddressId,
-          billingAddressId: selectedAddressId, // Assuming same as shipping
+          billingAddressId: selectedAddressId,
           urgencyLevel,
           customerId: userProfile?.id,
-          // Explicitly include cart items for order creation
-          useCartItems: true, // This tells the API to use items from the checkout session
-          items: checkoutSession?.items || [], // Include the items for reference
+          useCartItems: true,
+          items: checkoutSession?.items || [],
         };
 
         // Store all checkout data for payment page
@@ -865,7 +864,7 @@ function AddressForm({
           <Input
             id="country"
             {...register("country")}
-            placeholder="KE"
+            placeholder="Country"
             className={errors.country ? "border-red-500" : ""}
           />
           {errors.country && (
@@ -877,7 +876,7 @@ function AddressForm({
       </div>
 
       <div>
-        <Label htmlFor="phone">Phone Number (Optional)</Label>
+        <Label htmlFor="phone">Phone Number</Label>
         <Input
           id="phone"
           type="tel"

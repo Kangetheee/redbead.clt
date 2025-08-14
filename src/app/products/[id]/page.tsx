@@ -1,7 +1,8 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getProductAction } from "@/lib/products/products.actions";
-import { ProductDetailsView } from "@/components/products/product-details-view";
+import { ProductDetailsClient } from "./product-details-client";
+import { CustomerNavbar } from "@/components/layouts/customer-nav";
 
 interface ProductDetailsPageProps {
   params: Promise<{
@@ -57,5 +58,10 @@ export default async function ProductDetailsPage({
     notFound();
   }
 
-  return <ProductDetailsView product={result.data} />;
+  return (
+    <>
+      <CustomerNavbar />
+      <ProductDetailsClient product={result.data} />
+    </>
+  );
 }

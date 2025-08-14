@@ -30,7 +30,6 @@ import {
 import { ProductResponse } from "@/lib/products/types/products.types";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { cn } from "@/lib/utils";
-import { CustomerNavbar } from "../layouts/customer-nav";
 
 interface ProductDetailsViewProps {
   product: ProductResponse;
@@ -45,7 +44,6 @@ export function ProductDetailsView({
   showBackButton = true,
   className,
 }: ProductDetailsViewProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isImageLoading, setIsImageLoading] = useState(true);
 
@@ -92,9 +90,6 @@ export function ProductDetailsView({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navbar - Same as other pages */}
-      <CustomerNavbar />
-
       <div className={cn("container mx-auto px-4 py-8", className)}>
         {/* Breadcrumbs */}
         {showBreadcrumbs && (
