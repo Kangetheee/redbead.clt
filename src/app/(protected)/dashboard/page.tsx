@@ -27,7 +27,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { CustomerNavbar } from "@/components/layouts/customer-nav";
+// import { CustomerNavbar } from "@/components/layouts/customer-nav";
 import { useUserProfile } from "@/hooks/use-users";
 import { useCart, useCartItemCount } from "@/hooks/use-cart";
 
@@ -162,7 +162,7 @@ export default function CustomerDashboard() {
   if (isProfileLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <CustomerNavbar />
+        {/* <CustomerNavbar /> */}
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <div className="text-lg">Loading dashboard...</div>
@@ -176,7 +176,7 @@ export default function CustomerDashboard() {
   if (profileError) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <CustomerNavbar />
+        {/* <CustomerNavbar /> */}
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <div className="text-lg text-red-600">
@@ -206,7 +206,7 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <CustomerNavbar />
+      {/* <CustomerNavbar /> */}
 
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}

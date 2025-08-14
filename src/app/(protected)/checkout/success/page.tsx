@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useOrder } from "@/hooks/use-orders";
 import { usePaymentStatus } from "@/hooks/use-payments";
+import { formatCurrency } from "@/lib/utils";
 
 export default function CheckoutSuccessPage() {
   const router = useRouter();
@@ -299,31 +300,31 @@ export default function CheckoutSuccessPage() {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
-                    <span>${order.subtotalAmount.toFixed(2)}</span>
+                    <span>{formatCurrency(order.subtotalAmount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Shipping</span>
-                    <span>${order.shippingAmount.toFixed(2)}</span>
+                    <span>{formatCurrency(order.shippingAmount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Tax</span>
-                    <span>${order.taxAmount.toFixed(2)}</span>
+                    <span>{formatCurrency(order.taxAmount)}</span>
                   </div>
                   {order.discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Discount</span>
-                      <span>-${order.discountAmount.toFixed(2)}</span>
+                      <span>-{formatCurrency(order.discountAmount)}</span>
                     </div>
                   )}
                   <Separator />
                   <div className="flex justify-between font-medium text-lg">
                     <span>Total</span>
-                    <span>${order.totalAmount.toFixed(2)}</span>
+                    <span>{formatCurrency(order.totalAmount)}</span>
                   </div>
                 </div>
 
                 <div className="mt-6 space-y-3">
-                  <Link href={`/order-confirmation/${order.id}`}>
+                  <Link href={`/orders/`}>
                     <Button className="w-full" variant="outline">
                       View Order Details
                       <ArrowRight className="w-4 h-4 ml-2" />
