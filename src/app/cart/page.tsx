@@ -32,9 +32,9 @@ import CartSummary from "@/components/cart/cart-summary";
 import { CartActions } from "@/components/cart/cart-actions";
 import { CartItemResponse } from "@/lib/cart/types/cart.types";
 import { CustomerNavbar } from "@/components/layouts/customer-nav";
+import { FeaturedProductsSection } from "@/components/products/featured-products";
 
 export default function CartPage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { data: cart, isLoading, error } = useCart();
 
   const handleEditItem = (item: CartItemResponse) => {
@@ -279,31 +279,7 @@ export default function CartPage() {
                 Complete your order with these popular items
               </p>
             </div>
-
-            {/* This would contain recommended products */}
-            <div className="grid md:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="w-full h-32 bg-gray-200 rounded-lg mb-3"></div>
-                    <h3 className="font-medium text-sm mb-1">
-                      Custom Lanyard #{i}
-                    </h3>
-                    <p className="text-xs text-gray-600 mb-2">
-                      Premium quality material
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-green-600">
-                        KES {(250 + i * 50).toLocaleString()}
-                      </span>
-                      <Button size="sm" variant="outline">
-                        Add to Cart
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <FeaturedProductsSection limit={4} className="max-w-7xl mx-auto" />
           </div>
         </section>
       )}

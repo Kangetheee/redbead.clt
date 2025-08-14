@@ -865,7 +865,7 @@ function AddressForm({
           <Input
             id="country"
             {...register("country")}
-            placeholder="KE"
+            placeholder="Country"
             className={errors.country ? "border-red-500" : ""}
           />
           {errors.country && (

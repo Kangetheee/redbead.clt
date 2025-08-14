@@ -11,3 +11,7 @@ export interface Session {
     permissions: Permission[] | undefined;
   };
 }
+
+export interface SessionProps {
+  session?: Session | null;
+}
