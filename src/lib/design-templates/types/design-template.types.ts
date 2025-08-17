@@ -228,3 +228,15 @@ export interface PriceCalculationResponseDto {
   urgencyMultiplier: number;
   quantity: number;
 }
+
+// Paginated response for templates list
+export interface TemplateListResponse {
+  items: TemplateResponse[];
+  meta: {
+    pageCount: number;
+    pageSize: number;
+    currentPage: number;
+    pageIndex: number;
+    itemCount: number;
+  };
+}

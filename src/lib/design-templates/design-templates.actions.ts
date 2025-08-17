@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { getErrorMessage } from "@/lib/get-error-message";
-import { ActionResponse, PaginatedData2 } from "@/lib/shared/types";
+import { ActionResponse } from "@/lib/shared/types";
 import { DesignTemplatesService } from "./design-templates.service";
 import {
   CreateTemplateDto,
@@ -19,7 +18,6 @@ import {
   CreateMediaRestrictionDto,
   UpdateMediaRestrictionDto,
   CalculatePriceDto,
-  GetTemplateAnalyticsDto,
 } from "./dto/design-template.dto";
 import {
   SizeVariantResponseDto,
@@ -28,6 +26,7 @@ import {
   MediaRestrictionResponseDto,
   PriceCalculationResponseDto,
   TemplateResponse,
+  TemplateListResponse,
 } from "./types/design-template.types";
 
 const templatesService = new DesignTemplatesService();
@@ -46,7 +45,7 @@ export async function createTemplateAction(
 
 export async function getTemplatesAction(
   params: GetTemplatesDto = {}
-): Promise<ActionResponse<PaginatedData2<TemplateResponse>>> {
+): Promise<ActionResponse<TemplateListResponse>> {
   try {
     const res = await templatesService.getTemplates(params);
     return { success: true, data: res };
@@ -58,7 +57,7 @@ export async function getTemplatesAction(
 export async function getTemplatesByProductAction(
   productId: string,
   params?: GetTemplatesByProductDto
-): Promise<ActionResponse<PaginatedData2<TemplateResponse>>> {
+): Promise<ActionResponse<TemplateResponse[]>> {
   try {
     const res = await templatesService.getTemplatesByProduct(productId, params);
     return { success: true, data: res };
@@ -72,17 +71,6 @@ export async function getTemplateAction(
 ): Promise<ActionResponse<TemplateResponse>> {
   try {
     const res = await templatesService.getTemplateById(id);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-export async function getTemplateBySlugAction(
-  slug: string
-): Promise<ActionResponse<TemplateResponse>> {
-  try {
-    const res = await templatesService.getTemplateBySlug(slug);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
@@ -346,30 +334,6 @@ export async function calculatePriceAction(
 ): Promise<ActionResponse<PriceCalculationResponseDto>> {
   try {
     const res = await templatesService.calculatePrice(templateId, values);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-// Analytics Actions
-export async function getTemplateAnalyticsAction(
-  params?: GetTemplateAnalyticsDto
-): Promise<ActionResponse<any>> {
-  try {
-    const res = await templatesService.getTemplateAnalytics(params);
-    return { success: true, data: res };
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) };
-  }
-}
-
-// Customization Options Action
-export async function getCustomizationOptionsAction(
-  templateId: string
-): Promise<ActionResponse<any>> {
-  try {
-    const res = await templatesService.getCustomizationOptions(templateId);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };

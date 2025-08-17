@@ -3,6 +3,7 @@ import { AddressResponse } from "@/lib/address/types/address.types";
 
 export interface OrderAddress {
   id?: string;
+  recipientName?: string;
   street?: string;
   city?: string;
   state?: string;
@@ -34,17 +35,41 @@ export interface SizeVariantDetails {
   price: number;
 }
 
+export interface ProductDetails {
+  id: string;
+  name: string;
+  slug: string;
+  previewImage: string;
+  basePrice: number;
+}
+
+export interface VariantDetails {
+  id: string;
+  name: string;
+  displayName: string;
+  dimensions: Record<string, any>;
+  price: number;
+}
+
+export interface OrderUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  avatar?: string | null;
+  type: string;
+  verified: boolean;
+}
+
 // Updated to match API expectations
 export interface OrderItem {
   id?: string;
-  // Use productId instead of templateId based on API requirements
   productId: string;
-  // Use variantId instead of sizeVariantId
   variantId: string;
   quantity: number;
-  // Customizations should be an object, not an array
-  customizations?: Array<{ name: string; value: string }>;
-
+  unitPrice?: number;
+  totalPrice?: number;
+  customizations?: Record<string, string>;
   designId?: string;
   status?:
     | "PROCESSING"
@@ -58,6 +83,8 @@ export interface OrderItem {
   notes?: string;
   template?: TemplateDetails;
   sizeVariant?: SizeVariantDetails;
+  product?: ProductDetails;
+  variant?: VariantDetails;
 }
 
 export interface DesignSummaryCustomization {
@@ -79,7 +106,7 @@ export interface DesignSummary {
 export interface DesignApproval {
   id: string;
   orderId: string;
-  designId: string;
+  designId?: string;
   approvalToken?: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED";
   customerEmail: string;
@@ -102,7 +129,6 @@ export interface OrderNoteUser {
 
 export interface OrderNote {
   id: string;
-  // Changed from noteType to type based on API docs
   type:
     | "GENERAL"
     | "URGENCY"
@@ -143,7 +169,7 @@ export interface OrderResponse {
   orderNumber: string;
   status:
     | "PENDING"
-    | "CONFIRMED" // Added from API docs
+    | "CONFIRMED"
     | "DESIGN_PENDING"
     | "DESIGN_APPROVED"
     | "DESIGN_REJECTED"
@@ -183,10 +209,10 @@ export interface OrderResponse {
   productionEndDate?: string;
   shippingDate?: string;
   actualDeliveryDate?: string;
-
+  user?: OrderUser;
   shippingAddress: AddressResponse;
   billingAddress?: AddressResponse;
-  orderItems: OrderItem[] | string[];
+  orderItems: OrderItem[];
   payment?: OrderPayment;
   templateId?: string;
   createdAt: string;
@@ -199,7 +225,7 @@ export interface OrderListItem {
   orderNumber: string;
   status:
     | "PENDING"
-    | "CONFIRMED" // Added from API docs
+    | "CONFIRMED"
     | "DESIGN_PENDING"
     | "DESIGN_APPROVED"
     | "DESIGN_REJECTED"
@@ -257,6 +283,32 @@ export interface OrderFilters {
   search?: string;
   urgencyLevel?: string;
   templateId?: string;
+}
+
+// Design approval token responses
+export interface DesignApprovalTokenResponse {
+  id: string;
+  token: string;
+  expiresAt: string;
+  emailLogId: string;
+}
+
+export interface DesignApprovalActionResponse {
+  success: boolean;
+  message: string;
+  orderNumber: string;
+  designApproval: {
+    id: string;
+    status: string;
+    rejectionReason?: string;
+  };
+}
+
+export interface DesignApprovalResendResponse {
+  success: boolean;
+  message: string;
+  emailSentAt: string;
+  remindersSent: number;
 }
 
 // Type guards and utilities
