@@ -19,6 +19,8 @@ const publicRoutes = [
   "/products/.*",
   "/design-studio",
   "/design-studio/.*",
+  "/design-approval",
+  "/design-approval/.*",
   "/cart",
   "/about",
   "/contact",
