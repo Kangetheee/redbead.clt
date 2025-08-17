@@ -19,11 +19,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  useDesignTemplateBySlug,
+  useDesignTemplate,
   useColorPresets,
   useFontPresets,
   useMediaRestrictions,
 } from "@/hooks/use-design-templates";
+import type {
+  // DesignTemplate,
+  ColorPreset,
+  FontPreset,
+  MediaRestriction,
+  SizeVariant,
+} from "@/lib/design-templates/types/design-template.types";
 
 interface TemplateDetailPageProps {
   params: Promise<{
@@ -37,24 +44,18 @@ export default function TemplateDetailPage({
   // Await the params Promise
   const resolvedParams = use(params);
 
-  const {
-    data: template,
-    isLoading,
-    error,
-  } = useDesignTemplateBySlug(resolvedParams.slug);
+  // Use the template ID (assuming slug is the template ID)
+  // If slug is different from ID, you'd need to implement useDesignTemplateBySlug hook
+  const templateId = resolvedParams.slug;
+
+  const { data: template, isLoading, error } = useDesignTemplate(templateId);
 
   // Get additional template data
-  const { data: colorPresets } = useColorPresets(
-    template?.id || "",
-    !!template?.id
-  );
-  const { data: fontPresets } = useFontPresets(
-    template?.id || "",
-    !!template?.id
-  );
+  const { data: colorPresets } = useColorPresets(templateId, !!template);
+  const { data: fontPresets } = useFontPresets(templateId, !!template);
   const { data: mediaRestrictions } = useMediaRestrictions(
-    template?.id || "",
-    !!template?.id
+    templateId,
+    !!template
   );
 
   if (isLoading) {
@@ -73,7 +74,7 @@ export default function TemplateDetailPage({
   }
 
   // Get default size variant or first available
-  const defaultVariant =
+  const defaultVariant: SizeVariant | undefined =
     template.sizeVariants.find((v) => v.isDefault && v.isActive) ||
     template.sizeVariants.find((v) => v.isActive);
 
@@ -200,7 +201,7 @@ export default function TemplateDetailPage({
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
                   asChild
                 >
-                  <Link href={`/design-studio/${resolvedParams.slug}`}>
+                  <Link href={`/design-studio/${templateId}`}>
                     Get Started with This Template
                   </Link>
                 </Button>
@@ -286,10 +287,13 @@ export default function TemplateDetailPage({
               <CardContent>
                 <div className="grid grid-cols-6 gap-2">
                   {colorPresets
-                    .filter((preset) => preset.isActive)
-                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .filter((preset: ColorPreset) => preset.isActive)
+                    .sort(
+                      (a: ColorPreset, b: ColorPreset) =>
+                        a.sortOrder - b.sortOrder
+                    )
                     .slice(0, 18)
-                    .map((color) => (
+                    .map((color: ColorPreset) => (
                       <div
                         key={color.id}
                         className="group relative"
@@ -323,10 +327,13 @@ export default function TemplateDetailPage({
               <CardContent>
                 <div className="space-y-3">
                   {fontPresets
-                    .filter((font) => font.isActive)
-                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .filter((font: FontPreset) => font.isActive)
+                    .sort(
+                      (a: FontPreset, b: FontPreset) =>
+                        a.sortOrder - b.sortOrder
+                    )
                     .slice(0, 5)
-                    .map((font) => (
+                    .map((font: FontPreset) => (
                       <div
                         key={font.id}
                         className="flex items-center justify-between"
@@ -363,8 +370,10 @@ export default function TemplateDetailPage({
               </CardHeader>
               <CardContent>
                 {mediaRestrictions
-                  .filter((restriction) => restriction.isActive)
-                  .map((restriction, index) => (
+                  .filter(
+                    (restriction: MediaRestriction) => restriction.isActive
+                  )
+                  .map((restriction: MediaRestriction, index: number) => (
                     <div key={restriction.id} className="space-y-2">
                       {index > 0 && <Separator className="my-3" />}
                       <div className="text-sm">
@@ -404,9 +413,12 @@ export default function TemplateDetailPage({
             <CardContent>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {template.sizeVariants
-                  .filter((variant) => variant.isActive)
-                  .sort((a, b) => a.sortOrder - b.sortOrder)
-                  .map((variant) => (
+                  .filter((variant: SizeVariant) => variant.isActive)
+                  .sort(
+                    (a: SizeVariant, b: SizeVariant) =>
+                      a.sortOrder - b.sortOrder
+                  )
+                  .map((variant: SizeVariant) => (
                     <div
                       key={variant.id}
                       className={`border rounded-lg p-4 hover:bg-muted/50 transition-colors ${
@@ -467,7 +479,7 @@ export default function TemplateDetailPage({
                   className="bg-green-600 hover:bg-green-700 text-white"
                   asChild
                 >
-                  <Link href={`/design-studio/${resolvedParams.slug}`}>
+                  <Link href={`/design-studio/${templateId}`}>
                     Start Customization
                   </Link>
                 </Button>

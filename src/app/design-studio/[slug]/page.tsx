@@ -1,43 +1,78 @@
-"use client";
-
 import React from "react";
-import DesignStudioComponent from "@/components/designs/design-studio-component";
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import DesignStudioClient from "./design-studio-client";
+import { getTemplateAction } from "@/lib/design-templates/design-templates.actions";
 
-interface DesignStudioSlugPageProps {
+interface DesignStudioPageProps {
   params: Promise<{
     slug: string;
   }>;
+  searchParams: Promise<{
+    designId?: string;
+    productId?: string;
+    categoryId?: string;
+  }>;
 }
 
-export default function DesignStudioSlugPage({
+export async function generateMetadata({
   params,
-}: DesignStudioSlugPageProps) {
-  const [resolvedParams, setResolvedParams] = React.useState<{
-    slug: string;
-  }>({ slug: "" });
+}: DesignStudioPageProps): Promise<Metadata> {
+  const resolvedParams = await params;
 
-  React.useEffect(() => {
-    const resolveParams = async () => {
-      const resolvedSlugParams = await params;
-      setResolvedParams(resolvedSlugParams);
+  // Fetch template to generate metadata
+  const templateResponse = await getTemplateAction(resolvedParams.slug);
+
+  if (!templateResponse.success) {
+    return {
+      title: "Template Not Found",
+      description: "The requested design template could not be found.",
     };
-    resolveParams();
-  }, [params]);
-
-  if (!resolvedParams.slug) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading design studio...</p>
-        </div>
-      </div>
-    );
   }
+
+  const template = templateResponse.data;
+
+  return {
+    title: `Design Studio - ${template.name}`,
+    description:
+      template.description ||
+      `Create custom designs with ${template.name} template`,
+    openGraph: {
+      title: `Design Studio - ${template.name}`,
+      description:
+        template.description ||
+        `Create custom designs with ${template.name} template`,
+      images: template.thumbnail ? [template.thumbnail] : [],
+    },
+  };
+}
+
+export default async function DesignStudioPage({
+  params,
+  searchParams,
+}: DesignStudioPageProps) {
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+
+  // Fetch template data on the server
+  const templateResponse = await getTemplateAction(resolvedParams.slug);
+
+  if (!templateResponse.success) {
+    notFound();
+  }
+
+  const template = templateResponse.data;
 
   return (
     <div className="min-h-screen bg-background">
-      <DesignStudioComponent templateSlug={resolvedParams.slug} />
+      <DesignStudioClient
+        template={template}
+        templateId={template.id}
+        designId={resolvedSearchParams.designId}
+        productId={resolvedSearchParams.productId}
+        categoryId={resolvedSearchParams.categoryId}
+        showBackToTemplates={true}
+      />
     </div>
   );
 }

@@ -13,6 +13,9 @@ import {
   UpdateOrderItemStatusDto,
   BulkUpdateOrderItemStatusDto,
   CalculateTimelineDto,
+  ApproveDesignViaTokenDto,
+  RejectDesignViaTokenDto,
+  ResendDesignApprovalEmailDto,
 } from "./dto/orders.dto";
 import {
   OrderResponse,
@@ -23,6 +26,9 @@ import {
   PaymentStatus,
   ProductionRequirements,
   TimelineCalculation,
+  DesignApprovalTokenResponse,
+  DesignApprovalActionResponse,
+  DesignApprovalResendResponse,
 } from "./types/orders.types";
 
 export class OrderService {
@@ -33,7 +39,6 @@ export class OrderService {
   ): Promise<PaginatedData2<OrderResponse>> {
     const queryParams = new URLSearchParams();
 
-    // Changed to match API parameters
     if (params?.page) {
       queryParams.append("page", params.page.toString());
     }
@@ -58,8 +63,6 @@ export class OrderService {
     if (params?.search) {
       queryParams.append("search", params.search);
     }
-
-    // Optional parameters
     if (params?.designApprovalStatus) {
       queryParams.append("designApprovalStatus", params.designApprovalStatus);
     }
@@ -128,8 +131,8 @@ export class OrderService {
   public async requestDesignApproval(
     orderId: string,
     values: RequestDesignApprovalDto
-  ): Promise<DesignApproval> {
-    return this.fetcher.request<DesignApproval>(
+  ): Promise<DesignApprovalTokenResponse> {
+    return this.fetcher.request<DesignApprovalTokenResponse>(
       `/v1/orders/${orderId}/request-design-approval`,
       {
         method: "POST",
@@ -157,19 +160,62 @@ export class OrderService {
     );
   }
 
-  public async getPaymentStatus(orderId: string): Promise<PaymentStatus> {
-    return this.fetcher.request<PaymentStatus>(
-      `/v1/orders/${orderId}/payment-status`
-    );
-  }
-
-  public async completeDesignApproval(orderId: string): Promise<void> {
-    return this.fetcher.request<void>(
+  public async completeDesignApproval(
+    orderId: string
+  ): Promise<{ success: boolean; message: string }> {
+    return this.fetcher.request<{ success: boolean; message: string }>(
       `/v1/orders/${orderId}/complete-design-approval`,
       {
         method: "POST",
         data: {},
       }
+    );
+  }
+
+  // Design approval token-based operations (no auth required)
+  public async approveDesignViaToken(
+    token: string
+  ): Promise<DesignApprovalActionResponse> {
+    return this.fetcher.request<DesignApprovalActionResponse>(
+      `/v1/design-approvals/approve/${token}`,
+      { method: "GET" },
+      { auth: false }
+    );
+  }
+
+  public async rejectDesignViaToken(
+    token: string,
+    reason?: string
+  ): Promise<DesignApprovalActionResponse> {
+    const queryParams = new URLSearchParams();
+    if (reason) {
+      queryParams.append("reason", reason);
+    }
+    const queryString = queryParams.toString();
+    const url = `/v1/design-approvals/reject/${token}${queryString ? `?${queryString}` : ""}`;
+
+    return this.fetcher.request<DesignApprovalActionResponse>(
+      url,
+      { method: "GET" },
+      { auth: false }
+    );
+  }
+
+  public async resendDesignApprovalEmail(
+    designApprovalId: string
+  ): Promise<DesignApprovalResendResponse> {
+    return this.fetcher.request<DesignApprovalResendResponse>(
+      `/v1/design-approvals/${designApprovalId}/resend`,
+      {
+        method: "POST",
+        data: {},
+      }
+    );
+  }
+
+  public async getPaymentStatus(orderId: string): Promise<PaymentStatus> {
+    return this.fetcher.request<PaymentStatus>(
+      `/v1/orders/${orderId}/payment-status`
     );
   }
 
@@ -201,6 +247,7 @@ export class OrderService {
     );
   }
 
+  // Order Items operations
   public async updateOrderItemStatus(
     orderItemId: string,
     values: UpdateOrderItemStatusDto
@@ -220,12 +267,13 @@ export class OrderService {
     });
   }
 
+  // Updated to use productId instead of templateId
   public async getOrderItemsByStatus(
     status: string,
-    templateId: string
+    productId: string
   ): Promise<OrderItem[]> {
     const queryParams = new URLSearchParams();
-    queryParams.append("templateId", templateId);
+    queryParams.append("productId", productId);
 
     return this.fetcher.request<OrderItem[]>(
       `/v1/order-items/by-status/${status}?${queryParams.toString()}`

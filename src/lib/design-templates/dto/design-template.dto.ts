@@ -1,12 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-import {
-  SizeVariantResponseDto,
-  ColorPresetResponseDto,
-  FontPresetResponseDto,
-  MediaRestrictionResponseDto,
-} from "../types/design-template.types";
-
 import { z } from "zod";
 
 // Create Template DTO Schema
@@ -49,10 +40,10 @@ export const updateTemplateSchema = z.object({
 
 export type UpdateTemplateDto = z.infer<typeof updateTemplateSchema>;
 
-// Get Templates DTO Schema
+// Get Templates DTO Schema - Updated to match API exactly
 export const getTemplatesSchema = z.object({
-  pageIndex: z.number().min(0).optional(),
-  pageSize: z.number().min(-1).max(100).optional(),
+  pageIndex: z.number().min(0).default(0).optional(),
+  pageSize: z.number().min(-1).max(100).default(10).optional(),
   search: z.string().optional(),
   productId: z.string().optional(),
   categoryId: z.string().optional(),
@@ -105,7 +96,33 @@ export const createSizeVariantSchema = z.object({
 
 export type CreateSizeVariantDto = z.infer<typeof createSizeVariantSchema>;
 
-export const updateSizeVariantSchema = createSizeVariantSchema.partial();
+export const updateSizeVariantSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  displayName: z.string().min(1, "Display name is required").optional(),
+  dimensions: z
+    .object({
+      width: z.number().positive(),
+      height: z.number().positive(),
+      unit: z.string(),
+      dpi: z.number().positive(),
+    })
+    .optional(),
+  price: z.number().positive("Price must be positive").optional(),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  metadata: z
+    .object({
+      printArea: z
+        .object({
+          width: z.number().positive(),
+          height: z.number().positive(),
+        })
+        .optional(),
+    })
+    .optional(),
+  sortOrder: z.number().min(0).optional(),
+});
+
 export type UpdateSizeVariantDto = z.infer<typeof updateSizeVariantSchema>;
 
 // Color Preset DTOs
@@ -122,7 +139,20 @@ export const createColorPresetSchema = z.object({
 
 export type CreateColorPresetDto = z.infer<typeof createColorPresetSchema>;
 
-export const updateColorPresetSchema = createColorPresetSchema.partial();
+export const updateColorPresetSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  hexCode: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color")
+    .optional(),
+  rgbCode: z.string().optional(),
+  cmykCode: z.string().optional(),
+  pantoneCode: z.string().optional(),
+  category: z.string().min(1, "Category is required").optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().min(0).optional(),
+});
+
 export type UpdateColorPresetDto = z.infer<typeof updateColorPresetSchema>;
 
 // Font Preset DTOs
@@ -145,7 +175,23 @@ export const createFontPresetSchema = z.object({
 
 export type CreateFontPresetDto = z.infer<typeof createFontPresetSchema>;
 
-export const updateFontPresetSchema = createFontPresetSchema.partial();
+export const updateFontPresetSchema = z.object({
+  family: z.string().min(1, "Font family is required").optional(),
+  displayName: z.string().min(1, "Display name is required").optional(),
+  weights: z.array(z.number()).optional(),
+  styles: z.array(z.string()).optional(),
+  category: z.string().min(1, "Category is required").optional(),
+  urls: z
+    .object({
+      woff2: z.string().optional(),
+      woff: z.string().optional(),
+    })
+    .optional(),
+  isPremium: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().min(0).optional(),
+});
+
 export type UpdateFontPresetDto = z.infer<typeof updateFontPresetSchema>;
 
 // Media Restriction DTOs
@@ -161,8 +207,14 @@ export type CreateMediaRestrictionDto = z.infer<
   typeof createMediaRestrictionSchema
 >;
 
-export const updateMediaRestrictionSchema =
-  createMediaRestrictionSchema.partial();
+export const updateMediaRestrictionSchema = z.object({
+  allowedTypes: z.array(z.string()).optional(),
+  maxFileSize: z.number().positive().optional(),
+  allowedFormats: z.array(z.string()).optional(),
+  requiredDPI: z.number().positive().optional(),
+  isActive: z.boolean().optional(),
+});
+
 export type UpdateMediaRestrictionDto = z.infer<
   typeof updateMediaRestrictionSchema
 >;
@@ -176,14 +228,3 @@ export const calculatePriceSchema = z.object({
 });
 
 export type CalculatePriceDto = z.infer<typeof calculatePriceSchema>;
-
-// Analytics DTOs
-export const getTemplateAnalyticsSchema = z.object({
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  templateIds: z.array(z.string()).optional(),
-});
-
-export type GetTemplateAnalyticsDto = z.infer<
-  typeof getTemplateAnalyticsSchema
->;

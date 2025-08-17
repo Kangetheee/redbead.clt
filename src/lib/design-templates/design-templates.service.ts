@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Fetcher } from "../api/api.service";
 import {
   CreateTemplateDto,
@@ -15,7 +14,6 @@ import {
   CreateMediaRestrictionDto,
   UpdateMediaRestrictionDto,
   CalculatePriceDto,
-  GetTemplateAnalyticsDto,
 } from "./dto/design-template.dto";
 import {
   SizeVariantResponseDto,
@@ -24,8 +22,8 @@ import {
   MediaRestrictionResponseDto,
   PriceCalculationResponseDto,
   TemplateResponse,
+  TemplateListResponse,
 } from "./types/design-template.types";
-import { PaginatedData2 } from "../shared/types";
 
 export class DesignTemplatesService {
   constructor(private fetcher = new Fetcher()) {}
@@ -40,17 +38,19 @@ export class DesignTemplatesService {
 
   async getTemplates(params: GetTemplatesDto) {
     const query = new URLSearchParams();
+
+    // Use correct parameter names as per API documentation
     if (params.pageIndex !== undefined)
-      query.append("page", params.pageIndex.toString());
+      query.append("pageIndex", params.pageIndex.toString());
     if (params.pageSize !== undefined)
-      query.append("limit", params.pageSize.toString());
+      query.append("pageSize", params.pageSize.toString());
     if (params.search) query.append("search", params.search);
     if (params.productId) query.append("productId", params.productId);
     if (params.categoryId) query.append("categoryId", params.categoryId);
     if (params.isActive !== undefined)
       query.append("isActive", params.isActive.toString());
 
-    return this.fetcher.request<PaginatedData2<TemplateResponse>>(
+    return this.fetcher.request<TemplateListResponse>(
       `/v1/templates?${query.toString()}`,
       { method: "GET" },
       { auth: false }
@@ -65,7 +65,7 @@ export class DesignTemplatesService {
     if (params?.isActive !== undefined)
       query.append("isActive", params.isActive.toString());
 
-    return this.fetcher.request<PaginatedData2<TemplateResponse>>(
+    return this.fetcher.request<TemplateResponse[]>(
       `/v1/templates/by-product/${productId}?${query.toString()}`,
       { method: "GET" },
       { auth: false }
@@ -78,14 +78,6 @@ export class DesignTemplatesService {
       {
         method: "GET",
       },
-      { auth: false }
-    );
-  }
-
-  async getTemplateBySlug(slug: string) {
-    return this.fetcher.request<TemplateResponse>(
-      `/v1/templates/slug/${slug}`,
-      { method: "GET" },
       { auth: false }
     );
   }
@@ -284,31 +276,6 @@ export class DesignTemplatesService {
         method: "POST",
         data: values,
       }
-    );
-  }
-
-  // Analytics (if endpoints exist)
-  async getTemplateAnalytics(params?: GetTemplateAnalyticsDto) {
-    const query = new URLSearchParams();
-    if (params?.startDate) query.append("startDate", params.startDate);
-    if (params?.endDate) query.append("endDate", params.endDate);
-    if (params?.templateIds) {
-      params.templateIds.forEach((id) => query.append("templateIds", id));
-    }
-
-    return this.fetcher.request<any>(
-      `/v1/templates/analytics/performance?${query.toString()}`,
-      { method: "GET" },
-      { auth: false }
-    );
-  }
-
-  // Customization Options (if endpoint exists)
-  async getCustomizationOptions(templateId: string) {
-    return this.fetcher.request<any>(
-      `/v1/templates/${templateId}/customizations/options`,
-      { method: "GET" },
-      { auth: false }
     );
   }
 }

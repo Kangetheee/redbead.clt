@@ -15,6 +15,9 @@ import {
   getDesignApprovalAction,
   updateDesignApprovalAction,
   completeDesignApprovalAction,
+  approveDesignViaTokenAction,
+  rejectDesignViaTokenAction,
+  resendDesignApprovalEmailAction,
   getPaymentStatusAction,
   getOrderItemsAction,
   updateOrderItemStatusAction,
@@ -35,6 +38,9 @@ import {
   UpdateOrderItemStatusDto,
   BulkUpdateOrderItemStatusDto,
   CalculateTimelineDto,
+  ApproveDesignViaTokenDto,
+  RejectDesignViaTokenDto,
+  ResendDesignApprovalEmailDto,
 } from "@/lib/orders/dto/orders.dto";
 
 // Query Keys
@@ -51,8 +57,8 @@ export const orderKeys = {
   paymentStatus: (orderId: string) =>
     [...orderKeys.detail(orderId), "paymentStatus"] as const,
   items: (orderId: string) => [...orderKeys.detail(orderId), "items"] as const,
-  itemsByStatus: (status: string, templateId: string) =>
-    [...orderKeys.all, "itemsByStatus", status, templateId] as const,
+  itemsByStatus: (status: string, productId: string) =>
+    [...orderKeys.all, "itemsByStatus", status, productId] as const,
   productionRequirements: (orderId: string) =>
     [...orderKeys.detail(orderId), "productionRequirements"] as const,
 };
@@ -121,7 +127,6 @@ export function useCreateOrder() {
 
 /**
  * Hook to update an order
- * Fixed: Remove orderId parameter and expect it in the mutation payload
  */
 export function useUpdateOrder() {
   const queryClient = useQueryClient();
@@ -238,8 +243,8 @@ export function useRequestDesignApproval(orderId: string) {
       }
       return result.data;
     },
-    onSuccess: () => {
-      toast.success("Design approval request sent");
+    onSuccess: (data) => {
+      toast.success("Design approval request sent successfully");
       queryClient.invalidateQueries({
         queryKey: orderKeys.designApproval(orderId),
       });
@@ -270,7 +275,7 @@ export function useDesignApproval(orderId: string, enabled = true) {
 }
 
 /**
- * Hook to update design approval status
+ * Hook to update design approval status (admin only)
  */
 export function useUpdateDesignApproval(orderId: string) {
   const queryClient = useQueryClient();
@@ -310,8 +315,8 @@ export function useCompleteDesignApproval(orderId: string) {
       }
       return result.data;
     },
-    onSuccess: () => {
-      toast.success("Design approval process completed");
+    onSuccess: (data) => {
+      toast.success(data.message || "Design approval process completed");
       queryClient.invalidateQueries({
         queryKey: orderKeys.designApproval(orderId),
       });
@@ -319,6 +324,79 @@ export function useCompleteDesignApproval(orderId: string) {
     },
     onError: (error) => {
       toast.error(`Failed to complete design approval: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook to approve design via email token (no auth required)
+ */
+export function useApproveDesignViaToken() {
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const result = await approveDesignViaTokenAction(token);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+    },
+    onError: (error) => {
+      toast.error(`Failed to approve design: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook to reject design via email token (no auth required)
+ */
+export function useRejectDesignViaToken() {
+  return useMutation({
+    mutationFn: async ({
+      token,
+      reason,
+    }: {
+      token: string;
+      reason?: string;
+    }) => {
+      const result = await rejectDesignViaTokenAction(token, reason);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+    },
+    onError: (error) => {
+      toast.error(`Failed to reject design: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook to resend design approval email
+ */
+export function useResendDesignApprovalEmail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (designApprovalId: string) => {
+      const result = await resendDesignApprovalEmailAction(designApprovalId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+      // We don't know the orderId here, so invalidate all design approval queries
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
+    onError: (error) => {
+      toast.error(`Failed to resend approval email: ${error.message}`);
     },
   });
 }
@@ -417,22 +495,23 @@ export function useBulkUpdateOrderItemStatus() {
 
 /**
  * Hook to get order items by status
+ * Updated to use productId instead of templateId
  */
 export function useOrderItemsByStatus(
   status: string,
-  templateId: string,
+  productId: string,
   enabled = true
 ) {
   return useQuery({
-    queryKey: orderKeys.itemsByStatus(status, templateId),
+    queryKey: orderKeys.itemsByStatus(status, productId),
     queryFn: async () => {
-      const result = await getOrderItemsByStatusAction(status, templateId);
+      const result = await getOrderItemsByStatusAction(status, productId);
       if (!result.success) {
         throw new Error(result.error);
       }
       return result.data;
     },
-    enabled: enabled && !!status && !!templateId,
+    enabled: enabled && !!status && !!productId,
     refetchOnWindowFocus: false,
   });
 }

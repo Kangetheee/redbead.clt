@@ -22,6 +22,9 @@ import {
   PaymentStatus,
   ProductionRequirements,
   TimelineCalculation,
+  DesignApprovalTokenResponse,
+  DesignApprovalActionResponse,
+  DesignApprovalResendResponse,
 } from "./types/orders.types";
 import { OrderService } from "./orders.service";
 
@@ -113,7 +116,7 @@ export async function addOrderNoteAction(
 export async function requestDesignApprovalAction(
   orderId: string,
   values: RequestDesignApprovalDto
-): Promise<ActionResponse<DesignApproval>> {
+): Promise<ActionResponse<DesignApprovalTokenResponse>> {
   try {
     const res = await orderService.requestDesignApproval(orderId, values);
     return { success: true, data: res };
@@ -147,10 +150,45 @@ export async function updateDesignApprovalAction(
 
 export async function completeDesignApprovalAction(
   orderId: string
-): Promise<ActionResponse<void>> {
+): Promise<ActionResponse<{ success: boolean; message: string }>> {
   try {
-    await orderService.completeDesignApproval(orderId);
-    return { success: true, data: undefined };
+    const res = await orderService.completeDesignApproval(orderId);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+// Design approval token-based actions (no auth required)
+export async function approveDesignViaTokenAction(
+  token: string
+): Promise<ActionResponse<DesignApprovalActionResponse>> {
+  try {
+    const res = await orderService.approveDesignViaToken(token);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function rejectDesignViaTokenAction(
+  token: string,
+  reason?: string
+): Promise<ActionResponse<DesignApprovalActionResponse>> {
+  try {
+    const res = await orderService.rejectDesignViaToken(token, reason);
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function resendDesignApprovalEmailAction(
+  designApprovalId: string
+): Promise<ActionResponse<DesignApprovalResendResponse>> {
+  try {
+    const res = await orderService.resendDesignApprovalEmail(designApprovalId);
+    return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
@@ -203,12 +241,13 @@ export async function bulkUpdateOrderItemStatusAction(
   }
 }
 
+// Updated to use productId instead of templateId
 export async function getOrderItemsByStatusAction(
   status: string,
-  templateId: string
+  productId: string
 ): Promise<ActionResponse<OrderItem[]>> {
   try {
-    const res = await orderService.getOrderItemsByStatus(status, templateId);
+    const res = await orderService.getOrderItemsByStatus(status, productId);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };

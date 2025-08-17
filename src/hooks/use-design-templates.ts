@@ -6,7 +6,6 @@ import { useCallback } from "react";
 import {
   getTemplatesAction,
   getTemplateAction,
-  getTemplateBySlugAction,
   getTemplatesByProductAction,
   createTemplateAction,
   updateTemplateAction,
@@ -28,9 +27,7 @@ import {
   createMediaRestrictionAction,
   updateMediaRestrictionAction,
   deleteMediaRestrictionAction,
-  getCustomizationOptionsAction,
   calculatePriceAction,
-  getTemplateAnalyticsAction,
 } from "@/lib/design-templates/design-templates.actions";
 import {
   GetTemplatesDto,
@@ -47,7 +44,6 @@ import {
   CalculatePriceDto,
   DuplicateTemplateDto,
   GetTemplatesByProductDto,
-  GetTemplateAnalyticsDto,
 } from "@/lib/design-templates/dto/design-template.dto";
 
 // Query Keys
@@ -58,7 +54,6 @@ export const designTemplateKeys = {
     [...designTemplateKeys.lists(), params] as const,
   details: () => [...designTemplateKeys.all, "detail"] as const,
   detail: (id: string) => [...designTemplateKeys.details(), id] as const,
-  bySlug: (slug: string) => [...designTemplateKeys.all, "slug", slug] as const,
   byProduct: (productId: string, params?: GetTemplatesByProductDto) =>
     [...designTemplateKeys.all, "product", productId, params] as const,
   variants: (templateId: string) =>
@@ -69,10 +64,6 @@ export const designTemplateKeys = {
     [...designTemplateKeys.all, templateId, "font-presets"] as const,
   mediaRestrictions: (templateId: string) =>
     [...designTemplateKeys.all, templateId, "media-restrictions"] as const,
-  customizations: (templateId: string) =>
-    [...designTemplateKeys.all, templateId, "customizations"] as const,
-  analytics: (params?: GetTemplateAnalyticsDto) =>
-    [...designTemplateKeys.all, "analytics", params] as const,
 };
 
 // Query Hooks
@@ -108,20 +99,6 @@ export function useDesignTemplate(templateId: string, enabled = true) {
     queryFn: () => getTemplateAction(templateId),
     select: (data) => (data.success ? data.data : undefined),
     enabled: enabled && !!templateId,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-}
-
-/**
- * Get design template by slug
- * Uses GET /v1/templates/slug/{slug}
- */
-export function useDesignTemplateBySlug(slug: string, enabled = true) {
-  return useQuery({
-    queryKey: designTemplateKeys.bySlug(slug),
-    queryFn: () => getTemplateBySlugAction(slug),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!slug,
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 }
@@ -197,38 +174,6 @@ export function useMediaRestrictions(templateId: string, enabled = true) {
     select: (data) => (data.success ? data.data : undefined),
     enabled: enabled && !!templateId,
     staleTime: 15 * 60 * 1000, // 15 minutes
-  });
-}
-
-/**
- * Get available customization options for a template
- * Uses GET /v1/templates/{templateId}/customizations/options
- */
-export function useCustomizationOptions(templateId: string, enabled = true) {
-  return useQuery({
-    queryKey: designTemplateKeys.customizations(templateId),
-    queryFn: () => getCustomizationOptionsAction(templateId),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled: enabled && !!templateId,
-    staleTime: 30 * 60 * 1000, // 30 minutes - customizations don't change often
-  });
-}
-
-/**
- * Get performance analytics for templates
- * Uses GET /v1/templates/analytics/performance
- */
-export function useTemplateAnalytics(
-  params?: GetTemplateAnalyticsDto,
-  enabled = true
-) {
-  return useQuery({
-    queryKey: designTemplateKeys.analytics(params),
-    queryFn: () => getTemplateAnalyticsAction(params),
-    select: (data) => (data.success ? data.data : undefined),
-    enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false, // Analytics don't need frequent updates
   });
 }
 
@@ -941,12 +886,6 @@ export function usePrefetchTemplateRelatedData() {
         queryFn: () => getMediaRestrictionsAction(templateId),
         staleTime: 15 * 60 * 1000,
       });
-
-      queryClient.prefetchQuery({
-        queryKey: designTemplateKeys.customizations(templateId),
-        queryFn: () => getCustomizationOptionsAction(templateId),
-        staleTime: 30 * 60 * 1000,
-      });
     },
     [queryClient]
   );
@@ -974,9 +913,6 @@ export function useInvalidateTemplateData() {
       });
       queryClient.invalidateQueries({
         queryKey: designTemplateKeys.mediaRestrictions(templateId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: designTemplateKeys.customizations(templateId),
       });
     },
     [queryClient]
