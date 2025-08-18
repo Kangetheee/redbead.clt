@@ -6,18 +6,18 @@ import { DashboardService } from "./dashboard.service";
 import {
   DashboardSummaryResponse,
   DashboardSummaryQuery,
-  TopMetrics,
-  ConversationInsights,
-  BotPerformance,
-  RevenueMetrics,
-  UnderwriterPerformanceItem,
-  UserActivityItem,
-  UpcomingTasks,
-  ClientFeedback,
+  MetricsResponse,
+  MetricsQuery,
+  ActivityFeedResponse,
+  ActivityQuery,
+  QuickStatsResponse,
 } from "./types/dashboard.types";
 
 const dashboardService = new DashboardService();
 
+/**
+ * Get role-based dashboard summary
+ */
 export async function getDashboardSummaryAction(
   query?: DashboardSummaryQuery
 ): Promise<ActionResponse<DashboardSummaryResponse>> {
@@ -29,88 +29,180 @@ export async function getDashboardSummaryAction(
   }
 }
 
-export async function getTopMetricsAction(
-  query?: DashboardSummaryQuery
-): Promise<ActionResponse<TopMetrics>> {
+/**
+ * Get specific metrics based on role and requested metric types
+ */
+export async function getMetricsAction(
+  query: MetricsQuery
+): Promise<ActionResponse<MetricsResponse>> {
   try {
-    const res = await dashboardService.getTopMetrics(query);
+    const res = await dashboardService.getMetrics(query);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getConversationInsightsAction(
-  query?: DashboardSummaryQuery
-): Promise<ActionResponse<ConversationInsights>> {
+/**
+ * Get paginated activity feed
+ */
+export async function getActivityFeedAction(
+  query?: ActivityQuery
+): Promise<ActionResponse<ActivityFeedResponse>> {
   try {
-    const res = await dashboardService.getConversationInsights(query);
+    const res = await dashboardService.getActivityFeed(query);
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getBotPerformanceAction(
-  query?: DashboardSummaryQuery
-): Promise<ActionResponse<BotPerformance>> {
+/**
+ * Get quick statistics overview
+ */
+export async function getQuickStatsAction(): Promise<
+  ActionResponse<QuickStatsResponse>
+> {
   try {
-    const res = await dashboardService.getBotPerformance(query);
+    const res = await dashboardService.getQuickStats();
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getClientFeedbackAction(
+// ============ CONVENIENCE ACTIONS ============
+
+/**
+ * Get customer metrics specifically
+ */
+export async function getCustomerMetricsAction(
   query?: DashboardSummaryQuery
-): Promise<ActionResponse<ClientFeedback>> {
+): Promise<ActionResponse<MetricsResponse>> {
   try {
-    const res = await dashboardService.getClientFeedback(query);
+    const res = await dashboardService.getMetrics({
+      metrics: "customers",
+      ...query,
+    });
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getRevenueMetricsAction(
+/**
+ * Get inventory metrics specifically
+ */
+export async function getInventoryMetricsAction(
   query?: DashboardSummaryQuery
-): Promise<ActionResponse<RevenueMetrics>> {
+): Promise<ActionResponse<MetricsResponse>> {
   try {
-    const res = await dashboardService.getRevenueMetrics(query);
+    const res = await dashboardService.getMetrics({
+      metrics: "inventory",
+      ...query,
+    });
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getUnderwriterPerformanceAction(
+/**
+ * Get order metrics specifically
+ */
+export async function getOrderMetricsAction(
   query?: DashboardSummaryQuery
-): Promise<ActionResponse<UnderwriterPerformanceItem[]>> {
+): Promise<ActionResponse<MetricsResponse>> {
   try {
-    const res = await dashboardService.getUnderwriterPerformance(query);
+    const res = await dashboardService.getMetrics({
+      metrics: "orders",
+      ...query,
+    });
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getUserActivityAction(
+/**
+ * Get sales metrics specifically
+ */
+export async function getSalesMetricsAction(
   query?: DashboardSummaryQuery
-): Promise<ActionResponse<UserActivityItem[]>> {
+): Promise<ActionResponse<MetricsResponse>> {
   try {
-    const res = await dashboardService.getUserActivity(query);
+    const res = await dashboardService.getMetrics({
+      metrics: "sales",
+      ...query,
+    });
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };
   }
 }
 
-export async function getUpcomingTasksAction(
+/**
+ * Get design metrics specifically
+ */
+export async function getDesignMetricsAction(
   query?: DashboardSummaryQuery
-): Promise<ActionResponse<UpcomingTasks>> {
+): Promise<ActionResponse<MetricsResponse>> {
   try {
-    const res = await dashboardService.getUpcomingTasks(query);
+    const res = await dashboardService.getMetrics({
+      metrics: "designs",
+      ...query,
+    });
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Get all admin metrics in one call
+ */
+export async function getAllAdminMetricsAction(
+  query?: DashboardSummaryQuery
+): Promise<ActionResponse<MetricsResponse>> {
+  try {
+    const res = await dashboardService.getMetrics({
+      metrics: "customers,inventory,orders,sales",
+      ...query,
+    });
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Get customer-specific data
+ */
+export async function getCustomerDataAction(
+  query?: DashboardSummaryQuery
+): Promise<ActionResponse<MetricsResponse>> {
+  try {
+    const res = await dashboardService.getMetrics({
+      metrics: "orders,designs",
+      ...query,
+    });
+    return { success: true, data: res };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Get recent activity with specified limit
+ */
+export async function getRecentActivityAction(
+  limit: number = 10
+): Promise<ActionResponse<ActivityFeedResponse>> {
+  try {
+    const res = await dashboardService.getActivityFeed({
+      pageSize: limit,
+      pageIndex: 0,
+    });
     return { success: true, data: res };
   } catch (error) {
     return { success: false, error: getErrorMessage(error) };

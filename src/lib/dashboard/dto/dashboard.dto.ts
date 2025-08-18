@@ -1,165 +1,289 @@
 import { z } from "zod";
 
-// Dashboard query validation schema
+// ============ QUERY VALIDATION SCHEMAS ============
+
 export const dashboardSummaryQuerySchema = z
   .object({
-    preset: z
-      .enum(["last_7_days", "last_30_days", "last_90_days", "last_year"])
-      .optional(),
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().optional(),
+    dateRange: z.number().min(1).optional(),
+    includeDetails: z.boolean().optional(),
+    timezone: z.string().optional(),
   })
-  .refine(
-    (data) => {
-      // If using custom dates, both startDate and endDate should be provided
-      if (data.startDate || data.endDate) {
-        return data.startDate && data.endDate;
-      }
-      return true;
-    },
-    {
-      message:
-        "Both startDate and endDate must be provided when using custom date range",
-    }
-  )
-  .refine(
-    (data) => {
-      // If using custom dates, startDate should be before endDate
-      if (data.startDate && data.endDate) {
-        return new Date(data.startDate) < new Date(data.endDate);
-      }
-      return true;
-    },
-    {
-      message: "startDate must be before endDate",
-    }
-  );
+  .optional();
+
+export const metricsQuerySchema = z.object({
+  dateRange: z.number().min(1).optional(),
+  includeDetails: z.boolean().optional(),
+  timezone: z.string().optional(),
+  metrics: z.string().min(1), // comma-separated list of metric types
+  includeComparison: z.boolean().optional(),
+});
+
+export const activityQuerySchema = z.object({
+  pageIndex: z.number().min(0).optional(),
+  pageSize: z.number().min(1).max(100).optional(),
+  type: z.string().optional(), // comma-separated list of activity types
+  severity: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  dateRange: z.number().min(1).optional(),
+});
+
+// ============ RESPONSE VALIDATION SCHEMAS ============
+
+export const recentActivitySchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  title: z.string(),
+  description: z.string(),
+  timestamp: z.string(),
+  metadata: z.record(z.any()).optional(),
+  severity: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  templateId: z.string().optional(),
+  orderId: z.string().optional(),
+  userId: z.string().optional(),
+});
+
+export const topProductSchema = z.object({
+  productId: z.string(),
+  productName: z.string(),
+  quantitySold: z.number(),
+});
+
+export const adminCustomersSchema = z.object({
+  total: z.number(),
+  active: z.number(),
+  newThisMonth: z.number(),
+  growth: z.number(),
+});
+
+export const adminInventorySchema = z.object({
+  totalProducts: z.number(),
+  lowStock: z.number(),
+  outOfStock: z.number(),
+  stockValue: z.number(),
+  reorderAlerts: z.number(),
+});
+
+export const adminOrdersSchema = z.object({
+  total: z.number(),
+  pending: z.number(),
+  processing: z.number(),
+  completed: z.number(),
+  cancelled: z.number(),
+  todaysOrders: z.number(),
+});
+
+export const adminSalesSchema = z.object({
+  totalRevenue: z.number(),
+  monthlyRevenue: z.number(),
+  dailyAverage: z.number(),
+  growth: z.number(),
+  topProducts: z.array(topProductSchema),
+});
+
+export const adminSummarySchema = z.object({
+  customers: adminCustomersSchema,
+  inventory: adminInventorySchema,
+  orders: adminOrdersSchema,
+  sales: adminSalesSchema,
+  recentActivity: z.array(recentActivitySchema),
+});
+
+export const customerProfileSchema = z.object({
+  totalOrders: z.number(),
+  totalSpent: z.number(),
+  averageOrderValue: z.number(),
+  joinDate: z.string().optional(),
+  lastOrderDate: z.string().optional(),
+});
+
+export const recentDesignSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.string(),
+  updatedAt: z.string(),
+  preview: z.string().optional(),
+});
+
+export const savedDesignsSchema = z.object({
+  total: z.number(),
+  drafts: z.number(),
+  approved: z.number(),
+  pending: z.number(),
+  recentDesigns: z.array(recentDesignSchema),
+});
+
+export const recentOrderSchema = z.object({
+  id: z.string(),
+  orderNumber: z.string(),
+  status: z.string(),
+  totalAmount: z.number(),
+  createdAt: z.string(),
+  expectedDelivery: z.string().optional(),
+});
+
+export const customerOrdersSchema = z.object({
+  total: z.number(),
+  pending: z.number(),
+  processing: z.number(),
+  completed: z.number(),
+  cancelled: z.number(),
+  recentOrders: z.array(recentOrderSchema),
+});
+
+export const cartItemSchema = z.object({
+  id: z.string(),
+  productName: z.string(),
+  variantName: z.string().optional(),
+  quantity: z.number(),
+  unitPrice: z.number(),
+});
+
+export const customerCartSchema = z.object({
+  itemCount: z.number(),
+  totalValue: z.number(),
+  items: z.array(cartItemSchema),
+});
+
+export const customerSummarySchema = z.object({
+  profile: customerProfileSchema,
+  savedDesigns: savedDesignsSchema,
+  orders: customerOrdersSchema,
+  cart: customerCartSchema,
+});
+
+export const dashboardSummaryResponseSchema = z.object({
+  role: z.enum(["CUSTOMER", "ADMIN"]),
+  data: z.union([customerSummarySchema, adminSummarySchema]),
+  lastUpdated: z.string(),
+  expiresAt: z.string().optional(),
+  dataAge: z.number().optional(),
+});
+
+export const metricsResponseSchema = z.object({
+  customers: adminCustomersSchema.optional(),
+  inventory: adminInventorySchema.optional(),
+  orders: z.union([adminOrdersSchema, customerProfileSchema]).optional(),
+  sales: adminSalesSchema.optional(),
+  designs: savedDesignsSchema.optional(),
+});
+
+export const activityMetaSchema = z.object({
+  pageCount: z.number(),
+  pageSize: z.number(),
+  currentPage: z.number(),
+  pageIndex: z.number(),
+  itemCount: z.number(),
+});
+
+export const activityFeedResponseSchema = z.object({
+  results: z.array(recentActivitySchema),
+  meta: activityMetaSchema,
+});
+
+export const customerQuickStatsSchema = z.object({
+  totalOrders: z.number(),
+  totalSpent: z.number(),
+  savedDesigns: z.number(),
+  cartItems: z.number(),
+});
+
+export const adminQuickStatsSchema = z.object({
+  totalCustomers: z.number(),
+  totalOrders: z.number(),
+  monthlyRevenue: z.number(),
+  lowStockAlerts: z.number(),
+});
+
+export const quickStatsResponseSchema = z.object({
+  role: z.enum(["CUSTOMER", "ADMIN"]),
+  stats: z.union([customerQuickStatsSchema, adminQuickStatsSchema]),
+});
+
+// ============ INFERRED TYPES ============
 
 export type DashboardSummaryQueryDto = z.infer<
   typeof dashboardSummaryQuerySchema
 >;
-
-// Response validation schemas
-export const metricValueSchema = z.object({
-  value: z.number(),
-  change: z.number(),
-});
-
-export const topMetricsSchema = z.object({
-  activeClients: metricValueSchema,
-  newClients: metricValueSchema,
-  activeConversations: metricValueSchema,
-  pendingFollowUps: metricValueSchema,
-  plansInForce: metricValueSchema,
-});
-
-export const weeklyDataPointSchema = z.object({
-  date: z.string(),
-  whatsapp: z.number(),
-  sms: z.number(),
-  instagram: z.number(),
-  email: z.number(),
-  total: z.number(),
-});
-
-export const conversationMetricsSchema = z.object({
-  conversationRate: z.number(),
-  averageResponseTime: z.number(),
-  completionRate: z.number(),
-});
-
-export const conversationInsightsSchema = z.object({
-  weeklyData: z.array(weeklyDataPointSchema),
-  metrics: conversationMetricsSchema,
-});
-
-export const activeBotsSchema = z.object({
-  active: z.number(),
-  total: z.number(),
-});
-
-export const clientFeedbackSchema = z.object({
-  averageRating: z.number(),
-  totalRatings: z.number(),
-  satisfactionRate: z.number(),
-});
-
-export const botPerformanceSchema = z.object({
-  activeBots: activeBotsSchema,
-  questionsAsked: z.number(),
-  clientFeedback: clientFeedbackSchema,
-});
-
-export const revenueByFrequencySchema = z.object({
-  frequency: z.string(),
-  amount: z.number(),
-  count: z.number(),
-});
-
-export const revenueMetricsSchema = z.object({
-  byFrequency: z.array(revenueByFrequencySchema),
-  totalMonthlyRevenue: z.number(),
-});
-
-export const underwriterPerformanceItemSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  plansCount: z.number(),
-  clientsCount: z.number(),
-  revenue: z.number(),
-});
-
-export const userActivityItemSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  lastActive: z.string(),
-  actionsCount: z.number(),
-});
-
-export const followUpItemSchema = z.object({
-  id: z.string(),
-  clientName: z.string(),
-  dueDate: z.string(),
-  type: z.string(),
-  priority: z.enum(["low", "medium", "high"]),
-});
-
-export const systemAlertSchema = z.object({
-  id: z.string(),
-  message: z.string(),
-  type: z.enum(["info", "warning", "error"]),
-  createdAt: z.string(),
-});
-
-export const upcomingTasksSchema = z.object({
-  followUps: z.array(followUpItemSchema),
-  systemAlerts: z.array(systemAlertSchema),
-});
-
-export const dashboardSummaryResponseSchema = z.object({
-  topMetrics: topMetricsSchema,
-  conversationInsights: conversationInsightsSchema,
-  botPerformance: botPerformanceSchema,
-  revenueMetrics: revenueMetricsSchema,
-  underwriterPerformance: z.array(underwriterPerformanceItemSchema),
-  userActivity: z.array(userActivityItemSchema),
-  upcomingTasks: upcomingTasksSchema,
-});
-
+export type MetricsQueryDto = z.infer<typeof metricsQuerySchema>;
+export type ActivityQueryDto = z.infer<typeof activityQuerySchema>;
 export type DashboardSummaryResponseDto = z.infer<
   typeof dashboardSummaryResponseSchema
 >;
+export type MetricsResponseDto = z.infer<typeof metricsResponseSchema>;
+export type ActivityFeedResponseDto = z.infer<
+  typeof activityFeedResponseSchema
+>;
+export type QuickStatsResponseDto = z.infer<typeof quickStatsResponseSchema>;
 
-// Utility function to validate dashboard query
-export function validateDashboardQuery(
+// ============ VALIDATION FUNCTIONS ============
+
+export function validateDashboardSummaryQuery(
   query: unknown
 ): DashboardSummaryQueryDto {
   return dashboardSummaryQuerySchema.parse(query);
 }
 
-// Utility function to validate dashboard response
-export function validateDashboardResponse(
+export function validateMetricsQuery(query: unknown): MetricsQueryDto {
+  return metricsQuerySchema.parse(query);
+}
+
+export function validateActivityQuery(query: unknown): ActivityQueryDto {
+  return activityQuerySchema.parse(query);
+}
+
+export function validateDashboardSummaryResponse(
   response: unknown
 ): DashboardSummaryResponseDto {
   return dashboardSummaryResponseSchema.parse(response);
+}
+
+export function validateMetricsResponse(response: unknown): MetricsResponseDto {
+  return metricsResponseSchema.parse(response);
+}
+
+export function validateActivityFeedResponse(
+  response: unknown
+): ActivityFeedResponseDto {
+  return activityFeedResponseSchema.parse(response);
+}
+
+export function validateQuickStatsResponse(
+  response: unknown
+): QuickStatsResponseDto {
+  return quickStatsResponseSchema.parse(response);
+}
+
+// ============ UTILITY FUNCTIONS ============
+
+export function buildMetricsQueryString(metrics: string[]): string {
+  return metrics.join(",");
+}
+
+export function buildActivityTypeQueryString(types: string[]): string {
+  return types.join(",");
+}
+
+export function getDefaultSummaryQuery(): DashboardSummaryQueryDto {
+  return {
+    dateRange: 30,
+    includeDetails: true,
+    timezone: "UTC",
+  };
+}
+
+export function getDefaultMetricsQuery(metrics: string[]): MetricsQueryDto {
+  return {
+    dateRange: 30,
+    includeDetails: true,
+    timezone: "UTC",
+    metrics: buildMetricsQueryString(metrics),
+    includeComparison: true,
+  };
+}
+
+export function getDefaultActivityQuery(): ActivityQueryDto {
+  return {
+    pageIndex: 0,
+    pageSize: 20,
+    dateRange: 7,
+  };
 }

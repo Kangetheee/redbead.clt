@@ -2,6 +2,10 @@ export interface UserRole {
   id: string;
   name: string;
   permissions: string[];
+  description?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UserResponse {
@@ -9,42 +13,53 @@ export interface UserResponse {
   name: string;
   email: string;
   phone: string;
-  username?: string;
   avatar?: string | null;
+  type: "CUSTOMER" | "ADMIN" | "MANAGER";
   isActive: boolean;
+  verified: boolean;
+  roleId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metadata?: Record<string, any> | null;
+  lastLogin?: string | null;
   createdAt: string;
-  totalSpend?: number;
+  updatedAt: string;
   role: UserRole;
-  roles_users_roleIdToroles: UserRole; // Legacy field from API
 }
 
 export interface UserDetail {
   id: string;
-  avatar?: string | null;
   name: string;
   email: string;
   phone: string;
-  username?: string;
-  isEmailVerified?: boolean;
-  isPhoneVerified?: boolean;
+  avatar?: string | null;
+  type: "CUSTOMER" | "ADMIN" | "MANAGER";
   isActive: boolean;
+  verified: boolean;
+  roleId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metadata?: Record<string, any> | null;
+  lastLogin?: string | null;
   createdAt: string;
-  verified?: boolean;
+  updatedAt: string;
   role: UserRole;
-  roles_users_roleIdToroles?: UserRole; // Legacy field from API
 }
 
 export interface UserProfile {
   id: string;
-  avatar?: string | null;
   name: string;
-  phone: string;
-  isActive: boolean;
   email: string;
-  createdAt: string;
-  passwordHash?: string;
+  phone: string;
+  avatar?: string | null;
+  type: "CUSTOMER" | "ADMIN" | "MANAGER";
+  isActive: boolean;
   verified: boolean;
-  roles_users_roleIdToroles: UserRole;
+  roleId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metadata?: Record<string, any> | null;
+  lastLogin?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  role: UserRole;
 }
 
 // For form components and select options
@@ -52,11 +67,14 @@ export interface UserOption {
   value: string;
   label: string;
   role?: string;
+  type?: string;
 }
 
 // For user filters
 export interface UserFilters {
   search?: string;
   roleId?: string;
+  type?: "CUSTOMER" | "ADMIN" | "MANAGER";
   isActive?: boolean;
+  verified?: boolean;
 }
