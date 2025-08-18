@@ -126,7 +126,7 @@ export default function AccountDropdown() {
           </Link>
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+        {/* <DropdownMenuSeparator /> */}
 
         {/* <DropdownMenuItem asChild>
           <div className="px-2 py-1.5">
