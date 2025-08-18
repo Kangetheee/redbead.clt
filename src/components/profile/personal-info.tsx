@@ -58,8 +58,8 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
       return true;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fieldError = error.errors?.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (err: any) => err.path?.[0] === field
       );
       const errorMessage = fieldError?.message || "Invalid value";
