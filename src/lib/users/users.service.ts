@@ -6,7 +6,9 @@ import { UserDetail, UserResponse, UserProfile } from "./types/users.types";
 export class UserService {
   constructor(private fetcher = new Fetcher()) {}
 
-  public async findAll(params?: GetUsersDto) {
+  public async findAll(
+    params?: GetUsersDto
+  ): Promise<PaginatedData<UserResponse>> {
     const queryParams = new URLSearchParams();
 
     if (params?.page) {
@@ -21,8 +23,14 @@ export class UserService {
     if (params?.roleId) {
       queryParams.append("roleId", params.roleId);
     }
+    if (params?.type) {
+      queryParams.append("type", params.type);
+    }
     if (params?.isActive !== undefined) {
       queryParams.append("isActive", params.isActive.toString());
+    }
+    if (params?.verified !== undefined) {
+      queryParams.append("verified", params.verified.toString());
     }
 
     const queryString = queryParams.toString();

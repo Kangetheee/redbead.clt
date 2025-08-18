@@ -1,10 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 "use client";
 
 import { useState } from "react";
 import { useUserProfile } from "@/hooks/use-users";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -28,15 +26,27 @@ import {
   AlertCircle,
   Home,
   LayoutDashboard,
+  CheckCircle,
+  Clock,
+  UserCheck,
+  Phone,
+  Mail,
 } from "lucide-react";
 import PersonalInfo from "@/components/profile/personal-info";
 import SecuritySettings from "@/components/profile/security-settings";
 import Preferences from "@/components/profile/preferences";
-import { getInitials } from "@/lib/utils";
 
 export default function ProfilePageClient() {
   const [activeTab, setActiveTab] = useState("personal");
-  const { data: userProfile, isLoading, error } = useUserProfile();
+  const { data: userProfile, isLoading, error, refetch } = useUserProfile();
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
+  };
 
   if (isLoading) {
     return (
@@ -102,14 +112,76 @@ export default function ProfilePageClient() {
 
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
+            <AlertDescription className="flex items-center justify-between">
               Failed to load profile. Please try again.
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                className="ml-4"
+              >
+                Retry
+              </Button>
             </AlertDescription>
           </Alert>
         </div>
       </div>
     );
   }
+
+  const getStatusBadges = () => {
+    const badges = [];
+
+    // Account Status
+    badges.push(
+      <Badge
+        key="status"
+        variant={userProfile.isActive ? "default" : "secondary"}
+        className={
+          userProfile.isActive
+            ? "bg-green-100 text-green-800 hover:bg-green-100"
+            : "bg-red-100 text-red-800 hover:bg-red-100"
+        }
+      >
+        {userProfile.isActive ? "Active" : "Inactive"}
+      </Badge>
+    );
+
+    // Verification Status
+    if (userProfile.verified) {
+      badges.push(
+        <Badge
+          key="verified"
+          variant="outline"
+          className="text-green-600 border-green-600"
+        >
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Verified
+        </Badge>
+      );
+    } else {
+      badges.push(
+        <Badge
+          key="unverified"
+          variant="outline"
+          className="text-yellow-600 border-yellow-600"
+        >
+          <Clock className="h-3 w-3 mr-1" />
+          Pending Verification
+        </Badge>
+      );
+    }
+
+    // User Type
+    badges.push(
+      <Badge key="type" variant="outline">
+        <UserCheck className="h-3 w-3 mr-1" />
+        {userProfile.type}
+      </Badge>
+    );
+
+    return badges;
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -153,71 +225,88 @@ export default function ProfilePageClient() {
                   size="icon"
                   variant="outline"
                   className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full"
+                  onClick={() => setActiveTab("personal")}
+                  title="Edit profile picture"
                 >
                   <Camera className="h-4 w-4" />
                 </Button>
               </div>
 
               <div className="flex-1">
-                <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4">
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {userProfile.name}
-                  </h1>
-                  <div className="flex gap-2">
-                    <Badge
-                      variant={userProfile.isActive ? "default" : "secondary"}
-                    >
-                      {userProfile.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                    {userProfile.verified && (
-                      <Badge
-                        variant="outline"
-                        className="text-green-600 border-green-600"
-                      >
-                        Verified
-                      </Badge>
-                    )}
+                <div className="flex flex-col md:flex-row md:items-start gap-4 mb-4">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                      {userProfile.name}
+                    </h1>
+                    <p className="text-gray-600 text-sm">
+                      {userProfile.role?.name || "No role assigned"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {getStatusBadges()}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
                   <div className="space-y-2">
                     <p className="flex items-start gap-2">
+                      <Mail className="h-4 w-4 mt-0.5 shrink-0" />
                       <span className="font-medium shrink-0">Email:</span>
                       <span className="break-all text-right flex-1 min-w-0">
                         {userProfile.email}
                       </span>
                     </p>
                     <p className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 shrink-0" />
                       <span className="font-medium">Phone:</span>
-                      {userProfile.phone || "Not provided"}
+                      <span className="flex-1">
+                        {userProfile.phone || "Not provided"}
+                      </span>
                     </p>
                   </div>
                   <div className="space-y-2">
                     <p className="flex items-center gap-2">
-                      <span className="font-medium">Role:</span>
-                      <Badge variant="outline">
-                        {userProfile.roles_users_roleIdToroles?.name ||
-                          "No role"}
-                      </Badge>
+                      <Clock className="h-4 w-4 shrink-0" />
+                      <span className="font-medium">Member since:</span>
+                      <span className="flex-1">
+                        {new Date(userProfile.createdAt).toLocaleDateString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )}
+                      </span>
                     </p>
-                    <p className="flex items-center gap-2">
-                      <span className="font-medium">Customer since:</span>
-                      {new Date(userProfile.createdAt).toLocaleDateString(
-                        "en-US",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        }
-                      )}
-                    </p>
+                    {userProfile.lastLogin && (
+                      <p className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <span className="font-medium">Last login:</span>
+                        <span className="flex-1">
+                          {new Date(userProfile.lastLogin).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2 md:self-start">
-                <Button variant="outline" className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={() => setActiveTab("personal")}
+                >
                   <Edit className="h-4 w-4" />
                   Edit Profile
                 </Button>

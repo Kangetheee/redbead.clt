@@ -68,15 +68,18 @@ export async function fetchUserProfile() {
 
 // Hook for user search/autocomplete
 export function useUserSearch(options?: {
-  isAdmin?: boolean;
+  excludeCustomers?: boolean;
+  userType?: "CUSTOMER" | "ADMIN" | "MANAGER";
   enabled?: boolean;
 }) {
-  const { isAdmin = false, enabled = true } = options || {};
+  const { excludeCustomers = false, userType, enabled = true } = options || {};
 
   const searchParams: GetUsersDto = {
     page: 1,
     limit: 100,
     isActive: true,
+    verified: true,
+    ...(userType && { type: userType }),
   };
 
   return useQuery({
@@ -86,11 +89,12 @@ export function useUserSearch(options?: {
       if (!data.success) return [];
 
       return data.data.items
-        .filter((user) => !isAdmin || user.role.name !== "Customer")
+        .filter((user) => !excludeCustomers || user.type !== "CUSTOMER")
         .map((user) => ({
           value: user.id,
           label: `${user.name} (${user.email})`,
           role: user.role.name,
+          type: user.type,
         }));
     },
     enabled,
@@ -98,7 +102,27 @@ export function useUserSearch(options?: {
   });
 }
 
-// Mutation for creating users
+export function useUsersByRole(
+  roleId?: string,
+  userType?: "CUSTOMER" | "ADMIN" | "MANAGER"
+) {
+  const searchParams: GetUsersDto = {
+    page: 1,
+    limit: 100,
+    isActive: true,
+    ...(roleId && { roleId }),
+    ...(userType && { type: userType }),
+  };
+
+  return useQuery({
+    queryKey: userKeys.list(searchParams),
+    queryFn: () => getUsersAction(searchParams),
+    select: (data) => (data.success ? data.data : null),
+    enabled: !!(roleId || userType),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient();
 
@@ -118,7 +142,6 @@ export function useCreateUser() {
   });
 }
 
-// Mutation for updating users
 export function useUpdateUser() {
   const queryClient = useQueryClient();
 
@@ -140,7 +163,6 @@ export function useUpdateUser() {
   });
 }
 
-// Mutation for updating current user profile
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
@@ -160,7 +182,6 @@ export function useUpdateProfile() {
   });
 }
 
-// Mutation for deleting users
 export function useDeleteUser() {
   const queryClient = useQueryClient();
 

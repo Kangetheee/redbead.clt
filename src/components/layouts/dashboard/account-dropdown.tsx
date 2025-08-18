@@ -76,7 +76,7 @@ export default function AccountDropdown() {
   }
 
   const userName = userProfile?.name || "User";
-  const userRole = userProfile?.roles_users_roleIdToroles?.name || "User";
+  const userRole = userProfile?.role?.name || "User";
   const userAvatar = userProfile?.avatar;
 
   return (
