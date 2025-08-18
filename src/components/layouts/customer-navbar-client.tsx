@@ -80,7 +80,7 @@ export function CustomerNavbarClient({
     { href: "/orders", label: "My Orders" },
     { href: "/design-studio", label: "Designs Studio" },
     { href: "/addresses", label: "Addresses" },
-    { href: "/dashboard/customer/profile", label: "Profile Settings" },
+    { href: "/profile", label: "Profile Settings" },
   ];
 
   // Logo Component
