@@ -224,7 +224,6 @@ export function FeaturedProductsSection({
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                     onError={(e) => {
-                      // If image fails to load, replace with placeholder
                       (e.target as HTMLImageElement).src =
                         "/placeholder-product.jpg";
                     }}

@@ -59,6 +59,10 @@ export function QuantitySelector({
               }, 100); // Small delay to ensure state updates complete
             }
           },
+          onError: () => {
+            // Rollback quantity on error
+            setQuantity(initialQuantity);
+          },
         }
       );
     }
@@ -89,6 +93,7 @@ export function QuantitySelector({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       updateQuantity(quantity);
+      e.currentTarget.blur();
     }
   };
 
