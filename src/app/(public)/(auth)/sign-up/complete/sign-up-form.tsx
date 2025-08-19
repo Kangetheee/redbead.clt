@@ -17,6 +17,9 @@ export default function SignUpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const verificationToken = searchParams?.get("token") || "";
+  const searchParamsString = searchParams?.toString() || "";
+  const callbackUrl =
+    new URLSearchParams(searchParamsString).get("callbackUrl") || "";
 
   const form = useForm<SignUpDto>({
     resolver: zodResolver(signUpSchema),
@@ -46,7 +49,7 @@ export default function SignUpForm() {
 
     reset();
     toast.success("Account created successfully!");
-    router.replace("/");
+    router.replace(callbackUrl || "/");
   }
 
   return (
@@ -90,7 +93,7 @@ export default function SignUpForm() {
         <div className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link
-            href="/sign-in"
+            href={`/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`}
             className="underline-offset-4 hover:text-primary hover:underline"
           >
             Sign in

@@ -20,6 +20,9 @@ export default function OtpVerificationForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const phone = searchParams?.get("phone") || "";
+  const searchParamsString = searchParams?.toString() || "";
+  const callbackUrl =
+    new URLSearchParams(searchParamsString).get("callbackUrl") || "";
 
   const form = useForm<ConfirmPhoneDto>({
     resolver: zodResolver(confirmPhoneSchema),
@@ -44,7 +47,9 @@ export default function OtpVerificationForm() {
     reset();
     toast.success("Phone verified successfully!");
     router.push(
-      `/sign-up/complete?token=${encodeURIComponent(result.data?.verificationToken || "")}`
+      `/sign-up/complete?token=${encodeURIComponent(result.data?.verificationToken || "")}${
+        callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
+      }`
     );
   }
 
@@ -72,7 +77,7 @@ export default function OtpVerificationForm() {
 
         <div className="text-center text-sm text-muted-foreground">
           <Link
-            href="/sign-up"
+            href={`/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}`}
             className="underline-offset-4 hover:text-primary hover:underline"
           >
             Use different phone number

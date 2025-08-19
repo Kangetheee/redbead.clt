@@ -26,7 +26,6 @@ const publicRoutes = [
   "/contact",
 ];
 
-// Middleware-specific session store for cookie handling
 class MiddlewareSessionStore {
   private chunks: Record<string, string> = {};
   private cookieName: string;
@@ -34,7 +33,6 @@ class MiddlewareSessionStore {
   constructor(cookieName: string, cookies: NextRequest["cookies"]) {
     this.cookieName = cookieName;
 
-    // Get all cookies related to the session
     cookies.getAll().forEach((cookie) => {
       if (cookie.name.startsWith(this.cookieName)) {
         this.chunks[cookie.name] = cookie.value;
@@ -54,7 +52,6 @@ class MiddlewareSessionStore {
   }
 }
 
-// Middleware-specific function to decrypt the session
 async function decryptSession(sessionValue?: string): Promise<Session | null> {
   if (!sessionValue) return null;
 
@@ -87,22 +84,13 @@ async function getMiddlewareSession(req: NextRequest): Promise<Session | null> {
   return session;
 }
 
-// Helper function to determine the appropriate auth route for redirects
-function getAuthRedirectRoute(originalPath: string): string {
-  // You can customize this logic based on your needs
-  // For example, redirect to sign-up for certain paths, sign-in for others
-
-  // Option 1: Always redirect to sign-in (current behavior)
-  return signInRoute;
-
-  // Option 2: Smart routing based on path
-  // if (originalPath.includes('checkout') || originalPath.includes('premium')) {
-  //   return signUpRoute; // New users might need to sign up for premium features
-  // }
-  // return signInRoute; // Default to sign-in for existing users
+function getAuthRedirectRoute(
+  originalPath: string,
+  mode: "signin" | "signup" = "signin"
+): string {
+  return mode === "signup" ? signUpRoute : signInRoute;
 }
 
-// Helper function to handle callback URL for auth routes
 function handleAuthRouteCallback(
   req: NextRequest,
   targetAuthRoute: string

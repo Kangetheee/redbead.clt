@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -18,6 +18,10 @@ import {
 
 export default function PhoneVerificationForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchParamsString = searchParams?.toString() || "";
+  const callbackUrl =
+    new URLSearchParams(searchParamsString).get("callbackUrl") || "";
 
   const form = useForm<VerifyPhoneDto>({
     resolver: zodResolver(verifyPhoneSchema),
@@ -41,7 +45,11 @@ export default function PhoneVerificationForm() {
 
     reset();
     toast.success("Verification code sent!");
-    router.push(`/sign-up/verify?phone=${encodeURIComponent(data.phone)}`);
+    router.push(
+      `/sign-up/verify?phone=${encodeURIComponent(data.phone)}${
+        callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
+      }`
+    );
   }
 
   return (
@@ -61,7 +69,7 @@ export default function PhoneVerificationForm() {
         <div className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link
-            href="/sign-in"
+            href={`/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`}
             className="underline-offset-4 hover:text-primary hover:underline"
           >
             Sign in
