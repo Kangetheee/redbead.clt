@@ -27,7 +27,6 @@ import {
   CleanupExpiredSessionsDto,
 } from "@/lib/cart/dto/cart.dto";
 
-// Query Keys
 export const cartKeys = {
   all: ["cart"] as const,
   lists: () => [...cartKeys.all, "list"] as const,
@@ -42,12 +41,6 @@ export const cartKeys = {
   cleanup: () => [...cartKeys.all, "cleanup"] as const,
 };
 
-// Query Hooks
-
-/**
- * Get cart with pagination, filtering, and sorting
- * Uses GET /v1/cart
- */
 export function useCart(params?: GetCartDto) {
   return useQuery({
     queryKey: cartKeys.list(params),
@@ -58,15 +51,11 @@ export function useCart(params?: GetCartDto) {
       }
       return result.data;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchOnWindowFocus: true, // Refresh cart when user returns to tab
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 }
 
-/**
- * Get a specific cart item by ID
- * Uses GET /v1/cart/{id}
- */
 export function useCartItem(cartItemId: string, enabled = true) {
   return useQuery({
     queryKey: cartKeys.detail(cartItemId),
@@ -78,15 +67,10 @@ export function useCartItem(cartItemId: string, enabled = true) {
       return result.data;
     },
     enabled: enabled && !!cartItemId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }
 
-/**
- * Get saved for later items with pagination
- * Uses GET /v1/cart/saved
- * Requires authentication
- */
 export function useSavedItems(params?: GetSavedItemsDto, enabled = true) {
   return useQuery({
     queryKey: cartKeys.savedList(params),
@@ -98,16 +82,10 @@ export function useSavedItems(params?: GetSavedItemsDto, enabled = true) {
       return result.data;
     },
     enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }
 
-// Mutation Hooks
-
-/**
- * Add items to cart
- * Uses POST /v1/cart
- */
 export function useAddToCart() {
   const queryClient = useQueryClient();
 
@@ -119,38 +97,34 @@ export function useAddToCart() {
       }
       return result.data;
     },
+    onMutate: async (values) => {
+      await queryClient.cancelQueries({ queryKey: cartKeys.all });
+
+      const previousCart = queryClient.getQueryData(cartKeys.list());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      queryClient.setQueryData(cartKeys.list(), (old: any) => {
+        if (!old) return { items: [values] };
+        return { ...old, items: [...old.items, { ...values, id: "temp-id" }] };
+      });
+
+      return { previousCart };
+    },
+    onError: (error: Error, _values, context) => {
+      if (context?.previousCart) {
+        queryClient.setQueryData(cartKeys.list(), context.previousCart);
+      }
+      toast.error(`Failed to add item to cart: ${error.message}`);
+    },
     onSuccess: (data) => {
-      // Invalidate all cart-related queries
-      queryClient.invalidateQueries({ queryKey: cartKeys.all });
-      // queryClient.invalidateQueries({ queryKey: cartKeys.summary() });
-
-      // Set the created cart item in cache
       queryClient.setQueryData(cartKeys.detail(data.id), data);
-
       toast.success("Item added to cart successfully");
     },
-    onError: (error: Error) => {
-      if (error.message.includes("insufficient stock")) {
-        toast.error("Not enough items in stock", {
-          description: "Please reduce the quantity and try again.",
-          duration: 6000,
-        });
-      } else if (error.message.includes("404")) {
-        toast.error("Product or variant not found", {
-          description: "The selected item may no longer be available.",
-          duration: 6000,
-        });
-      } else {
-        toast.error(`Failed to add item to cart: ${error.message}`);
-      }
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: cartKeys.all });
     },
   });
 }
 
-/**
- * Update cart items
- * Uses PATCH /v1/cart/{id}
- */
 export function useUpdateCartItem() {
   const queryClient = useQueryClient();
 
@@ -163,84 +137,87 @@ export function useUpdateCartItem() {
       values: UpdateCartItemDto;
     }) => {
       const result = await updateCartItemAction(cartItemId, values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
+      if (!result.success) throw new Error(result.error);
       return result.data;
     },
-    onSuccess: (data, variables) => {
-      // Update specific cart item cache
-      queryClient.setQueryData(cartKeys.detail(variables.cartItemId), data);
+    onMutate: async ({ cartItemId, values }) => {
+      await queryClient.cancelQueries({ queryKey: cartKeys.all });
 
-      // Invalidate cart lists and summary
-      queryClient.invalidateQueries({ queryKey: cartKeys.all });
-      // queryClient.invalidateQueries({ queryKey: cartKeys.summary() });
+      const previousCart = queryClient.getQueryData(cartKeys.list());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      queryClient.setQueryData(cartKeys.list(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          items: old.items.map((item: any) =>
+            item.id === cartItemId ? { ...item, ...values } : item
+          ),
+        };
+      });
 
-      toast.success("Cart item updated successfully");
+      return { previousCart };
     },
-    onError: (error: Error) => {
-      if (error.message.includes("insufficient stock")) {
-        toast.error("Not enough items in stock", {
-          description: "Please reduce the quantity and try again.",
-          duration: 6000,
-        });
-      } else if (error.message.includes("404")) {
-        toast.error("Cart item or variant not found", {
-          description:
-            "The item may have been removed or is no longer available.",
-          duration: 6000,
-        });
-      } else {
-        toast.error(`Failed to update cart item: ${error.message}`);
+    onError: (error, _vars, context) => {
+      if (context?.previousCart) {
+        queryClient.setQueryData(cartKeys.list(), context.previousCart);
       }
+      toast.error(`Failed to update cart item: ${error.message}`);
+    },
+    onSuccess: (data, { cartItemId }) => {
+      queryClient.setQueryData(cartKeys.detail(cartItemId), data);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: cartKeys.lists(),
+        refetchType: "active",
+      });
     },
   });
 }
 
-/**
- * Remove single item from cart
- * Uses DELETE /v1/cart/{id}
- */
 export function useRemoveCartItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (cartItemId: string) => {
       const result = await removeCartItemAction(cartItemId);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
+      if (!result.success) throw new Error(result.error);
       return cartItemId;
     },
-    onSuccess: (cartItemId) => {
-      // Remove specific cart item from cache
-      queryClient.removeQueries({
-        queryKey: cartKeys.detail(cartItemId),
+    onMutate: async (cartItemId) => {
+      await queryClient.cancelQueries({ queryKey: cartKeys.all });
+      const previousCart = queryClient.getQueryData(cartKeys.list());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      queryClient.setQueryData(cartKeys.list(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          items: old.items.filter((item: any) => item.id !== cartItemId),
+        };
       });
 
-      // Invalidate cart lists and summary
-      queryClient.invalidateQueries({ queryKey: cartKeys.all });
-      // queryClient.invalidateQueries({ queryKey: cartKeys.summary() });
-
+      return { previousCart };
+    },
+    onError: (error, _id, context) => {
+      if (context?.previousCart) {
+        queryClient.setQueryData(cartKeys.list(), context.previousCart);
+      }
+      toast.error(`Failed to remove item from cart: ${error.message}`);
+    },
+    onSuccess: () => {
       toast.success("Item removed from cart");
     },
-    onError: (error: Error) => {
-      if (error.message.includes("404")) {
-        toast.error("Cart item not found", {
-          description: "The item may have already been removed.",
-          duration: 6000,
-        });
-      } else {
-        toast.error(`Failed to remove item from cart: ${error.message}`);
-      }
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: cartKeys.lists(),
+        refetchType: "active",
+      });
     },
   });
 }
 
-/**
- * Remove multiple items from cart
- * Uses POST /v1/cart/bulk-remove
- */
 export function useBulkRemove() {
   const queryClient = useQueryClient();
 
@@ -253,17 +230,12 @@ export function useBulkRemove() {
       return values.cartItemIds;
     },
     onSuccess: (cartItemIds) => {
-      // Remove specific cart items from cache
       cartItemIds.forEach((cartItemId) => {
         queryClient.removeQueries({
           queryKey: cartKeys.detail(cartItemId),
         });
       });
-
-      // Invalidate cart lists and summary
       queryClient.invalidateQueries({ queryKey: cartKeys.all });
-      // queryClient.invalidateQueries({ queryKey: cartKeys.summary() });
-
       toast.success(
         `${cartItemIds.length} item${cartItemIds.length !== 1 ? "s" : ""} removed from cart`
       );
@@ -282,10 +254,6 @@ export function useBulkRemove() {
   });
 }
 
-/**
- * Clear entire cart
- * Uses DELETE /v1/cart
- */
 export function useClearCart() {
   const queryClient = useQueryClient();
 
@@ -297,7 +265,6 @@ export function useClearCart() {
       }
     },
     onSuccess: () => {
-      // Invalidate all cart-related queries
       queryClient.invalidateQueries({ queryKey: cartKeys.all });
 
       toast.success("Cart cleared successfully");
@@ -308,11 +275,6 @@ export function useClearCart() {
   });
 }
 
-/**
- * Save items for later or move back to cart
- * Uses POST /v1/cart/save-for-later
- * Requires authentication
- */
 export function useSaveForLater() {
   const queryClient = useQueryClient();
 
@@ -325,11 +287,7 @@ export function useSaveForLater() {
       return values;
     },
     onSuccess: (values) => {
-      // Invalidate cart and saved items
       queryClient.invalidateQueries({ queryKey: cartKeys.all });
-      // queryClient.invalidateQueries({ queryKey: cartKeys.saved() });
-      // queryClient.invalidateQueries({ queryKey: cartKeys.summary() });
-
       const action = values.saveForLater ? "saved for later" : "moved to cart";
       const count = values.cartItemIds.length;
       toast.success(
@@ -355,11 +313,6 @@ export function useSaveForLater() {
   });
 }
 
-/**
- * NEW: Merge guest session cart with user cart
- * Uses POST /v1/cart/merge-session
- * Requires authentication
- */
 export function useMergeSessionCart() {
   const queryClient = useQueryClient();
 
@@ -403,11 +356,6 @@ export function useMergeSessionCart() {
   });
 }
 
-/**
- * NEW: Cleanup expired session carts (Admin only)
- * Uses POST /v1/cart/cleanup-expired-sessions
- * Requires authentication with admin role
- */
 export function useCleanupExpiredSessions() {
   return useMutation({
     mutationFn: async (params: CleanupExpiredSessionsDto) => {
@@ -437,11 +385,6 @@ export function useCleanupExpiredSessions() {
   });
 }
 
-// Utility Hooks
-
-/**
- * Get cart items (simplified access to cart.items)
- */
 export function useCartItems(params?: GetCartDto) {
   const { data: cart, ...rest } = useCart(params);
 
@@ -451,9 +394,6 @@ export function useCartItems(params?: GetCartDto) {
   };
 }
 
-/**
- * Get cart summary (simplified access to cart.summary)
- */
 export function useCartSummary(params?: GetCartDto) {
   const { data: cart, ...rest } = useCart(params);
 
@@ -468,9 +408,6 @@ export function useCartSummary(params?: GetCartDto) {
   };
 }
 
-/**
- * Get cart pagination meta (simplified access to cart.meta)
- */
 export function useCartMeta(params?: GetCartDto) {
   const { data: cart, ...rest } = useCart(params);
 
@@ -480,41 +417,26 @@ export function useCartMeta(params?: GetCartDto) {
   };
 }
 
-/**
- * Get cart item count
- */
 export function useCartItemCount() {
   const { data: summary } = useCartSummary();
   return summary.itemCount;
 }
 
-/**
- * Get cart total quantity
- */
 export function useCartTotalQuantity() {
   const { data: summary } = useCartSummary();
   return summary.totalQuantity;
 }
 
-/**
- * Get cart subtotal
- */
 export function useCartSubtotal() {
   const { data: summary } = useCartSummary();
   return summary.subtotal;
 }
 
-/**
- * Get cart total
- */
 export function useCartTotal() {
   const { data: summary } = useCartSummary();
   return summary.total;
 }
 
-/**
- * Check if a product and variant combination is in cart
- */
 export function useIsInCart(productId: string, variantId: string) {
   const { data: items } = useCartItems();
 
@@ -523,9 +445,6 @@ export function useIsInCart(productId: string, variantId: string) {
   );
 }
 
-/**
- * Get cart item by product and variant
- */
 export function useCartItemByProduct(productId: string, variantId: string) {
   const { data: items } = useCartItems();
 
@@ -534,9 +453,6 @@ export function useCartItemByProduct(productId: string, variantId: string) {
   );
 }
 
-/**
- * Manual refetch hook for cart
- */
 export function useRefetchCart() {
   const queryClient = useQueryClient();
 
@@ -550,9 +466,6 @@ export function useRefetchCart() {
   );
 }
 
-/**
- * Manual refetch hook for saved items
- */
 export function useRefetchSavedItems() {
   const queryClient = useQueryClient();
 
@@ -566,17 +479,11 @@ export function useRefetchSavedItems() {
   );
 }
 
-/**
- * Get cart data from cache without triggering network request
- */
 export function useCartFromCache(params?: GetCartDto) {
   const queryClient = useQueryClient();
   return queryClient.getQueryData(cartKeys.list(params));
 }
 
-/**
- * Prefetch cart data
- */
 export function usePrefetchCart() {
   const queryClient = useQueryClient();
 
@@ -598,17 +505,11 @@ export function usePrefetchCart() {
   );
 }
 
-/**
- * Get cart items by category
- */
 export function useCartItemsByCategory(categorySlug?: string) {
   const params = categorySlug ? { categorySlug } : undefined;
   return useCartItems(params);
 }
 
-/**
- * Search cart items
- */
 export function useSearchCartItems(
   search?: string,
   params?: Omit<GetCartDto, "search">
@@ -617,25 +518,16 @@ export function useSearchCartItems(
   return useCartItems(searchParams);
 }
 
-/**
- * NEW: Check if user has access to saved items (authentication check)
- */
 export function useHasSavedItemsAccess() {
   const { error } = useSavedItems({ pageSize: 1 }, true);
   return !error?.message.includes("401");
 }
 
-/**
- * NEW: Get saved items count
- */
 export function useSavedItemsCount() {
   const { data: savedItems } = useSavedItems({ pageSize: 1 });
   return savedItems?.summary.itemCount ?? 0;
 }
 
-/**
- * NEW: Hook for handling login-related cart merging
- */
 export function useLoginCartMerge() {
   const mergeSessionCart = useMergeSessionCart();
 

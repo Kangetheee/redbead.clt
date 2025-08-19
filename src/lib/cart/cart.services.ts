@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Fetcher } from "../api/api.service";
 import {
   CreateCartItemDto,
@@ -20,11 +19,6 @@ import {
 export class CartService {
   constructor(private fetcher = new Fetcher()) {}
 
-  /**
-   * Get cart with pagination, filtering, and sorting
-   * Uses GET /v1/cart
-   * No authentication required (works for both guest and authenticated users)
-   */
   async getCart(params?: GetCartDto): Promise<CartResponse> {
     const queryParams = new URLSearchParams();
 
@@ -59,11 +53,6 @@ export class CartService {
     );
   }
 
-  /**
-   * Get a specific cart item by ID
-   * Uses GET /v1/cart/{id}
-   * No authentication required
-   */
   async getCartItem(cartItemId: string): Promise<CartItemResponse> {
     return this.fetcher.request<CartItemResponse>(
       `/v1/cart/${cartItemId}`,
@@ -72,11 +61,6 @@ export class CartService {
     );
   }
 
-  /**
-   * Add a new item to the cart with product customizations
-   * Uses POST /v1/cart
-   * No authentication required (works for both guest and authenticated users)
-   */
   async addToCart(values: CreateCartItemDto): Promise<CartItemResponse> {
     return this.fetcher.request<CartItemResponse>(
       "/v1/cart",
@@ -88,11 +72,6 @@ export class CartService {
     );
   }
 
-  /**
-   * Update quantity, variant, or customizations of a specific cart item
-   * Uses PATCH /v1/cart/{id}
-   * No authentication required
-   */
   async updateCartItem(
     cartItemId: string,
     values: UpdateCartItemDto
@@ -107,11 +86,6 @@ export class CartService {
     );
   }
 
-  /**
-   * Remove a specific item from the cart
-   * Uses DELETE /v1/cart/{id}
-   * No authentication required
-   */
   async removeCartItem(cartItemId: string): Promise<void> {
     return this.fetcher.request<void>(
       `/v1/cart/${cartItemId}`,
@@ -120,11 +94,6 @@ export class CartService {
     );
   }
 
-  /**
-   * Remove all items from the current user's cart
-   * Uses DELETE /v1/cart
-   * No authentication required
-   */
   async clearCart(): Promise<void> {
     return this.fetcher.request<void>(
       "/v1/cart",
@@ -133,11 +102,6 @@ export class CartService {
     );
   }
 
-  /**
-   * Get saved for later items with pagination
-   * Uses GET /v1/cart/saved
-   * Requires authentication
-   */
   async getSavedItems(params?: GetSavedItemsDto): Promise<CartResponse> {
     const queryParams = new URLSearchParams();
 
@@ -172,11 +136,6 @@ export class CartService {
     );
   }
 
-  /**
-   * Remove multiple items from the cart at once
-   * Uses POST /v1/cart/bulk-remove
-   * No authentication required
-   */
   async bulkRemove(values: BulkRemoveDto): Promise<void> {
     return this.fetcher.request<void>(
       "/v1/cart/bulk-remove",
@@ -188,11 +147,6 @@ export class CartService {
     );
   }
 
-  /**
-   * Move items between cart and saved for later
-   * Uses POST /v1/cart/save-for-later
-   * Requires authentication
-   */
   async saveForLater(values: SaveForLaterDto): Promise<void> {
     return this.fetcher.request<void>(
       "/v1/cart/save-for-later",
@@ -204,11 +158,6 @@ export class CartService {
     );
   }
 
-  /**
-   * NEW: Merge guest session cart with user cart
-   * Uses POST /v1/cart/merge-session
-   * Requires authentication
-   */
   async mergeSessionCart(
     values: MergeSessionCartDto
   ): Promise<MergeSessionCartResponse> {
@@ -222,11 +171,6 @@ export class CartService {
     );
   }
 
-  /**
-   * NEW: Cleanup expired session carts (Admin only)
-   * Uses POST /v1/cart/cleanup-expired-sessions
-   * Requires authentication (admin role)
-   */
   async cleanupExpiredSessions(
     params: CleanupExpiredSessionsDto
   ): Promise<CleanupExpiredSessionsResponse> {
@@ -240,11 +184,6 @@ export class CartService {
     );
   }
 
-  // Utility Methods
-
-  /**
-   * Get cart item count for display purposes
-   */
   async getCartItemCount(): Promise<{
     count: number;
     totalQuantity: number;
@@ -255,40 +194,34 @@ export class CartService {
         count: cart.summary.itemCount,
         totalQuantity: cart.summary.totalQuantity,
       };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       return { count: 0, totalQuantity: 0 };
     }
   }
 
-  /**
-   * Check if a specific product and variant combination exists in cart
-   */
   async isInCart(productId: string, variantId: string): Promise<boolean> {
     try {
       const cart = await this.getCart();
       return cart.items.some(
         (item) => item.productId === productId && item.variantId === variantId
       );
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       return false;
     }
   }
 
-  /**
-   * Get cart total for quick display
-   */
   async getCartTotal(): Promise<number> {
     try {
       const cart = await this.getCart();
       return cart.summary.total;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       return 0;
     }
   }
 
-  /**
-   * Get cart summary without full cart data
-   */
   async getCartSummary(): Promise<{
     itemCount: number;
     totalQuantity: number;
@@ -298,14 +231,12 @@ export class CartService {
     try {
       const cart = await this.getCart();
       return cart.summary;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       return { itemCount: 0, totalQuantity: 0, subtotal: 0, total: 0 };
     }
   }
 
-  /**
-   * NEW: Get cart item by product and variant
-   */
   async getCartItemByProduct(
     productId: string,
     variantId: string
@@ -317,18 +248,17 @@ export class CartService {
           (item) => item.productId === productId && item.variantId === variantId
         ) || null
       );
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       return null;
     }
   }
 
-  /**
-   * NEW: Check if saved items feature is available (requires auth)
-   */
   async hasSavedItemsAccess(): Promise<boolean> {
     try {
       await this.getSavedItems({ pageSize: 1 });
       return true;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       return false;
     }

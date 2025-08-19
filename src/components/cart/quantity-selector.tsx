@@ -12,6 +12,10 @@ interface QuantitySelectorProps {
   minQuantity?: number;
   maxQuantity?: number;
   size?: "sm" | "md" | "lg";
+  sheetContext?: {
+    isOpen: boolean;
+    setUpdating: (updating: boolean) => void;
+  };
 }
 
 export function QuantitySelector({
@@ -20,6 +24,7 @@ export function QuantitySelector({
   minQuantity = 1,
   maxQuantity = 999,
   size = "sm",
+  sheetContext,
 }: QuantitySelectorProps) {
   const [quantity, setQuantity] = useState(initialQuantity);
   const updateCartItem = useUpdateCartItem();
@@ -35,10 +40,27 @@ export function QuantitySelector({
       newQuantity >= minQuantity &&
       newQuantity <= maxQuantity
     ) {
-      updateCartItem.mutate({
-        cartItemId,
-        values: { quantity: newQuantity },
-      });
+      // Signal that we're starting an update
+      if (sheetContext?.isOpen) {
+        sheetContext.setUpdating(true);
+      }
+
+      updateCartItem.mutate(
+        {
+          cartItemId,
+          values: { quantity: newQuantity },
+        },
+        {
+          onSettled: () => {
+            // Signal that update is complete
+            if (sheetContext?.isOpen) {
+              setTimeout(() => {
+                sheetContext.setUpdating(false);
+              }, 100); // Small delay to ensure state updates complete
+            }
+          },
+        }
+      );
     }
   };
 
