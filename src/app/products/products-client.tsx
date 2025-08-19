@@ -23,7 +23,6 @@ import Link from "next/link";
 export default function ProductsClient() {
   const [filters, setFilters] = useState<ProductFilters>({});
   const [page, setPage] = useState(1);
-  const limit = 12;
 
   const {
     data: productsData,
@@ -31,7 +30,6 @@ export default function ProductsClient() {
     error,
   } = useProducts({
     page,
-    limit,
     ...filters,
   });
 
@@ -78,7 +76,7 @@ export default function ProductsClient() {
                 All Products
               </h2>
               <p className="text-muted-foreground mt-1">
-                {productsData?.meta.itemsPerPage || 0} products available
+                {productsData?.meta.totalItems || 0} products available
               </p>
             </div>
 
@@ -92,23 +90,14 @@ export default function ProductsClient() {
           </div>
 
           <div className="grid lg:grid-cols-4 gap-8">
-            {/* Filters Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-4">
-                <Card className="border-border shadow-sm bg-card">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center text-foreground">
-                      <Filter className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
-                      Filters
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ProductFiltersComponent
-                      currentFilters={filters}
-                      onFilterChange={handleFilterChange}
-                    />
-                  </CardContent>
-                </Card>
+                <CardContent>
+                  <ProductFiltersComponent
+                    currentFilters={filters}
+                    onFilterChange={handleFilterChange}
+                  />
+                </CardContent>
               </div>
             </div>
 
@@ -118,7 +107,7 @@ export default function ProductsClient() {
                 products={productsData?.items || []}
                 loading={isLoading}
                 allowViewToggle={true}
-                gridCols={{ sm: 1, md: 2, lg: 2, xl: 3 }}
+                gridCols={{ sm: 1, md: 2, lg: 2, xl: 2 }}
                 cardSize="md"
                 showAddToCart={true}
                 showTemplateList={true}
@@ -145,7 +134,7 @@ export default function ProductsClient() {
               />
 
               {/* Pagination */}
-              {productsData && productsData.meta.itemsPerPage > 1 && (
+              {productsData && productsData.meta.itemsPerPage > 10 && (
                 <div className="flex justify-center mt-12">
                   <div className="flex items-center gap-2">
                     <Button
@@ -371,7 +360,7 @@ export default function ProductsClient() {
               className="border-white text-white hover:bg-white hover:text-green-600 dark:border-green-200 dark:text-green-100 dark:hover:bg-green-200 dark:hover:text-green-800"
               asChild
             >
-              <Link href="/bulk-orders">Bulk Orders</Link>
+              <Link href="/contact">Bulk Orders</Link>
             </Button>
           </div>
         </section>
