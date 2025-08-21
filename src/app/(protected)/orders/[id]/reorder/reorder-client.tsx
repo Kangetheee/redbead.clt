@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import CustomerReorderForm from "@/components/orders/reorder-form";
+import ReorderForm from "@/components/orders/reorder-form";
 import { useOrder } from "@/hooks/use-orders";
 
 interface OrderReorderClientProps {
@@ -134,7 +134,7 @@ export default function OrderReorderClient({
 
       {/* Reorder Form */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        <CustomerReorderForm
+        <ReorderForm
           originalOrder={order}
           onSuccess={handleSuccess}
           onCancel={handleCancel}

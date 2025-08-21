@@ -1,186 +1,76 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { AddressResponse } from "@/lib/address/types/address.types";
-
-export interface OrderAddress {
-  id?: string;
-  recipientName?: string;
-  street?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  postalCode?: string;
-}
-
-export interface OrderItemCustomization {
-  optionId: string;
-  valueId: string;
-  customValue?: string;
-}
-
-export interface TemplateDetails {
-  name: string;
-  slug: string;
-  previewImage: string;
-  basePrice: number;
-}
-
-export interface SizeVariantDetails {
-  name: string;
-  displayName: string;
-  dimensions: {
-    width: number;
-    height: number;
-    unit: string;
-  };
-  price: number;
-}
-
-export interface ProductDetails {
-  id: string;
-  name: string;
-  slug: string;
-  previewImage: string;
-  basePrice: number;
-}
-
-export interface VariantDetails {
-  id: string;
-  name: string;
-  displayName: string;
-  dimensions: Record<string, any>;
-  price: number;
-}
-
 export interface OrderUser {
   id: string;
   name: string;
   email: string;
-  phone?: string;
-  avatar?: string | null;
+  phone: string;
+  avatar: string | null;
   type: string;
   verified: boolean;
 }
 
-// Updated to match API expectations
+export interface OrderAddress {
+  id: string;
+  recipientName: string;
+  street: string;
+  city: string;
+  state?: string;
+  postalCode: string;
+  country: string;
+}
+
+export interface OrderProduct {
+  id: string;
+  name: string;
+  slug: string;
+  previewImage: string;
+  basePrice: number;
+}
+
+export interface OrderVariant {
+  id: string;
+  name: string;
+  displayName: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dimensions: Record<string, any>;
+  price: number;
+}
+
 export interface OrderItem {
-  id?: string;
+  id: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customizations: any[];
+  status: string;
   productId: string;
-  variantId: string;
-  quantity: number;
-  unitPrice?: number;
-  totalPrice?: number;
-  customizations?: Record<string, string>;
-  designId?: string;
-  status?:
-    | "PROCESSING"
-    | "DESIGNING"
-    | "PRODUCTION"
-    | "QUALITY_CHECK"
-    | "READY_FOR_SHIPPING"
-    | "SHIPPED"
-    | "DELIVERED"
-    | "CANCELLED";
-  notes?: string;
-  template?: TemplateDetails;
-  sizeVariant?: SizeVariantDetails;
-  product?: ProductDetails;
-  variant?: VariantDetails;
+  variantId?: string;
+  product?: OrderProduct;
+  variant?: OrderVariant;
 }
 
-export interface DesignSummaryCustomization {
-  option: string;
-  value: string;
-}
-
-export interface DesignSummary {
-  templateName: string;
-  sizeVariant: string;
-  quantity: number;
-  material: string;
-  closure?: string;
-  text: string;
-  colors: string[];
-  customizations?: DesignSummaryCustomization[];
+export interface OrderPayment {
+  id: string;
+  status: string;
+  method: string;
+  amount: number;
 }
 
 export interface DesignApproval {
   id: string;
   orderId: string;
   designId?: string;
-  approvalToken?: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED";
+  status: string;
   customerEmail: string;
   previewImages: string[];
-  designSummary?: DesignSummary;
   requestedAt: string;
   respondedAt?: string;
-  approvedBy?: string;
-  rejectionReason?: string;
-  expiresAt?: string;
-  emailSent?: boolean;
-  remindersSent?: number;
 }
 
-export interface OrderNoteUser {
-  id?: string;
-  name?: string;
-  avatar?: string;
-}
-
-export interface OrderNote {
-  id: string;
-  type:
-    | "GENERAL"
-    | "URGENCY"
-    | "TIMELINE"
-    | "SHIPPING"
-    | "CUSTOMIZATION"
-    | "PRODUCTION"
-    | "QUALITY"
-    | "DESIGN_APPROVAL";
-  priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
-  title?: string;
-  content: string;
-  isInternal?: boolean;
-  createdBy?: string;
-  createdAt: string;
-  user?: OrderNoteUser;
-}
-
-export interface PaymentStatus {
-  status: "SUCCESS" | "PENDING" | "FAILED" | "CANCELLED";
-  transactionId: string;
-  message: string;
-  provider: string;
-}
-
-export interface OrderPayment {
-  id?: string;
-  method?: string;
-  status?: string;
-  transactionId?: string;
-  amount?: number;
-}
-
-// Updated to match API response structure
 export interface OrderResponse {
   id: string;
-  customerId?: string;
   orderNumber: string;
-  status:
-    | "PENDING"
-    | "CONFIRMED"
-    | "DESIGN_PENDING"
-    | "DESIGN_APPROVED"
-    | "DESIGN_REJECTED"
-    | "PAYMENT_PENDING"
-    | "PAYMENT_CONFIRMED"
-    | "PROCESSING"
-    | "PRODUCTION"
-    | "SHIPPED"
-    | "DELIVERED"
-    | "CANCELLED"
-    | "REFUNDED";
+  status: string;
   totalAmount: number;
   subtotalAmount: number;
   discountAmount: number;
@@ -190,102 +80,112 @@ export interface OrderResponse {
   trackingUrl?: string;
   expectedDelivery?: string;
   notes?: string;
-  urgencyLevel?: "NORMAL" | "EXPEDITED" | "RUSH" | "EMERGENCY";
-  expectedProductionDays?: number;
-  specialInstructions?: string;
   designApprovalRequired: boolean;
-  designApprovalStatus?:
-    | "PENDING"
-    | "APPROVED"
-    | "REJECTED"
-    | "EXPIRED"
-    | "CANCELLED";
+  designApprovalStatus?: string;
   designApprovalRequestedAt?: string;
   designApprovalCompletedAt?: string;
   designApproval?: DesignApproval;
-  designStartDate?: string;
-  designCompletionDate?: string;
-  productionStartDate?: string;
-  productionEndDate?: string;
-  shippingDate?: string;
-  actualDeliveryDate?: string;
-  user?: OrderUser;
-  shippingAddress: AddressResponse;
-  billingAddress?: AddressResponse;
+  user: OrderUser;
+  shippingAddress: OrderAddress;
+  billingAddress?: OrderAddress;
   orderItems: OrderItem[];
   payment?: OrderPayment;
-  templateId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// Simplified OrderResponse for list view
-export interface OrderListItem {
+export interface ExtendedOrderItem {
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customizations: Record<string, any>;
+  included: boolean;
+  originalIndex: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  originalItem?: any;
+}
+
+export interface TimelineItem {
+  status: string;
+  description: string;
+  timestamp: string;
+  updatedBy?: string;
+  notes?: string;
+}
+
+export interface OrderItemTracking {
   id: string;
+  productName: string;
+  variantName?: string;
+  quantity: number;
+  status: string;
+  statusDescription: string;
+  estimatedCompletion?: string;
+}
+
+export interface OrderTrackingResponse {
   orderNumber: string;
-  status:
-    | "PENDING"
-    | "CONFIRMED"
-    | "DESIGN_PENDING"
-    | "DESIGN_APPROVED"
-    | "DESIGN_REJECTED"
-    | "PAYMENT_PENDING"
-    | "PAYMENT_CONFIRMED"
-    | "PROCESSING"
-    | "PRODUCTION"
-    | "SHIPPED"
-    | "DELIVERED"
-    | "CANCELLED"
-    | "REFUNDED";
+  status: string;
+  statusDescription: string;
+  trackingNumber?: string;
+  expectedDelivery?: string;
+  lastUpdate: string;
+  nextStep?: string;
+  timeline: TimelineItem[];
+  items: OrderItemTracking[];
+  designApproval?: {
+    id: string;
+    status: string;
+    statusDescription: string;
+    expiresAt?: string;
+    customerEmail: string;
+    remindersSent: number;
+  };
+  shippingAddress: {
+    recipientName: string;
+    street: string;
+    city: string;
+    postalCode: string;
+    country: string;
+  };
   totalAmount: number;
-  designApprovalRequired: boolean;
-  designApprovalStatus?:
-    | "PENDING"
-    | "APPROVED"
-    | "REJECTED"
-    | "EXPIRED"
-    | "CANCELLED";
-  templateId?: string;
-  orderItems: OrderItem[];
+  canCancel: boolean;
+  progressPercentage: number;
+}
+
+export interface PaginationMeta {
+  pageCount: number;
+  pageSize: number;
+  currentPage: number;
+  pageIndex: number;
+  itemCount: number;
+}
+
+export interface PaginatedOrdersResponse {
+  items: OrderResponse[];
+  meta: PaginationMeta;
+}
+
+export interface CustomerNote {
+  id: string;
+  type: string;
+  priority: string;
+  content: string;
+  createdBy: string;
   createdAt: string;
 }
 
-export interface ProductionRequirements {
-  estimatedDays: number;
-  materials: string[];
-  processes: string[];
-  specialRequirements?: string[];
-  equipmentNeeded?: string[];
-  skillsRequired?: string[];
+export interface ReorderResponse {
+  newOrderId: string;
+  newOrderNumber: string;
+  originalOrderNumber: string;
+  itemsCloned: number;
+  totalAmount: number;
+  success: boolean;
+  message: string;
 }
 
-export interface TimelinePhase {
-  startDate: string;
-  endDate: string;
-  duration: number;
-}
-
-export interface TimelineCalculation {
-  designPhase: TimelinePhase;
-  productionPhase: TimelinePhase;
-  shippingPhase: TimelinePhase;
-  totalDuration: number;
-  expectedDelivery: string;
-}
-
-export interface OrderFilters {
-  status?: string;
-  designApprovalStatus?: string;
-  minTotal?: number;
-  maxTotal?: number;
-  startDate?: string;
-  endDate?: string;
-  search?: string;
-  urgencyLevel?: string;
-  templateId?: string;
-}
-
-// Design approval token responses
 export interface DesignApprovalTokenResponse {
   id: string;
   token: string;
@@ -309,43 +209,4 @@ export interface DesignApprovalResendResponse {
   message: string;
   emailSentAt: string;
   remindersSent: number;
-}
-
-// Type guards and utilities
-export const isOrderItem = (item: any): item is OrderItem => {
-  return (
-    item &&
-    typeof item.productId === "string" &&
-    typeof item.quantity === "number"
-  );
-};
-
-export const isDesignApproval = (approval: any): approval is DesignApproval => {
-  return (
-    approval &&
-    typeof approval.id === "string" &&
-    typeof approval.status === "string"
-  );
-};
-
-export const isOrderNote = (note: any): note is OrderNote => {
-  return (
-    note && typeof note.id === "string" && typeof note.content === "string"
-  );
-};
-
-// Helper interface for cart items that need to be transformed
-export interface CartItem {
-  id?: string;
-  productId?: string;
-  templateId?: string;
-  variantId?: string;
-  sizeVariantId?: string;
-  quantity: number;
-  customizations?: OrderItemCustomization[] | Record<string, string>;
-  designId?: string;
-  productName?: string;
-  name?: string;
-  totalPrice?: number;
-  total?: number;
 }

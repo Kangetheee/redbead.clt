@@ -16,10 +16,6 @@ import { AddressService } from "./addresses.service";
 
 const addressService = new AddressService();
 
-/**
- * Get paginated list of user addresses
- * Uses GET /v1/addresses
- */
 export async function getAddressesAction(
   params?: GetAddressesDto
 ): Promise<ActionResponse<PaginatedAddressesResponse>> {
@@ -31,10 +27,6 @@ export async function getAddressesAction(
   }
 }
 
-/**
- * Get address by ID
- * Uses GET /v1/addresses/{id}
- */
 export async function getAddressByIdAction(
   addressId: string
 ): Promise<ActionResponse<AddressResponse>> {
@@ -46,10 +38,6 @@ export async function getAddressByIdAction(
   }
 }
 
-/**
- * Get default address by type
- * Uses GET /v1/addresses/default/{type}
- */
 export async function getDefaultAddressByTypeAction(
   type: AddressType
 ): Promise<ActionResponse<AddressResponse>> {
@@ -61,10 +49,6 @@ export async function getDefaultAddressByTypeAction(
   }
 }
 
-/**
- * Create a new address
- * Uses POST /v1/addresses
- */
 export async function createAddressAction(
   values: CreateAddressDto
 ): Promise<ActionResponse<AddressResponse>> {
@@ -76,10 +60,6 @@ export async function createAddressAction(
   }
 }
 
-/**
- * Update an existing address
- * Uses PATCH /v1/addresses/{id}
- */
 export async function updateAddressAction(
   addressId: string,
   values: UpdateAddressDto
@@ -92,10 +72,6 @@ export async function updateAddressAction(
   }
 }
 
-/**
- * Delete an address
- * Uses DELETE /v1/addresses/{id}
- */
 export async function deleteAddressAction(
   addressId: string
 ): Promise<ActionResponse<void>> {
@@ -107,10 +83,6 @@ export async function deleteAddressAction(
   }
 }
 
-/**
- * Set address as default for its type
- * Uses PATCH /v1/addresses/{id}/set-default
- */
 export async function setDefaultAddressAction(
   addressId: string
 ): Promise<ActionResponse<AddressResponse>> {

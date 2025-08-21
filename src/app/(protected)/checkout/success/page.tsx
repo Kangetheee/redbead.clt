@@ -198,9 +198,9 @@ export default function CheckoutSuccessPage() {
                     <div className="text-sm text-gray-600">
                       <p>{order.shippingAddress.recipientName}</p>
                       <p>{order.shippingAddress.street}</p>
-                      {order.shippingAddress.street2 && (
+                      {/* {order.shippingAddress.street2 && (
                         <p>{order.shippingAddress.street2}</p>
-                      )}
+                      )} */}
                       <p>
                         {order.shippingAddress.city},{" "}
                         {order.shippingAddress.state}{" "}

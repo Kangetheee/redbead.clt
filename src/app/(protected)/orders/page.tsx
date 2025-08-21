@@ -14,7 +14,6 @@ import {
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Loading component for the orders
 function OrdersLoading() {
   return (
     <div className="space-y-6">
