@@ -87,7 +87,7 @@ export default function LoginForm() {
         <div className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
           <Link
-            href="/sign-up"
+            href={`/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}`}
             className="underline-offset-4 hover:text-primary hover:underline"
           >
             Sign up

@@ -4,14 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  CheckCircle,
-  Star,
-  AlertCircle,
-  ShoppingCart,
-  Clock,
-  Package,
-} from "lucide-react";
+import { Star, AlertCircle, ShoppingCart } from "lucide-react";
 import { useFeaturedProducts } from "@/hooks/use-products";
 import {
   ProductResponse,
@@ -123,13 +116,13 @@ export function FeaturedProductsSection({
     return product.variants.find((v) => v.isDefault) || product.variants[0];
   };
 
-  // Helper function to check if product can be added to cart
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const canAddToCart = (product: ProductResponse) => {
     const defaultVariant = getDefaultVariant(product);
     return product.isActive && defaultVariant && defaultVariant.stock > 0;
   };
 
-  // Helper function to format product metadata
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatMetadata = (metadata: ProductMetadata | undefined) => {
     if (!metadata) return null;
 
@@ -146,7 +139,7 @@ export function FeaturedProductsSection({
     return items.length > 0 ? items.join(" • ") : null;
   };
 
-  // Helper function to format dimensions
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatDimensions = (metadata: ProductMetadata | undefined) => {
     if (!metadata?.dimensions) return null;
 
@@ -159,7 +152,7 @@ export function FeaturedProductsSection({
     return `${width}×${height}${unit}`;
   };
 
-  // Helper function to get lead time display
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getLeadTime = (metadata: ProductMetadata | undefined) => {
     if (!metadata) return null;
 
@@ -179,9 +172,7 @@ export function FeaturedProductsSection({
     if (!imageUrl) return fallback;
 
     if (imageUrl.startsWith("/") && !imageUrl.startsWith("//")) {
-      // Check if URL contains 'images/' path that might be causing issues
       if (imageUrl.includes("/images/")) {
-        // Make sure we use the correct public URL path instead of server file system path
         const pathParts = imageUrl.split("/images/");
         return `/images/${pathParts[pathParts.length - 1]}`;
       }
@@ -206,11 +197,10 @@ export function FeaturedProductsSection({
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {featuredProducts.map((product: ProductResponse) => {
           const defaultVariant = getDefaultVariant(product);
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const isAddToCartEnabled = canAddToCart(product);
-          const metadataDisplay = formatMetadata(product.metadata);
-          const dimensionsDisplay = formatDimensions(product.metadata);
-          const leadTimeDisplay = getLeadTime(product.metadata);
+          // const isAddToCartEnabled = canAddToCart(product);
+          // const metadataDisplay = formatMetadata(product.metadata);
+          // const dimensionsDisplay = formatDimensions(product.metadata);
+          // const leadTimeDisplay = getLeadTime(product.metadata);
 
           // Get image URL with proper error handling
           const imageUrl = product.thumbnailImage
@@ -234,7 +224,6 @@ export function FeaturedProductsSection({
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                     onError={(e) => {
-                      // If image fails to load, replace with placeholder
                       (e.target as HTMLImageElement).src =
                         "/placeholder-product.jpg";
                     }}
@@ -300,28 +289,28 @@ export function FeaturedProductsSection({
                     )}
                   </div>
 
-                  {/* Metadata Display */}
+                  {/* Metadata Display
                   {metadataDisplay && (
                     <div className="text-xs text-muted-foreground mt-1 capitalize">
                       {metadataDisplay}
                     </div>
-                  )}
+                  )} */}
 
-                  {/* Dimensions Display */}
+                  {/* Dimensions Display
                   {dimensionsDisplay && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                       <Package className="h-3 w-3" />
                       <span>{dimensionsDisplay}</span>
                     </div>
-                  )}
+                  )} */}
 
-                  {/* Lead Time Display */}
+                  {/* Lead Time Display
                   {leadTimeDisplay && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                       <Clock className="h-3 w-3" />
                       <span>{leadTimeDisplay}</span>
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 {/* Product Description */}
@@ -329,7 +318,7 @@ export function FeaturedProductsSection({
                   {product.description}
                 </p>
 
-                {/* Design Templates */}
+                {/* Design Templates
                 {product.designTemplates &&
                   product.designTemplates.length > 0 && (
                     <div className="space-y-1">
@@ -361,9 +350,9 @@ export function FeaturedProductsSection({
                         )}
                       </ul>
                     </div>
-                  )}
+                  )} */}
 
-                {/* Variants Info */}
+                {/* Variants Info
                 {product.variants && product.variants.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-foreground">
@@ -402,9 +391,9 @@ export function FeaturedProductsSection({
                       )}
                     </div>
                   </div>
-                )}
+                )} */}
 
-                {/* Customization Options */}
+                {/* Customization Options
                 {product.customizations &&
                   product.customizations.length > 0 && (
                     <div className="space-y-1">
@@ -433,7 +422,7 @@ export function FeaturedProductsSection({
                         )}
                       </div>
                     </div>
-                  )}
+                  )} */}
 
                 {/* Action Buttons */}
                 <div className="pt-2 space-y-2">

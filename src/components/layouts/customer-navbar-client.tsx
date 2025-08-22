@@ -116,15 +116,8 @@ export function CustomerNavbarClient({
         ))}
       </div>
 
-      {/* Right Side Actions */}
       <div className="hidden md:flex items-center space-x-4">
         <CartSheet />
-
-        {/* {isAuthenticated && (
-          <Button variant="ghost" size="icon">
-            <Bell className="h-5 w-5" />
-          </Button>
-        )} */}
 
         {isAuthenticated ? (
           <AccountDropdown />

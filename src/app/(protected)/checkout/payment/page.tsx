@@ -27,10 +27,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { usePaymentMethods, useInitiatePayment } from "@/hooks/use-payments";
-import { useCreateOrder } from "@/hooks/use-orders";
 import { useCart } from "@/hooks/use-cart";
 import { formatAmount } from "@/lib/utils";
 import { toast } from "sonner";
+import { useCompleteCheckout } from "@/hooks/use-checkout";
+import { CompleteCheckoutDto } from "@/lib/checkout/dto/checkout.dto";
 
 const paymentSchema = z.object({
   paymentMethod: z.string().min(1, "Please select a payment method"),
@@ -44,7 +45,6 @@ interface ApiError {
   message?: string;
 }
 
-// Component that uses useSearchParams
 function CheckoutPaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,7 +55,7 @@ function CheckoutPaymentContent() {
 
   const { data: paymentMethods } = usePaymentMethods();
   const { data: cartData, isLoading: cartLoading } = useCart();
-  const createOrder = useCreateOrder();
+  const completeCheckout = useCompleteCheckout();
   const initiatePayment = useInitiatePayment();
 
   const {
@@ -92,39 +92,96 @@ function CheckoutPaymentContent() {
     }
   }, [router, setValue]);
 
-  // Redirect if no session ID
   useEffect(() => {
     if (!sessionId) {
       router.push("/checkout");
     }
   }, [sessionId, router]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const validateCartItem = (item: any): boolean => {
+    // Check for required fields in various formats
+    const hasProductId = item.productId || item.templateId;
+    const hasVariantId = item.variantId || item.sizeVariantId;
+    const hasQuantity = item.quantity && item.quantity > 0;
+
+    if (!hasProductId) {
+      console.warn("Cart item missing product/template ID:", item);
+      return false;
+    }
+
+    if (!hasVariantId) {
+      console.warn("Cart item missing variant/size variant ID:", item);
+      return false;
+    }
+
+    if (!hasQuantity) {
+      console.warn("Cart item missing or invalid quantity:", item);
+      return false;
+    }
+
+    return true;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const transformCartItemsToOrderItems = (cartItems: any[]) => {
     return cartItems.map((item: any) => {
-      // Map the cart item to the expected order item format
+      console.log("Transforming cart item:", item); // Debug log
+
       const orderItem: any = {
-        // Use productId if available, otherwise use templateId
-        productId: item.productId || item.templateId || "",
-        // Use variantId if available, otherwise use sizeVariantId
-        variantId: item.variantId || item.sizeVariantId || "",
         quantity: item.quantity || 1,
       };
+
+      // Handle productId/templateId mapping
+      if (item.productId) {
+        orderItem.productId = item.productId;
+      } else if (item.templateId) {
+        // If cart uses templateId but API expects productId
+        orderItem.productId = item.templateId;
+      } else {
+        console.warn("No productId or templateId found in cart item:", item);
+        throw new Error(
+          `Missing product ID for item: ${item.name || "Unknown item"}`
+        );
+      }
+
+      // Handle variantId/sizeVariantId mapping
+      if (item.variantId) {
+        orderItem.variantId = item.variantId;
+      } else if (item.sizeVariantId) {
+        // If cart uses sizeVariantId but API expects variantId
+        orderItem.variantId = item.sizeVariantId;
+      } else {
+        console.warn("No variantId or sizeVariantId found in cart item:", item);
+        throw new Error(
+          `Missing variant ID for item: ${item.name || "Unknown item"}`
+        );
+      }
 
       // Handle customizations - convert array to object if needed
       if (item.customizations) {
         if (Array.isArray(item.customizations)) {
           // Convert array of customizations to object format
-          const customizationsObj: any = {};
+          const customizationsObj: Record<string, string> = {};
           item.customizations.forEach((customization: any) => {
-            if (customization.optionId && customization.valueId) {
+            if (
+              customization.optionId &&
+              (customization.valueId || customization.customValue)
+            ) {
               customizationsObj[customization.optionId] =
                 customization.customValue || customization.valueId;
             }
           });
           orderItem.customizations = customizationsObj;
-        } else if (typeof item.customizations === "object") {
+        } else if (
+          typeof item.customizations === "object" &&
+          item.customizations !== null
+        ) {
           // Already an object, use as is
           orderItem.customizations = item.customizations;
+        } else {
+          // Invalid customizations format
+          orderItem.customizations = {};
         }
       } else {
         // Provide empty object if no customizations
@@ -136,6 +193,7 @@ function CheckoutPaymentContent() {
         orderItem.designId = item.designId;
       }
 
+      console.log("Transformed order item:", orderItem); // Debug log
       return orderItem;
     });
   };
@@ -149,137 +207,60 @@ function CheckoutPaymentContent() {
     setIsProcessing(true);
 
     try {
-      // Check if we have items in cart or checkout session - fix undefined check
-      const hasCartItems =
-        cartData?.items &&
-        Array.isArray(cartData.items) &&
-        cartData.items.length > 0;
-      const hasCheckoutSessionItems =
-        checkoutData.checkoutSession?.items?.length > 0;
-      const hasDirectItems = checkoutData.items?.length > 0;
-
-      // Create the order payload with required fields
-      const orderPayload: any = {
-        paymentMethod: data.paymentMethod.toUpperCase(),
-        customerPhone: data.customerPhone,
-        urgencyLevel: checkoutData.urgencyLevel || "NORMAL",
-      };
-
-      // Handle address IDs - these are required for the API
-      if (checkoutData.shippingAddressId) {
-        orderPayload.shippingAddressId = checkoutData.shippingAddressId;
-      } else {
-        toast.error("Shipping address ID is required");
+      // Validate required checkout data
+      if (!checkoutData.shippingAddressId) {
+        toast.error("Shipping address is required");
+        router.push("/checkout/shipping");
         return;
       }
 
-      // Add billing address ID if available
-      if (checkoutData.billingAddressId) {
-        orderPayload.billingAddressId = checkoutData.billingAddressId;
+      // Create the complete checkout payload
+      const completeCheckoutPayload: CompleteCheckoutDto = {
+        sessionId,
+        shippingAddressId: checkoutData.shippingAddressId,
+        billingAddressId: checkoutData.billingAddressId,
+        selectedShippingOption: checkoutData.selectedShippingMethod,
+        paymentMethod: data.paymentMethod.toUpperCase() as
+          | "MPESA"
+          | "BANK_TRANSFER"
+          | "CARD",
+      };
+
+      // Add customer phone for M-Pesa
+      if (data.paymentMethod.toLowerCase() === "mpesa" && data.customerPhone) {
+        completeCheckoutPayload.customerPhone = data.customerPhone;
       }
 
-      // Add other optional fields if available
-      if (checkoutData.customerId) {
-        orderPayload.customerId = checkoutData.customerId;
-      }
-
-      if (checkoutData.couponCode) {
-        orderPayload.couponCode = checkoutData.couponCode;
-      }
-
+      // Add optional fields if available
       if (checkoutData.notes) {
-        orderPayload.notes = checkoutData.notes;
-      }
-
-      if (checkoutData.expectedProductionDays) {
-        orderPayload.expectedProductionDays =
-          checkoutData.expectedProductionDays;
+        completeCheckoutPayload.notes = checkoutData.notes;
       }
 
       if (checkoutData.specialInstructions) {
-        orderPayload.specialInstructions = checkoutData.specialInstructions;
+        completeCheckoutPayload.specialInstructions =
+          checkoutData.specialInstructions;
       }
 
-      if (checkoutData.designApprovalRequired !== undefined) {
-        orderPayload.designApprovalRequired =
-          checkoutData.designApprovalRequired;
-      }
-
-      if (checkoutData.templateId) {
-        orderPayload.templateId = checkoutData.templateId;
-      }
-
-      // Determine the best source for items and transform them
-      if (hasCartItems && cartData?.items) {
-        const transformedItems = transformCartItemsToOrderItems(cartData.items);
-
-        // Validate that all required fields are present after transformation
-        const invalidItems = transformedItems.filter(
-          (item: any) => !item.productId || !item.variantId || !item.quantity
-        );
-
-        if (invalidItems.length > 0) {
-          toast.error(
-            "Some cart items are missing required information. Please refresh your cart."
-          );
-          router.push("/checkout");
-          return;
-        }
-
-        orderPayload.items = transformedItems;
-        orderPayload.useCartItems = false; // We're providing items directly
-      } else if (hasCheckoutSessionItems) {
-        // Transform checkout session items if they exist
-        const transformedItems = transformCartItemsToOrderItems(
-          checkoutData.checkoutSession.items
-        );
-        orderPayload.items = transformedItems;
-        orderPayload.useCartItems = false;
-      } else if (hasDirectItems) {
-        const transformedItems = transformCartItemsToOrderItems(
-          checkoutData.items
-        );
-        orderPayload.items = transformedItems;
-        orderPayload.useCartItems = false;
-      } else {
-        toast.error(
-          "No items found in your cart. Please start checkout again."
-        );
-        router.push("/checkout");
-        return;
-      }
-
-      const orderResult = await createOrder.mutateAsync(orderPayload);
-
-      if (!orderResult || !orderResult.id) {
-        throw new Error("Failed to create order");
-      }
+      // Complete the checkout
+      const checkoutResult = await completeCheckout.mutateAsync(
+        completeCheckoutPayload
+      );
 
       // Store order ID for success page
-      sessionStorage.setItem("completedOrderId", orderResult.id);
+      sessionStorage.setItem("completedOrderId", checkoutResult.orderId);
 
-      // If payment method requires immediate processing (like M-Pesa), initiate payment
-      if (data.paymentMethod.toLowerCase() === "mpesa") {
+      // Handle M-Pesa payment initiation if needed
+      if (data.paymentMethod.toLowerCase() === "mpesa" && data.customerPhone) {
         try {
-          const paymentResult = await initiatePayment.mutateAsync({
-            orderId: orderResult.id,
+          await initiatePayment.mutateAsync({
+            orderId: checkoutResult.orderId,
             values: {
               method: data.paymentMethod,
               customerPhone: data.customerPhone,
             },
           });
-
-          if (paymentResult.success) {
-            // Show payment instructions if available
-            if (paymentResult.data?.customerMessage) {
-              toast.success(paymentResult.data.customerMessage, {
-                duration: 10000,
-              });
-            }
-          }
         } catch (paymentError) {
           console.error("Payment initiation failed:", paymentError);
-          // Don't fail the entire flow - order was created successfully
           toast.warning(
             "Order created but payment initiation failed. Please contact support."
           );
@@ -295,15 +276,20 @@ function CheckoutPaymentContent() {
       sessionStorage.removeItem("tempAddress");
 
       // Redirect to success page
-      router.push(`/checkout/success?order=${orderResult.id}`);
+      router.push(`/checkout/success?order=${checkoutResult.orderId}`);
     } catch (error) {
-      console.error("Failed to process order:", error);
+      console.error("Failed to complete checkout:", error);
 
-      // Properly type the error and provide better error handling
       const apiError = error as ApiError;
-      const errorMessage = apiError?.message || "Unknown error";
+      let errorMessage = "Unknown error occurred";
 
-      // Check if it's a cart empty error and provide better guidance
+      if (apiError?.message) {
+        errorMessage = apiError.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      // Provide specific error handling
       if (
         errorMessage.includes("Cart is empty") ||
         errorMessage.includes("No items")
@@ -312,11 +298,21 @@ function CheckoutPaymentContent() {
           "Your cart appears to be empty. Please add items and try again."
         );
         router.push("/checkout");
-      } else if (errorMessage.includes("session")) {
+      } else if (
+        errorMessage.includes("session") ||
+        errorMessage.includes("expired")
+      ) {
         toast.error("Your session has expired. Please start checkout again.");
         router.push("/checkout");
+      } else if (errorMessage.includes("address")) {
+        toast.error(
+          "There's an issue with your address information. Please check and try again."
+        );
+        router.push("/checkout/shipping");
+      } else if (errorMessage.includes("payment")) {
+        toast.error(`Payment error: ${errorMessage}`);
       } else {
-        toast.error(`Failed to process your order: ${errorMessage}`);
+        toast.error(`Failed to complete your order: ${errorMessage}`);
       }
     } finally {
       setIsProcessing(false);
@@ -611,8 +607,7 @@ function CheckoutPaymentContent() {
                     <div className="space-y-2">
                       <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <p className="text-sm text-yellow-800">
-                          ⚠️ No items found in cart. Please go back and add
-                          items.
+                          No items found in cart. Please go back and add items.
                         </p>
                       </div>
                     </div>

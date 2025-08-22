@@ -10,13 +10,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Truck, MapPin, Loader2, Plus, Check, CreditCard } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -52,13 +46,10 @@ import { toast } from "sonner";
 
 type AddressForm = z.infer<typeof addressInputSchema>;
 
-// Component that uses useSearchParams
 function CheckoutShippingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
-
-  // State
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [selectedShippingOption, setSelectedShippingOption] =
     useState<string>("");
@@ -69,7 +60,6 @@ function CheckoutShippingContent() {
     "NORMAL" | "EXPEDITED" | "RUSH" | "EMERGENCY"
   >("NORMAL");
 
-  // User and auth state
   const { data: userProfile } = useUserProfile();
   const isAuthenticated = !!userProfile;
 
@@ -77,7 +67,6 @@ function CheckoutShippingContent() {
   const { data: checkoutSession, isLoading: sessionLoading } =
     useCheckoutSession(sessionId || "", !!sessionId);
 
-  // Fix the useAddresses hook call - it needs proper parameters
   const addressParams: GetAddressesDto = { page: 1, limit: 10 };
   const { data: addressesData, refetch: refetchAddresses } = useAddresses(
     isAuthenticated ? addressParams : undefined
@@ -187,10 +176,8 @@ function CheckoutShippingContent() {
 
       const result = await createAddressMutation.mutateAsync(addressData);
       if (result.success) {
-        // Store the address temporarily in session storage as fallback
         sessionStorage.setItem("tempAddress", JSON.stringify(result.data));
 
-        // Refetch addresses to get the updated list
         await refetchAddresses();
 
         setSelectedAddressId(result.data.id);
@@ -209,39 +196,9 @@ function CheckoutShippingContent() {
     }
 
     try {
-      let address = addressesData?.success
+      const address = addressesData?.success
         ? addressesData.data.items.find((a) => a.id === selectedAddressId)
         : null;
-
-      // If address not found in the list, try to fetch it directly
-      if (!address) {
-        try {
-          // Force refetch addresses
-          const refetchResult = await refetchAddresses();
-
-          // Check if the refetch was successful and has data
-          if (refetchResult.isSuccess && refetchResult.data?.success) {
-            address = refetchResult.data.data.items.find(
-              (a) => a.id === selectedAddressId
-            );
-          }
-        } catch (refetchError) {
-          console.error("Failed to refetch addresses:", refetchError);
-        }
-      }
-
-      // If still no address, try using session storage as fallback
-      if (!address) {
-        const storedAddress = sessionStorage.getItem("tempAddress");
-        if (storedAddress) {
-          try {
-            const parsedAddress = JSON.parse(storedAddress);
-            address = parsedAddress;
-          } catch (parseError) {
-            console.error("Failed to parse stored address:", parseError);
-          }
-        }
-      }
 
       if (!address) {
         toast.error(
@@ -267,7 +224,7 @@ function CheckoutShippingContent() {
         sessionId,
         shippingAddress,
         selectedShippingOption,
-        paymentMethod: "MPESA", // Default, will be selected in payment step
+        paymentMethod: "MPESA",
       };
 
       // Add customerPhone if available
@@ -279,12 +236,10 @@ function CheckoutShippingContent() {
         await validateCheckoutMutation.mutateAsync(validateData);
 
       if (validationResult.isValid) {
-        // Find the selected shipping option details
         const selectedOption = shippingOptions.find(
           (opt) => opt.id === selectedShippingOption
         );
 
-        // Store comprehensive checkout data for the payment page
         const checkoutData = {
           sessionId,
           shippingAddress,
@@ -297,25 +252,22 @@ function CheckoutShippingContent() {
           billingAddressId: selectedAddressId,
           urgencyLevel,
           customerId: userProfile?.id,
-          useCartItems: true,
-          items: checkoutSession?.items || [],
         };
 
         // Store all checkout data for payment page
         sessionStorage.setItem("checkoutData", JSON.stringify(checkoutData));
 
-        // Store individual items for backward compatibility
-        sessionStorage.setItem(
-          "selectedShippingOption",
-          selectedShippingOption
-        );
-        sessionStorage.setItem(
-          "shippingAddress",
-          JSON.stringify(shippingAddress)
-        );
-        sessionStorage.setItem("selectedAddressId", selectedAddressId);
+        // // Store individual items for backward compatibility
+        // sessionStorage.setItem(
+        //   "selectedShippingOption",
+        //   selectedShippingOption
+        // );
+        // sessionStorage.setItem(
+        //   "shippingAddress",
+        //   JSON.stringify(shippingAddress)
+        // );
+        // sessionStorage.setItem("selectedAddressId", selectedAddressId);
 
-        // Navigate to payment with session parameter
         router.push(`/checkout/payment?session=${sessionId}`);
       } else {
         toast.error("Checkout validation failed. Please try again.");

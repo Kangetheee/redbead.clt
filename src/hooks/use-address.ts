@@ -33,10 +33,6 @@ export const addressKeys = {
 
 // Query Hooks
 
-/**
- * Get paginated list of user addresses
- * Uses GET /v1/addresses
- */
 export function useAddresses(params?: GetAddressesDto) {
   return useQuery({
     queryKey: addressKeys.list(params),
@@ -54,10 +50,6 @@ export function useAddresses(params?: GetAddressesDto) {
   });
 }
 
-/**
- * Get address by ID
- * Uses GET /v1/addresses/{id}
- */
 export function useAddress(addressId: string, enabled = true) {
   return useQuery({
     queryKey: addressKeys.detail(addressId),
@@ -68,10 +60,6 @@ export function useAddress(addressId: string, enabled = true) {
   });
 }
 
-/**
- * Get default address by type
- * Uses GET /v1/addresses/default/{type}
- */
 export function useDefaultAddress(type: AddressType, enabled = true) {
   return useQuery({
     queryKey: addressKeys.default(type),
@@ -87,12 +75,6 @@ export function useDefaultAddress(type: AddressType, enabled = true) {
   });
 }
 
-// Mutation Hooks
-
-/**
- * Create a new address
- * Uses POST /v1/addresses
- */
 export function useCreateAddress() {
   const queryClient = useQueryClient();
 
@@ -127,10 +109,6 @@ export function useCreateAddress() {
   });
 }
 
-/**
- * Update an existing address
- * Uses PATCH /v1/addresses/{id}
- */
 export function useUpdateAddress() {
   const queryClient = useQueryClient();
 
@@ -171,10 +149,6 @@ export function useUpdateAddress() {
   });
 }
 
-/**
- * Delete an address
- * Uses DELETE /v1/addresses/{id}
- */
 export function useDeleteAddress() {
   const queryClient = useQueryClient();
 
@@ -204,10 +178,6 @@ export function useDeleteAddress() {
   });
 }
 
-/**
- * Set address as default for its type
- * Uses PATCH /v1/addresses/{id}/set-default
- */
 export function useSetDefaultAddress() {
   const queryClient = useQueryClient();
 

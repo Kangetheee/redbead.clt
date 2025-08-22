@@ -32,36 +32,45 @@ export function AddToCartButton({
   children,
   showSuccessState = true,
 }: AddToCartButtonProps) {
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [optimisticAdded, setOptimisticAdded] = useState(false);
   const addToCart = useAddToCart();
 
+  // success indicator (optimistic first, then server confirms)
   const isLoading = addToCart.isPending;
-  const isSuccess = addToCart.isSuccess && showSuccess;
+  const isSuccess = optimisticAdded;
 
   useEffect(() => {
-    if (addToCart.isSuccess && showSuccessState) {
-      setShowSuccess(true);
+    if (optimisticAdded && showSuccessState) {
       const timer = setTimeout(() => {
-        setShowSuccess(false);
+        setOptimisticAdded(false);
         addToCart.reset();
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [addToCart.isSuccess, addToCart.reset, showSuccessState]);
+  }, [optimisticAdded, showSuccessState, addToCart]);
 
   const handleAddToCart = () => {
     if (disabled || isLoading) return;
 
-    addToCart.mutate({
-      productId,
-      variantId,
-      quantity,
-      customizations,
-    });
+    setOptimisticAdded(true); // optimistic success UI right away
+    addToCart.mutate(
+      {
+        productId,
+        variantId,
+        quantity,
+        customizations,
+      },
+      {
+        onError: () => {
+          // rollback optimistic state
+          setOptimisticAdded(false);
+        },
+      }
+    );
   };
 
   const getButtonContent = () => {
-    if (isLoading) {
+    if (isLoading && !optimisticAdded) {
       return (
         <>
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
@@ -79,9 +88,7 @@ export function AddToCartButton({
       );
     }
 
-    if (children) {
-      return children;
-    }
+    if (children) return children;
 
     return (
       <>

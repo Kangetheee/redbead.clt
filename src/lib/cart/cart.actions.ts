@@ -22,10 +22,6 @@ import { CartService } from "./cart.services";
 
 const cartService = new CartService();
 
-/**
- * Get cart with pagination, filtering, and sorting
- * Uses GET /v1/cart
- */
 export async function getCartAction(
   params?: GetCartDto
 ): Promise<ActionResponse<CartResponse>> {
@@ -37,10 +33,6 @@ export async function getCartAction(
   }
 }
 
-/**
- * Get a specific cart item by ID
- * Uses GET /v1/cart/{id}
- */
 export async function getCartItemAction(
   cartItemId: string
 ): Promise<ActionResponse<CartItemResponse>> {
@@ -52,10 +44,6 @@ export async function getCartItemAction(
   }
 }
 
-/**
- * Add a new item to the cart with product customizations
- * Uses POST /v1/cart
- */
 export async function addToCartAction(
   values: CreateCartItemDto
 ): Promise<ActionResponse<CartItemResponse>> {
@@ -67,10 +55,6 @@ export async function addToCartAction(
   }
 }
 
-/**
- * Update quantity, variant, or customizations of a specific cart item
- * Uses PATCH /v1/cart/{id}
- */
 export async function updateCartItemAction(
   cartItemId: string,
   values: UpdateCartItemDto
@@ -83,10 +67,6 @@ export async function updateCartItemAction(
   }
 }
 
-/**
- * Remove a specific item from the cart
- * Uses DELETE /v1/cart/{id}
- */
 export async function removeCartItemAction(
   cartItemId: string
 ): Promise<ActionResponse<void>> {
@@ -98,10 +78,6 @@ export async function removeCartItemAction(
   }
 }
 
-/**
- * Remove all items from the current user's cart
- * Uses DELETE /v1/cart
- */
 export async function clearCartAction(): Promise<ActionResponse<void>> {
   try {
     await cartService.clearCart();
@@ -111,11 +87,6 @@ export async function clearCartAction(): Promise<ActionResponse<void>> {
   }
 }
 
-/**
- * Get saved for later items with pagination
- * Uses GET /v1/cart/saved
- * Requires authentication
- */
 export async function getSavedItemsAction(
   params?: GetSavedItemsDto
 ): Promise<ActionResponse<CartResponse>> {
@@ -127,10 +98,6 @@ export async function getSavedItemsAction(
   }
 }
 
-/**
- * Remove multiple items from the cart at once
- * Uses POST /v1/cart/bulk-remove
- */
 export async function bulkRemoveAction(
   values: BulkRemoveDto
 ): Promise<ActionResponse<void>> {
@@ -142,11 +109,6 @@ export async function bulkRemoveAction(
   }
 }
 
-/**
- * Move items between cart and saved for later
- * Uses POST /v1/cart/save-for-later
- * Requires authentication
- */
 export async function saveForLaterAction(
   values: SaveForLaterDto
 ): Promise<ActionResponse<void>> {
@@ -158,11 +120,6 @@ export async function saveForLaterAction(
   }
 }
 
-/**
- * NEW: Merge guest session cart with user cart
- * Uses POST /v1/cart/merge-session
- * Requires authentication
- */
 export async function mergeSessionCartAction(
   values: MergeSessionCartDto
 ): Promise<ActionResponse<MergeSessionCartResponse>> {
@@ -174,11 +131,6 @@ export async function mergeSessionCartAction(
   }
 }
 
-/**
- * NEW: Cleanup expired session carts (Admin only)
- * Uses POST /v1/cart/cleanup-expired-sessions
- * Requires authentication with admin role
- */
 export async function cleanupExpiredSessionsAction(
   params: CleanupExpiredSessionsDto
 ): Promise<ActionResponse<CleanupExpiredSessionsResponse>> {

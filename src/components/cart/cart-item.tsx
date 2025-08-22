@@ -7,6 +7,7 @@ import { Trash2, Edit } from "lucide-react";
 import { CartItemResponse } from "@/lib/cart/types/cart.types";
 import { useRemoveCartItem } from "@/hooks/use-cart";
 import { QuantitySelector } from "./quantity-selector";
+import { useCartSheet } from "./cart-sheet-dialog";
 import Image from "next/image";
 
 interface CartItemProps {
@@ -16,9 +17,24 @@ interface CartItemProps {
 
 export function CartItem({ item, onEdit }: CartItemProps) {
   const removeCartItem = useRemoveCartItem();
+  const { setUpdating, isOpen } = useCartSheet();
 
   const handleRemove = () => {
-    removeCartItem.mutate(item.id);
+    // Signal that we're starting an update
+    if (isOpen) {
+      setUpdating(true);
+    }
+
+    removeCartItem.mutate(item.id, {
+      onSettled: () => {
+        // Signal that update is complete
+        if (isOpen) {
+          setTimeout(() => {
+            setUpdating(false);
+          }, 100); // Small delay to ensure state updates complete
+        }
+      },
+    });
   };
 
   const handleEdit = () => {
@@ -108,6 +124,10 @@ export function CartItem({ item, onEdit }: CartItemProps) {
               cartItemId={item.id}
               quantity={item.quantity}
               maxQuantity={item.variant.stock}
+              sheetContext={{
+                isOpen,
+                setUpdating,
+              }}
             />
           </div>
 

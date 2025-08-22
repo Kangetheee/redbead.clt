@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,41 +5,19 @@ import { toast } from "sonner";
 import {
   getOrdersAction,
   getOrderAction,
-  createOrderAction,
-  updateOrderAction,
-  updateOrderStatusAction,
-  getOrderNotesAction,
-  addOrderNoteAction,
-  requestDesignApprovalAction,
+  trackOrderAction,
   getDesignApprovalAction,
-  updateDesignApprovalAction,
-  completeDesignApprovalAction,
+  addCustomerInstructionsAction,
+  getCustomerNotesAction,
+  reorderAction,
   approveDesignViaTokenAction,
   rejectDesignViaTokenAction,
-  resendDesignApprovalEmailAction,
-  getPaymentStatusAction,
-  getOrderItemsAction,
-  updateOrderItemStatusAction,
-  bulkUpdateOrderItemStatusAction,
-  getOrderItemsByStatusAction,
-  getProductionRequirementsAction,
-  calculateTimelineAction,
 } from "@/lib/orders/orders.action";
 
 import {
   GetOrdersDto,
-  CreateOrderDto,
-  UpdateOrderDto,
-  UpdateOrderStatusDto,
-  CreateOrderNoteDto,
-  RequestDesignApprovalDto,
-  UpdateDesignApprovalDto,
-  UpdateOrderItemStatusDto,
-  BulkUpdateOrderItemStatusDto,
-  CalculateTimelineDto,
-  ApproveDesignViaTokenDto,
-  RejectDesignViaTokenDto,
-  ResendDesignApprovalEmailDto,
+  CustomerInstructionsDto,
+  ReorderDto,
 } from "@/lib/orders/dto/orders.dto";
 
 // Query Keys
@@ -51,21 +28,14 @@ export const orderKeys = {
     [...orderKeys.lists(), { filters }] as const,
   details: () => [...orderKeys.all, "detail"] as const,
   detail: (id: string) => [...orderKeys.details(), id] as const,
-  notes: (orderId: string) => [...orderKeys.detail(orderId), "notes"] as const,
+  tracking: (orderId: string) =>
+    [...orderKeys.detail(orderId), "tracking"] as const,
   designApproval: (orderId: string) =>
     [...orderKeys.detail(orderId), "designApproval"] as const,
-  paymentStatus: (orderId: string) =>
-    [...orderKeys.detail(orderId), "paymentStatus"] as const,
-  items: (orderId: string) => [...orderKeys.detail(orderId), "items"] as const,
-  itemsByStatus: (status: string, productId: string) =>
-    [...orderKeys.all, "itemsByStatus", status, productId] as const,
-  productionRequirements: (orderId: string) =>
-    [...orderKeys.detail(orderId), "productionRequirements"] as const,
+  customerNotes: (orderId: string) =>
+    [...orderKeys.detail(orderId), "customerNotes"] as const,
 };
 
-/**
- * Hook to get orders with pagination and filtering
- */
 export function useOrders(params?: GetOrdersDto) {
   return useQuery({
     queryKey: orderKeys.list(params || {}),
@@ -80,9 +50,6 @@ export function useOrders(params?: GetOrdersDto) {
   });
 }
 
-/**
- * Hook to get a single order by ID
- */
 export function useOrder(orderId: string, enabled = true) {
   return useQuery({
     queryKey: orderKeys.detail(orderId),
@@ -98,103 +65,11 @@ export function useOrder(orderId: string, enabled = true) {
   });
 }
 
-/**
- * Hook to create a new order
- */
-export function useCreateOrder() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (values: CreateOrderDto) => {
-      const result = await createOrderAction(values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (data) => {
-      toast.success("Order created successfully");
-      queryClient.setQueryData(orderKeys.detail(data.id), data);
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-      // Invalidate cart data if order was created from cart
-      queryClient.invalidateQueries({ queryKey: ["cart"] });
-    },
-    onError: (error) => {
-      toast.error(`Failed to create order: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to update an order
- */
-export function useUpdateOrder() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      orderId,
-      values,
-    }: {
-      orderId: string;
-      values: UpdateOrderDto;
-    }) => {
-      const result = await updateOrderAction(orderId, values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (data) => {
-      toast.success("Order updated successfully");
-      queryClient.setQueryData(orderKeys.detail(data.id), data);
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-    },
-    onError: (error) => {
-      toast.error(`Failed to update order: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to update order status
- */
-export function useUpdateOrderStatus() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      orderId,
-      values,
-    }: {
-      orderId: string;
-      values: UpdateOrderStatusDto;
-    }) => {
-      const result = await updateOrderStatusAction(orderId, values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (data) => {
-      toast.success(`Order status updated to ${data.status}`);
-      queryClient.setQueryData(orderKeys.detail(data.id), data);
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-    },
-    onError: (error) => {
-      toast.error(`Failed to update order status: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to get order notes
- */
-export function useOrderNotes(orderId: string, enabled = true) {
+export function useTrackOrder(orderId: string, enabled = true) {
   return useQuery({
-    queryKey: orderKeys.notes(orderId),
+    queryKey: orderKeys.tracking(orderId),
     queryFn: async () => {
-      const result = await getOrderNotesAction(orderId);
+      const result = await trackOrderAction(orderId);
       if (!result.success) {
         throw new Error(result.error);
       }
@@ -205,60 +80,6 @@ export function useOrderNotes(orderId: string, enabled = true) {
   });
 }
 
-/**
- * Hook to add a note to an order
- */
-export function useAddOrderNote(orderId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (values: CreateOrderNoteDto) => {
-      const result = await addOrderNoteAction(orderId, values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: () => {
-      toast.success("Note added successfully");
-      queryClient.invalidateQueries({ queryKey: orderKeys.notes(orderId) });
-    },
-    onError: (error) => {
-      toast.error(`Failed to add note: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to request design approval
- */
-export function useRequestDesignApproval(orderId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (values: RequestDesignApprovalDto) => {
-      const result = await requestDesignApprovalAction(orderId, values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (data) => {
-      toast.success("Design approval request sent successfully");
-      queryClient.invalidateQueries({
-        queryKey: orderKeys.designApproval(orderId),
-      });
-      queryClient.invalidateQueries({ queryKey: orderKeys.detail(orderId) });
-    },
-    onError: (error) => {
-      toast.error(`Failed to request design approval: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to get design approval status
- */
 export function useDesignApproval(orderId: string, enabled = true) {
   return useQuery({
     queryKey: orderKeys.designApproval(orderId),
@@ -274,63 +95,74 @@ export function useDesignApproval(orderId: string, enabled = true) {
   });
 }
 
-/**
- * Hook to update design approval status (admin only)
- */
-export function useUpdateDesignApproval(orderId: string) {
+export function useCustomerNotes(orderId: string, enabled = true) {
+  return useQuery({
+    queryKey: orderKeys.customerNotes(orderId),
+    queryFn: async () => {
+      const result = await getCustomerNotesAction(orderId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    enabled: enabled && !!orderId,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useAddCustomerInstructions() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (values: UpdateDesignApprovalDto) => {
-      const result = await updateDesignApprovalAction(orderId, values);
+    mutationFn: async ({
+      orderId,
+      instructions,
+    }: {
+      orderId: string;
+      instructions: CustomerInstructionsDto;
+    }) => {
+      const result = await addCustomerInstructionsAction(orderId, instructions);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    onSuccess: (_, variables) => {
+      toast.success("Instructions added successfully");
+      queryClient.invalidateQueries({
+        queryKey: orderKeys.customerNotes(variables.orderId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: orderKeys.detail(variables.orderId),
+      });
+    },
+    onError: (error) => {
+      toast.error(`Failed to add instructions: ${error.message}`);
+    },
+  });
+}
+
+export function useReorder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: ReorderDto) => {
+      const result = await reorderAction(data);
       if (!result.success) {
         throw new Error(result.error);
       }
       return result.data;
     },
     onSuccess: (data) => {
-      toast.success(`Design approval status updated to ${data.status}`);
-      queryClient.invalidateQueries({
-        queryKey: orderKeys.designApproval(orderId),
-      });
-      queryClient.invalidateQueries({ queryKey: orderKeys.detail(orderId) });
+      toast.success(`Reorder successful: ${data.message}`);
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
     },
     onError: (error) => {
-      toast.error(`Failed to update design approval: ${error.message}`);
+      toast.error(`Failed to reorder: ${error.message}`);
     },
   });
 }
 
-/**
- * Hook to complete design approval process
- */
-export function useCompleteDesignApproval(orderId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async () => {
-      const result = await completeDesignApprovalAction(orderId);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (data) => {
-      toast.success(data.message || "Design approval process completed");
-      queryClient.invalidateQueries({
-        queryKey: orderKeys.designApproval(orderId),
-      });
-      queryClient.invalidateQueries({ queryKey: orderKeys.detail(orderId) });
-    },
-    onError: (error) => {
-      toast.error(`Failed to complete design approval: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to approve design via email token (no auth required)
- */
 export function useApproveDesignViaToken() {
   return useMutation({
     mutationFn: async (token: string) => {
@@ -349,9 +181,6 @@ export function useApproveDesignViaToken() {
   });
 }
 
-/**
- * Hook to reject design via email token (no auth required)
- */
 export function useRejectDesignViaToken() {
   return useMutation({
     mutationFn: async ({
@@ -372,185 +201,6 @@ export function useRejectDesignViaToken() {
     },
     onError: (error) => {
       toast.error(`Failed to reject design: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to resend design approval email
- */
-export function useResendDesignApprovalEmail() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (designApprovalId: string) => {
-      const result = await resendDesignApprovalEmailAction(designApprovalId);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (data) => {
-      toast.success(data.message);
-      // We don't know the orderId here, so invalidate all design approval queries
-      queryClient.invalidateQueries({ queryKey: orderKeys.all });
-    },
-    onError: (error) => {
-      toast.error(`Failed to resend approval email: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to get payment status
- */
-export function usePaymentStatus(orderId: string, enabled = true) {
-  return useQuery({
-    queryKey: orderKeys.paymentStatus(orderId),
-    queryFn: async () => {
-      const result = await getPaymentStatusAction(orderId);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    enabled: enabled && !!orderId,
-    refetchOnWindowFocus: false,
-  });
-}
-
-/**
- * Hook to get order items
- */
-export function useOrderItems(orderId: string, enabled = true) {
-  return useQuery({
-    queryKey: orderKeys.items(orderId),
-    queryFn: async () => {
-      const result = await getOrderItemsAction(orderId);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    enabled: enabled && !!orderId,
-    refetchOnWindowFocus: false,
-  });
-}
-
-/**
- * Hook to update order item status
- */
-export function useUpdateOrderItemStatus() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      orderItemId,
-      values,
-    }: {
-      orderItemId: string;
-      values: UpdateOrderItemStatusDto;
-    }) => {
-      const result = await updateOrderItemStatusAction(orderItemId, values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: (_, variables) => {
-      toast.success("Item status updated successfully");
-      // We don't know which order this item belongs to, so invalidate all order items queries
-      queryClient.invalidateQueries({ queryKey: orderKeys.all });
-    },
-    onError: (error) => {
-      toast.error(`Failed to update item status: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to bulk update order item statuses
- */
-export function useBulkUpdateOrderItemStatus() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (values: BulkUpdateOrderItemStatusDto) => {
-      const result = await bulkUpdateOrderItemStatusAction(values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: () => {
-      toast.success("Items status updated successfully");
-      // Invalidate all order items queries
-      queryClient.invalidateQueries({ queryKey: orderKeys.all });
-    },
-    onError: (error) => {
-      toast.error(`Failed to update items status: ${error.message}`);
-    },
-  });
-}
-
-/**
- * Hook to get order items by status
- * Updated to use productId instead of templateId
- */
-export function useOrderItemsByStatus(
-  status: string,
-  productId: string,
-  enabled = true
-) {
-  return useQuery({
-    queryKey: orderKeys.itemsByStatus(status, productId),
-    queryFn: async () => {
-      const result = await getOrderItemsByStatusAction(status, productId);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    enabled: enabled && !!status && !!productId,
-    refetchOnWindowFocus: false,
-  });
-}
-
-/**
- * Hook to get production requirements
- */
-export function useProductionRequirements(orderId: string, enabled = true) {
-  return useQuery({
-    queryKey: orderKeys.productionRequirements(orderId),
-    queryFn: async () => {
-      const result = await getProductionRequirementsAction(orderId);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    enabled: enabled && !!orderId,
-    refetchOnWindowFocus: false,
-  });
-}
-
-/**
- * Hook to calculate order timeline
- */
-export function useCalculateTimeline(orderId: string) {
-  return useMutation({
-    mutationFn: async (values: CalculateTimelineDto) => {
-      const result = await calculateTimelineAction(orderId, values);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-    onSuccess: () => {
-      toast.success("Timeline calculated successfully");
-    },
-    onError: (error) => {
-      toast.error(`Failed to calculate timeline: ${error.message}`);
     },
   });
 }

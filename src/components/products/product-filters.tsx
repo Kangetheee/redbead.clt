@@ -145,7 +145,6 @@ export function ProductFilters({
           </div>
         </div>
 
-        {/* Desktop: Original layout */}
         <div className="hidden md:block space-y-4">
           {/* Search */}
           <div className="space-y-2">

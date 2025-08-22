@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
@@ -63,35 +62,31 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DataTable } from "@/components/ui/data-table";
 import { toast } from "sonner";
 
-import { OrderResponse, OrderListItem } from "@/lib/orders/types/orders.types";
-import {
-  GetOrdersDto,
-  ORDER_STATUS,
-  URGENCY_LEVELS,
-} from "@/lib/orders/dto/orders.dto";
+import { OrderResponse } from "@/lib/orders/types/orders.types";
+import { GetOrdersDto } from "@/lib/orders/dto/orders.dto";
 import { useOrders } from "@/hooks/use-orders";
+import { formatCurrency } from "@/lib/utils";
 
-interface OrdersHookResponse {
-  success: boolean;
-  data?: {
-    data: OrderListItem[];
-    meta: {
-      page: number;
-      limit: number;
-      total: number;
-      lastPage: number;
-    };
-    links: {
-      first: string;
-      last: string;
-      next?: string;
-      prev?: string;
-    };
-  };
-  error?: string;
-}
+// Define the order statuses based on your types
+const ORDER_STATUS = [
+  "PENDING",
+  "CONFIRMED",
+  "DESIGN_PENDING",
+  "DESIGN_APPROVED",
+  "DESIGN_REJECTED",
+  "PAYMENT_PENDING",
+  "PAYMENT_CONFIRMED",
+  "PROCESSING",
+  "PRODUCTION",
+  "SHIPPED",
+  "DELIVERED",
+  "CANCELLED",
+  "REFUNDED",
+] as const;
 
-interface CustomerOrderTableProps {
+const URGENCY_LEVELS = ["NORMAL", "EXPEDITED", "RUSH", "EMERGENCY"] as const;
+
+interface OrderTableProps {
   filters?: GetOrdersDto;
   onFiltersChange?: (filters: GetOrdersDto) => void;
   showFilters?: boolean;
@@ -169,72 +164,44 @@ const STATUS_CONFIG = {
   },
 } as const;
 
-const URGENCY_CONFIG = {
-  NORMAL: { label: "Standard", color: "bg-gray-100 text-gray-800" },
-  EXPEDITED: { label: "Expedited", color: "bg-yellow-100 text-yellow-800" },
-  RUSH: { label: "Rush", color: "bg-orange-100 text-orange-800" },
-  EMERGENCY: { label: "Emergency", color: "bg-red-100 text-red-800" },
-} as const;
-
 export default function OrderTable({
-  filters = { page: 1, limit: 10 },
+  filters = {},
   onFiltersChange,
   showFilters = true,
   compact = false,
   pageSize = 10,
   onOrderClick,
-}: CustomerOrderTableProps) {
+}: OrderTableProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(filters.search || "");
   const [statusFilter, setStatusFilter] = useState<string>(
     filters.status || "all"
   );
-  const [urgencyFilter, setUrgencyFilter] = useState<string>(
-    filters.urgencyLevel || "all"
-  );
   const [favoriteOrders, setFavoriteOrders] = useState<Set<string>>(new Set());
 
-  // Build current filters
-  const currentFilters: GetOrdersDto = {
+  // Build current filters for the query
+  const queryFilters: GetOrdersDto = {
     ...filters,
-    page: filters.page || 1,
-    limit: pageSize,
     search: searchTerm || undefined,
-    status:
-      statusFilter === "all"
-        ? undefined
-        : (statusFilter as (typeof ORDER_STATUS)[number]),
-    urgencyLevel:
-      urgencyFilter === "all"
-        ? undefined
-        : (urgencyFilter as (typeof URGENCY_LEVELS)[number]),
+    status: statusFilter === "all" ? undefined : statusFilter,
   };
 
-  // Fetch orders using the proper hook
+  // Fetch orders using the hook
   const {
-    data: ordersResponse,
+    data: ordersData,
     isLoading,
     error,
     isRefetching,
-  } = useOrders(currentFilters) as {
-    data: OrdersHookResponse | undefined;
-    isLoading: boolean;
-    error: any;
-    isRefetching: boolean;
-  };
+  } = useOrders(queryFilters);
 
-  // Extract data with proper error handling
-  const orders: OrderListItem[] = ordersResponse?.success
-    ? ordersResponse.data?.data || []
-    : [];
-  const totalItems = ordersResponse?.success
-    ? ordersResponse.data?.meta?.total || 0
-    : 0;
-  const pageCount = Math.ceil(totalItems / pageSize);
+  // Extract orders from the response structure
+  const orders: OrderResponse[] = ordersData?.items || [];
+  const totalItems = ordersData?.meta?.itemCount || 0;
+  const pageCount = ordersData?.meta?.pageCount || 0;
 
   // Helper functions
   const handleFiltersChange = (newFilters: Partial<GetOrdersDto>) => {
-    const updatedFilters = { ...filters, ...newFilters, page: 1 };
+    const updatedFilters = { ...filters, ...newFilters };
     onFiltersChange?.(updatedFilters);
   };
 
@@ -246,20 +213,7 @@ export default function OrderTable({
   const handleStatusFilter = (status: string) => {
     setStatusFilter(status);
     handleFiltersChange({
-      status:
-        status === "all"
-          ? undefined
-          : (status as (typeof ORDER_STATUS)[number]),
-    });
-  };
-
-  const handleUrgencyFilter = (urgency: string) => {
-    setUrgencyFilter(urgency);
-    handleFiltersChange({
-      urgencyLevel:
-        urgency === "all"
-          ? undefined
-          : (urgency as (typeof URGENCY_LEVELS)[number]),
+      status: status === "all" ? undefined : status,
     });
   };
 
@@ -277,8 +231,10 @@ export default function OrderTable({
     });
   };
 
-  const getStatusBadge = (status: (typeof ORDER_STATUS)[number]) => {
-    const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
+  const getStatusBadge = (status: string) => {
+    const config =
+      STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] ||
+      STATUS_CONFIG.PENDING;
     const Icon = config.icon;
 
     return (
@@ -289,18 +245,7 @@ export default function OrderTable({
     );
   };
 
-  const getUrgencyBadge = (urgency?: (typeof URGENCY_LEVELS)[number]) => {
-    if (!urgency || urgency === "NORMAL") return null;
-
-    const config = URGENCY_CONFIG[urgency];
-    return (
-      <Badge className={`${config.color} text-xs`} variant="outline">
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const getActionStatus = (order: OrderListItem) => {
+  const getActionStatus = (order: OrderResponse) => {
     if (order.status === "DESIGN_PENDING") {
       return {
         required: true,
@@ -328,31 +273,8 @@ export default function OrderTable({
     return null;
   };
 
-  const canReorder = (order: OrderListItem) => {
+  const canReorder = (order: OrderResponse) => {
     return order.status === "DELIVERED";
-  };
-
-  // Helper function to check if order has templates (from order items)
-  const hasTemplates = (order: OrderListItem) => {
-    return (
-      order.orderItems &&
-      order.orderItems.length > 0 &&
-      order.orderItems.some((item) => item.template)
-    );
-  };
-
-  // Helper function to get primary template name from order items
-  const getPrimaryTemplateName = (order: OrderListItem) => {
-    if (!order.orderItems || order.orderItems.length === 0) {
-      return "No template";
-    }
-
-    const firstTemplate = order.orderItems[0]?.template;
-    if (order.orderItems.length === 1) {
-      return firstTemplate?.name || "Unknown template";
-    }
-
-    return `${firstTemplate?.name || "Template"} (+${order.orderItems.length - 1} more)`;
   };
 
   const copyToClipboard = (text: string) => {
@@ -361,7 +283,7 @@ export default function OrderTable({
   };
 
   // Define table columns
-  const columns: ColumnDef<OrderListItem>[] = useMemo(
+  const columns: ColumnDef<OrderResponse>[] = useMemo(
     () => [
       // Favorite column
       {
@@ -449,40 +371,26 @@ export default function OrderTable({
         ),
         cell: ({ row }) => {
           const order = row.original;
-          return (
-            <div className="space-y-1">
-              {getStatusBadge(order.status)}
-              {/* Note: OrderListItem might not have urgencyLevel, so we handle it conditionally */}
-              {(order as any).urgencyLevel &&
-                getUrgencyBadge((order as any).urgencyLevel)}
-            </div>
-          );
+          return getStatusBadge(order.status);
         },
       },
 
-      // Items column with template information
+      // Items column
       {
         id: "items",
-        header: "Items & Templates",
+        header: "Items",
         cell: ({ row }) => {
           const order = row.original;
           const totalQuantity = order.orderItems.reduce(
             (sum, item) => sum + item.quantity,
             0
           );
-          const primaryTemplateName = getPrimaryTemplateName(order);
 
           return (
             <div className="space-y-1">
               <p className="font-medium">{order.orderItems.length} items</p>
               <p className="text-sm text-muted-foreground">
                 {totalQuantity} total qty
-              </p>
-              <p
-                className="text-xs text-muted-foreground truncate max-w-[200px]"
-                title={primaryTemplateName}
-              >
-                {primaryTemplateName}
               </p>
             </div>
           );
@@ -506,7 +414,9 @@ export default function OrderTable({
         cell: ({ row }) => {
           const amount = row.getValue("totalAmount") as number;
           return (
-            <span className="font-medium">${amount?.toFixed(2) || "0.00"}</span>
+            <span className="font-medium">
+              {formatCurrency(amount) || "0.00"}
+            </span>
           );
         },
       },
@@ -555,7 +465,7 @@ export default function OrderTable({
           }
 
           if (order.designApprovalStatus) {
-            const statusConfig = {
+            const designStatusConfig = {
               PENDING: {
                 color: "bg-yellow-100 text-yellow-800",
                 label: "Pending",
@@ -570,7 +480,11 @@ export default function OrderTable({
                 color: "bg-gray-100 text-gray-800",
                 label: "Cancelled",
               },
-            }[order.designApprovalStatus] || {
+            } as const;
+
+            const statusConfig = designStatusConfig[
+              order.designApprovalStatus as keyof typeof designStatusConfig
+            ] || {
               color: "bg-gray-100 text-gray-800",
               label: order.designApprovalStatus,
             };
@@ -654,26 +568,32 @@ export default function OrderTable({
                   </Link>
                 </DropdownMenuItem>
 
-                <DropdownMenuItem asChild>
+                {/* <DropdownMenuItem asChild>
                   <Link href={`/orders/${order.id}/edit`}>
                     <FileText className="mr-2 h-4 w-4" />
                     Edit Order
                   </Link>
+                </DropdownMenuItem> */}
+
+                <DropdownMenuItem asChild>
+                  <Link href={`/orders/${order.id}/track`}>
+                    <Truck className="mr-2 h-4 w-4" />
+                    Track Package
+                  </Link>
                 </DropdownMenuItem>
 
-                {hasTemplates(order) && (
-                  <DropdownMenuItem asChild>
-                    <Link href={`/orders/${order.id}/tracking`}>
-                      <Truck className="mr-2 h-4 w-4" />
-                      Track Package
-                    </Link>
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem asChild>
+                  <Link href={`/orders/${order.id}/notes`}>
+                    <Repeat className="mr-2 h-4 w-4" />
+                    Order Notes
+                  </Link>
+                </DropdownMenuItem>
 
-                <DropdownMenuItem
+                <DropdownMenuSeparator />
+
+                {/* <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Implement download invoice functionality
                     toast.info("Invoice download will be available soon");
                   }}
                 >
@@ -681,7 +601,7 @@ export default function OrderTable({
                   Download Invoice
                 </DropdownMenuItem>
 
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator /> */}
 
                 {canReorder(order) && (
                   <DropdownMenuItem asChild>
@@ -761,24 +681,10 @@ export default function OrderTable({
           ))}
         </SelectContent>
       </Select>
-
-      <Select value={urgencyFilter} onValueChange={handleUrgencyFilter}>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Urgency" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Urgency</SelectItem>
-          {URGENCY_LEVELS.map((urgency) => (
-            <SelectItem key={urgency} value={urgency}>
-              {URGENCY_CONFIG[urgency]?.label || urgency}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
     </div>
   ) : undefined;
 
-  const handleRowClick = (order: OrderListItem) => {
+  const handleRowClick = (order: OrderResponse) => {
     if (onOrderClick) {
       onOrderClick(order.id);
     } else {
@@ -806,9 +712,9 @@ export default function OrderTable({
             isFetching={isLoading}
             isRefetching={isRefetching}
             error={error}
-            allowSearch={false} // We handle search in the filter header
+            allowSearch={false}
             filterByDate={false}
-            showViewOptions={true}
+            // showViewOptions={true}
             onRowClick={handleRowClick}
             paginate={true}
           />

@@ -1,37 +1,33 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from "react";
 import { getSession } from "@/lib/session/session";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
-import CustomerOrderTracking from "@/components/orders/order-tracking";
+import OrderTracking from "@/components/orders/order-tracking";
 
 interface OrderTrackingPageProps {
   params: Promise<{
-    orderId: string;
+    id: string;
   }>;
 }
 
 export default async function OrderTrackingPage({
   params,
 }: OrderTrackingPageProps) {
-  const session = getSession();
-  const { orderId } = await params;
+  const session = await getSession();
+  const { id: orderId } = await params;
+
+  // Check if user is authenticated
+  if (!session) {
+    redirect("/auth/login");
+  }
 
   if (!orderId || orderId.length < 10) {
     notFound();
   }
-
-  const handleDesignApprovalClick = () => {
-    window.location.href = `/orders/${orderId}/design-approval`;
-  };
-
-  const handlePaymentClick = () => {
-    window.location.href = `/orders/${orderId}/payment`;
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,13 +53,7 @@ export default async function OrderTrackingPage({
 
       {/* Tracking Component */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        <CustomerOrderTracking
-          orderId={orderId}
-          showEstimates={true}
-          autoRefresh={true}
-          onDesignApprovalClick={handleDesignApprovalClick}
-          onPaymentClick={handlePaymentClick}
-        />
+        <OrderTracking orderId={orderId} userId={session.user.id} />
       </div>
     </div>
   );

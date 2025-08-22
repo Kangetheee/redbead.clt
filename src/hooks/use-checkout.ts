@@ -4,22 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   initializeCheckoutAction,
-  // initializeGuestCheckoutAction,
   calculateShippingAction,
   validateCheckoutAction,
   completeCheckoutAction,
-  // completeGuestCheckoutAction,
   getCheckoutSessionAction,
   getOrderConfirmationAction,
   listCheckoutSessionsAction,
 } from "@/lib/checkout/checkout.actions";
 import {
   InitCheckoutDto,
-  // GuestInitCheckoutDto,
   ShippingCalculationDto,
   ValidateCheckoutDto,
   CompleteCheckoutDto,
-  // GuestCompleteCheckoutDto,
   ListCheckoutSessionsDto,
 } from "@/lib/checkout/dto/checkout.dto";
 
@@ -184,9 +180,7 @@ export function useValidateCheckout() {
   });
 }
 
-/**
- * Hook to complete checkout for authenticated users
- */
+// validate that we are creating order at this point
 export function useCompleteCheckout() {
   const queryClient = useQueryClient();
 
@@ -277,9 +271,6 @@ export function useCompleteCheckout() {
 //   });
 // }
 
-/**
- * Hook to get session time remaining in minutes
- */
 export function useSessionTimeRemaining(sessionId: string) {
   const { data: session } = useCheckoutSession(sessionId);
 
@@ -292,9 +283,6 @@ export function useSessionTimeRemaining(sessionId: string) {
   return Math.floor(timeRemaining / (1000 * 60)); // Return minutes
 }
 
-/**
- * Hook to check if session is expired
- */
 export function useSessionExpired(sessionId: string) {
   const { data: session } = useCheckoutSession(sessionId);
 

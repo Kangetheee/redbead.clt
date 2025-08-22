@@ -34,7 +34,7 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "picsum.photos",
+        hostname: "brightwristbands.co.ke",
         port: "",
         pathname: "/**",
       },

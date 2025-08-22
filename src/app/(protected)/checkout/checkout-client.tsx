@@ -14,11 +14,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { User, Loader2 } from "lucide-react";
 import { useCartItems, useCartSummary } from "@/hooks/use-cart";
-import { formatAmount } from "@/lib/utils";
+import { formatAmount, getInitials } from "@/lib/utils";
 import { useInitializeCheckout } from "@/hooks/use-checkout";
 import { InitCheckoutDto } from "@/lib/checkout/dto/checkout.dto";
 import { useAddresses } from "@/hooks/use-address";
 import { Session } from "@/lib/session/session.types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUserProfile } from "@/hooks/use-users";
 
 interface CheckoutClientProps {
   session: Session;
@@ -29,7 +31,6 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
   const [localCartItems, setLocalCartItems] = useState<any[]>([]);
   const [isLoadingLocalCart, setIsLoadingLocalCart] = useState(false);
 
-  // Cart data hooks
   const {
     data: cartItems,
     isLoading: isLoadingItems,
@@ -41,13 +42,14 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
     error: summaryError,
   } = useCartSummary();
 
-  // Address hooks
-  const { data: addressesData } = useAddresses({ page: 1, limit: 10 });
+  const { data: addressesData } = useAddresses();
+  const { data: userProfile } = useUserProfile();
 
-  // Checkout hooks
   const initializeCheckoutMutation = useInitializeCheckout();
 
-  // Load cart items from localStorage if cart is empty
+  const userName = userProfile?.name || "User";
+  const userAvatar = userProfile?.avatar;
+
   useEffect(() => {
     const loadLocalCartItems = () => {
       try {
@@ -69,22 +71,18 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
       return [];
     };
 
-    // Only load from localStorage if server cart is empty and not loading
     if (!isLoadingItems && (!cartItems || cartItems.length === 0)) {
       loadLocalCartItems();
     }
   }, [cartItems, isLoadingItems]);
 
-  // Get effective cart items (server cart or local cart)
   const effectiveCartItems = cartItems?.length ? cartItems : localCartItems;
   const hasCartItems = effectiveCartItems?.length > 0;
 
-  // Handle checkout submission
   const handleCheckout = async () => {
     try {
       setIsLoadingLocalCart(true);
 
-      // Check if cart items are still loading
       if (isLoadingItems) {
         console.log("Cart items are still loading, please wait...");
         return;
@@ -124,7 +122,6 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
         }
       }
 
-      // Fallback: Always send explicit items if server cart fails or if using localStorage
       console.log("Using explicit items for checkout initialization");
       const initData: InitCheckoutDto = {
         useCartItems: false,
@@ -133,7 +130,7 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
           variantId: item.variantId || item.variant?.id,
           quantity: item.quantity,
           customizations: item.customizations || [],
-          unitPrice: item.unitPrice || item.product?.price || 0,
+          // unitPrice: item.unitPrice || item.product?.price || 0,
         })),
       };
 
@@ -206,23 +203,17 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                      {session.user.avatar ? (
-                        <img
-                          src={session.user.avatar}
-                          alt="User Avatar"
-                          className="w-10 h-10 rounded-full object-cover"
+                      <Avatar>
+                        <AvatarImage
+                          src={userAvatar || "User"}
+                          alt={userName}
                         />
-                      ) : (
-                        <User className="w-5 h-5 text-green-600" />
-                      )}
+                        <AvatarFallback>{getInitials(userName)}</AvatarFallback>
+                      </Avatar>
                     </div>
                     <div>
-                      <p className="font-medium text-green-900">
-                        {/* User ID: {session.user.} */}
-                      </p>
-                      <p className="text-sm text-green-700">
-                        Role: {session.user.role}
-                      </p>
+                      <p className="font-medium text-green-900"></p>
+                      <p className="text-sm text-green-700">{userName}</p>
                       {session.user.phone && (
                         <p className="text-sm text-green-700">
                           Phone: {session.user.phone}
@@ -316,18 +307,29 @@ function OrderSummaryCard({
   router: any;
   isUsingLocalCart?: boolean;
 }) {
-  // Calculate totals for local cart items if needed
   const calculateLocalCartTotal = (items: any[]) => {
     if (!items?.length) return 0;
+
     return items.reduce((total, item) => {
-      const itemPrice = item.totalPrice || item.price * item.quantity || 0;
-      return total + itemPrice;
+      if (typeof item.totalPrice === "number") {
+        return total + item.totalPrice;
+      }
+
+      const unitPrice =
+        item.unitPrice ??
+        item.variant?.price ??
+        item.product?.basePrice ??
+        item.product?.price ??
+        0;
+
+      return total + unitPrice * (item.quantity ?? 1);
     }, 0);
   };
 
   const localCartTotal = isUsingLocalCart
     ? calculateLocalCartTotal(cartItems)
     : 0;
+  console.log("Local cart items in summary:", cartItems);
   const itemCount = cartItems?.length || 0;
 
   return (
@@ -418,14 +420,14 @@ function OrderSummaryCard({
 
             <Separator />
 
-            {/* Summary */}
+            {/* TODO: refactor the summary card */}
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span>Items ({itemCount})</span>
                 <span>
                   {isUsingLocalCart
                     ? formatAmount(localCartTotal)
-                    : formatAmount(cartSummary?.summary?.subtotal || 0)}
+                    : formatAmount(cartSummary.totalPrice || 0)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
