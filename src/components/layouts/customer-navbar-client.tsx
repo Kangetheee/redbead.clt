@@ -22,7 +22,6 @@ interface CustomerNavbarClientProps {
   className?: string;
 }
 
-// Custom hook for device detection
 const useDeviceType = () => {
   const [deviceType, setDeviceType] = useState<"mobile" | "tablet" | "desktop">(
     "desktop"

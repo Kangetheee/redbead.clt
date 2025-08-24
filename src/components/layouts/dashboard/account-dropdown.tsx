@@ -128,12 +128,12 @@ export default function AccountDropdown() {
 
         {/* <DropdownMenuSeparator /> */}
 
-        {/* <DropdownMenuItem asChild>
+        <DropdownMenuItem asChild>
           <div className="px-2 py-1.5">
             <ThemeToggle />
             Appearance
           </div>
-        </DropdownMenuItem> */}
+        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
