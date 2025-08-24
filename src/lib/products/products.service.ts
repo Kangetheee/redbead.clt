@@ -15,9 +15,6 @@ import {
 export class ProductService {
   constructor(private fetcher = new Fetcher()) {}
 
-  /**
-   * Get paginated list of products with optional filtering and sorting
-   */
   public async findAll(
     params?: GetProductsDto
   ): Promise<PaginatedData<ProductResponse>> {
@@ -67,9 +64,6 @@ export class ProductService {
     );
   }
 
-  /**
-   * Create a new product
-   */
   public async create(values: CreateProductDto): Promise<ProductResponse> {
     return this.fetcher.request<ProductResponse>("/v1/product", {
       method: "POST",
@@ -77,9 +71,6 @@ export class ProductService {
     });
   }
 
-  /**
-   * Quick product search by name or description
-   */
   public async search(params: SearchProductsDto): Promise<ProductResponse[]> {
     const queryParams = new URLSearchParams();
 
@@ -97,9 +88,6 @@ export class ProductService {
     return this.fetcher.request<ProductResponse[]>(url, {}, { auth: false });
   }
 
-  /**
-   * Get featured products for homepage/marketing display
-   */
   public async findFeatured(limit?: number): Promise<ProductResponse[]> {
     const queryParams = new URLSearchParams();
     if (limit) {
@@ -116,9 +104,6 @@ export class ProductService {
     );
   }
 
-  /**
-   * Get detailed product information using URL-friendly slug
-   */
   public async findBySlug(slug: string): Promise<ProductResponse> {
     return this.fetcher.request<ProductResponse>(
       `/v1/product/by-slug/${slug}`,

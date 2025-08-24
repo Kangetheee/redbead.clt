@@ -290,6 +290,7 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
 // Order Summary Component
 function OrderSummaryCard({
   cartItems,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   cartSummary,
   isLoadingItems,
   isLoadingSummary,
@@ -326,10 +327,12 @@ function OrderSummaryCard({
     }, 0);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const localCartTotal = isUsingLocalCart
     ? calculateLocalCartTotal(cartItems)
     : 0;
   console.log("Local cart items in summary:", cartItems);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const itemCount = cartItems?.length || 0;
 
   return (
@@ -421,7 +424,7 @@ function OrderSummaryCard({
             <Separator />
 
             {/* TODO: refactor the summary card */}
-            <div className="space-y-3">
+            {/* <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span>Items ({itemCount})</span>
                 <span>
@@ -455,7 +458,7 @@ function OrderSummaryCard({
                   Using items from local storage - totals are estimated
                 </p>
               )}
-            </div>
+            </div> */}
           </div>
         )}
       </CardContent>

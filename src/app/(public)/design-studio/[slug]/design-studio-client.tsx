@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import TemplateDesignStudio from "@/components/designs/design-studio-component";
@@ -10,6 +10,7 @@ import { DesignResponse } from "@/lib/design-studio/types/design-studio.types";
 interface DesignStudioClientProps {
   template: TemplateResponse;
   templateId: string;
+  templateSlug?: string;
   designId?: string;
   productId?: string;
   categoryId?: string;
@@ -19,12 +20,37 @@ interface DesignStudioClientProps {
 export default function DesignStudioClient({
   template,
   templateId,
+  templateSlug,
   designId,
   productId,
   categoryId,
   showBackToTemplates = true,
 }: DesignStudioClientProps) {
   const router = useRouter();
+
+  // Validate that we have proper template data
+  useEffect(() => {
+    if (!template || !templateId) {
+      console.error("Missing template data:", {
+        template: !!template,
+        templateId,
+      });
+      toast.error("Template data is missing");
+      router.push("/design-studio");
+      return;
+    }
+
+    // Check for undefined values that might cause the undefinedundefined issue
+    if (templateId === "undefined" || templateSlug === "undefined") {
+      console.error("Template ID or slug is undefined:", {
+        templateId,
+        templateSlug,
+      });
+      toast.error("Invalid template identifier");
+      router.push("/design-studio");
+      return;
+    }
+  }, [template, templateId, templateSlug, router]);
 
   const handleSaveDesign = useCallback(
     (designData: DesignResponse) => {
@@ -38,7 +64,6 @@ export default function DesignStudioClient({
           window.history.replaceState({}, "", url.toString());
         }
 
-        // Analytics tracking could go here
         console.log("Design saved:", designData);
       } catch (error) {
         console.error("Error handling design save:", error);
@@ -52,7 +77,6 @@ export default function DesignStudioClient({
     try {
       toast.success("Design exported successfully!");
 
-      // Handle the download logic
       if (exportData.downloadUrl) {
         const link = document.createElement("a");
         link.href = exportData.downloadUrl;
@@ -63,7 +87,6 @@ export default function DesignStudioClient({
         link.click();
         document.body.removeChild(link);
       } else if (exportData.blob) {
-        // Handle blob downloads
         const url = URL.createObjectURL(exportData.blob);
         const link = document.createElement("a");
         link.href = url;
@@ -87,15 +110,15 @@ export default function DesignStudioClient({
     try {
       // Navigate back to templates with appropriate context
       if (categoryId) {
-        router.push(`/templates?category=${categoryId}`);
+        router.push(`/design-studio?categoryId=${categoryId}`);
       } else if (productId) {
-        router.push(`/templates?product=${productId}`);
+        router.push(`/design-studio?productId=${productId}`);
       } else {
-        router.push("/templates");
+        router.push("/design-studio");
       }
     } catch (error) {
       console.error("Error navigating back:", error);
-      router.push("/templates"); // Fallback navigation
+      router.push("/design-studio"); // Fallback navigation
     }
   }, [router, categoryId, productId]);
 
@@ -104,11 +127,15 @@ export default function DesignStudioClient({
     toast.error(error.message || "An error occurred in the design studio");
   }, []);
 
-  // Validate props
-  if (!template) {
-    toast.error("Template data is missing");
-    router.push("/templates");
-    return null;
+  // Don't render if we don't have valid template data
+  if (!template || !templateId || templateId === "undefined") {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-muted-foreground">Loading template...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

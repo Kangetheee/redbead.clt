@@ -2,7 +2,6 @@
 import { Suspense } from "react";
 import { getSession } from "@/lib/session/session";
 import OrdersClient from "./orders-client";
-import { CustomerNavbar } from "@/components/layouts/customer-nav";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -67,7 +66,7 @@ export default async function OrdersPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <CustomerNavbar />
+      {/* <CustomerNavbar /> */}
 
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumbs */}

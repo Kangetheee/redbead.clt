@@ -73,9 +73,6 @@ export async function getFeaturedProductsAction(
   }
 }
 
-/**
- * Get detailed product information using URL-friendly slug
- */
 export async function getProductBySlugAction(
   slug: string
 ): Promise<ActionResponse<ProductResponse>> {
@@ -87,9 +84,6 @@ export async function getProductBySlugAction(
   }
 }
 
-/**
- * Calculate product price with variants and customizations
- */
 export async function calculateProductPriceAction(
   productId: string,
   params: CalculatePriceDto

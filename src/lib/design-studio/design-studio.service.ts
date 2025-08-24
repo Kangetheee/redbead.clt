@@ -11,6 +11,8 @@ import {
   GetDesignsDto,
   GetFontsDto,
   GetUserAssetsDto,
+  GuestExportDesignDto,
+  CreateOrderDto,
 } from "./dto/design-studio.dto";
 import {
   CanvasConfigResponse,
@@ -21,17 +23,28 @@ import {
   ExportDesignResponse,
   DesignValidationResponse,
   ShareDesignResponse,
+  SharedDesignResponse,
   Font,
   AssetResponse,
+  OrderResponse,
 } from "./types/design-studio.types";
 
 export class DesignStudioService {
   constructor(private fetcher = new Fetcher()) {}
 
-  /**
-   * Configure design canvas
-   * Uses POST /v1/design-studio/configure
-   */
+  async exportGuestDesign(
+    values: GuestExportDesignDto
+  ): Promise<ExportDesignResponse> {
+    return this.fetcher.request<ExportDesignResponse>(
+      "/v1/design-studio/export-guest",
+      {
+        method: "POST",
+        data: values,
+      },
+      { auth: false }
+    );
+  }
+
   async configureCanvas(
     values: ConfigureCanvasDto
   ): Promise<CanvasConfigResponse> {
@@ -40,14 +53,11 @@ export class DesignStudioService {
       {
         method: "POST",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 
-  /**
-   * Upload artwork file
-   * Uses POST /v1/design-studio/upload-artwork
-   */
   async uploadArtwork(
     file: File,
     values: UploadArtworkDto
@@ -64,29 +74,58 @@ export class DesignStudioService {
       {
         method: "POST",
         data: formData,
-      }
-    );
-  }
-
-  /**
-   * Create new design
-   * Uses POST /v1/design-studio/designs
-   */
-  async createDesign(values: CreateDesignDto): Promise<DesignResponse> {
-    return this.fetcher.request<DesignResponse>(
-      "/v1/design-studio/designs",
-      {
-        method: "POST",
-        data: values,
       },
       { auth: false }
     );
   }
 
-  /**
-   * Get user designs with filtering
-   * Uses GET /v1/design-studio/designs
-   */
+  async getTemplatePresets(
+    templateId: string
+  ): Promise<TemplatePresetsResponse> {
+    return this.fetcher.request<TemplatePresetsResponse>(
+      `/v1/design-studio/templates/${templateId}/presets`,
+      { method: "GET" },
+      { auth: false }
+    );
+  }
+
+  async getFonts(params?: GetFontsDto): Promise<Font[]> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.category) {
+      queryParams.append("category", params.category);
+    }
+    if (params?.search) {
+      queryParams.append("search", params.search);
+    }
+    if (params?.premium !== undefined) {
+      queryParams.append("premium", params.premium.toString());
+    }
+
+    const url = `/v1/design-studio/fonts${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+
+    return this.fetcher.request<Font[]>(
+      url,
+      { method: "GET" },
+      { auth: false }
+    );
+  }
+
+  async getSharedDesign(token: string): Promise<SharedDesignResponse> {
+    return this.fetcher.request<SharedDesignResponse>(
+      `/v1/design-studio/shared/${token}`,
+      { method: "GET" },
+      { auth: false }
+    );
+  }
+
+  async createDesign(values: CreateDesignDto): Promise<DesignResponse> {
+    return this.fetcher.request<DesignResponse>("/v1/design-studio/designs", {
+      method: "POST",
+      data: values,
+    });
+  }
+
   async getUserDesigns(params?: GetDesignsDto): Promise<DesignListResponse> {
     const queryParams = new URLSearchParams();
 
@@ -113,10 +152,6 @@ export class DesignStudioService {
     });
   }
 
-  /**
-   * Get design details
-   * Uses GET /v1/design-studio/designs/{id}
-   */
   async getDesign(designId: string): Promise<DesignResponse> {
     return this.fetcher.request<DesignResponse>(
       `/v1/design-studio/designs/${designId}`,
@@ -125,10 +160,6 @@ export class DesignStudioService {
     );
   }
 
-  /**
-   * Update design
-   * Uses PATCH /v1/design-studio/designs/{id}
-   */
   async updateDesign(
     designId: string,
     values: UpdateDesignDto
@@ -138,39 +169,16 @@ export class DesignStudioService {
       {
         method: "PATCH",
         data: values,
-      },
-      { auth: false }
+      }
     );
   }
 
-  /**
-   * Delete design
-   * Uses DELETE /v1/design-studio/designs/{id}
-   */
   async deleteDesign(designId: string): Promise<void> {
     return this.fetcher.request<void>(`/v1/design-studio/designs/${designId}`, {
       method: "DELETE",
     });
   }
 
-  /**
-   * Get template presets
-   * Uses GET /v1/design-studio/templates/{templateId}/presets
-   */
-  async getTemplatePresets(
-    templateId: string
-  ): Promise<TemplatePresetsResponse> {
-    return this.fetcher.request<TemplatePresetsResponse>(
-      `/v1/design-studio/templates/${templateId}/presets`,
-      { method: "GET" },
-      { auth: false }
-    );
-  }
-
-  /**
-   * Export design
-   * Uses POST /v1/design-studio/designs/{id}/export
-   */
   async exportDesign(
     designId: string,
     values: ExportDesignDto
@@ -185,10 +193,6 @@ export class DesignStudioService {
     );
   }
 
-  /**
-   * Validate design
-   * Uses POST /v1/design-studio/designs/{id}/validate
-   */
   async validateDesign(
     designId: string,
     values: DesignValidationDto
@@ -203,10 +207,6 @@ export class DesignStudioService {
     );
   }
 
-  /**
-   * Share design
-   * Uses POST /v1/design-studio/designs/{id}/share
-   */
   async shareDesign(
     designId: string,
     values: ShareDesignDto
@@ -216,55 +216,23 @@ export class DesignStudioService {
       {
         method: "POST",
         data: values,
-      },
-      { auth: false }
+      }
     );
   }
 
-  /**
-   * View shared design
-   * Uses GET /v1/design-studio/shared/{token}
-   */
-  async getSharedDesign(token: string): Promise<DesignResponse> {
-    return this.fetcher.request<DesignResponse>(
-      `/v1/design-studio/shared/${token}`,
-      { method: "GET" },
-      { auth: false }
-    );
-  }
-
-  /**
-   * Get available fonts
-   * Uses GET /v1/design-studio/fonts
-   */
-  async getFonts(params?: GetFontsDto): Promise<Font[]> {
-    const queryParams = new URLSearchParams();
-
-    if (params?.category) {
-      queryParams.append("category", params.category);
-    }
-    if (params?.search) {
-      queryParams.append("search", params.search);
-    }
-    if (params?.premium !== undefined) {
-      queryParams.append("premium", params.premium.toString());
-    }
-
-    const url = `/v1/design-studio/fonts${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
-
-    return this.fetcher.request<Font[]>(
-      url,
+  async createOrderFromDesign(
+    designId: string,
+    values: CreateOrderDto
+  ): Promise<OrderResponse> {
+    return this.fetcher.request<OrderResponse>(
+      `/v1/design-studio/designs/${designId}/order`,
       {
-        method: "GET",
-      },
-      { auth: false }
+        method: "POST",
+        data: values,
+      }
     );
   }
 
-  /**
-   * Upload asset
-   * Uses POST /v1/design-studio/assets
-   */
   async uploadAsset(
     file: File,
     assetData: UploadAssetDto
@@ -293,10 +261,6 @@ export class DesignStudioService {
     );
   }
 
-  /**
-   * Get user assets
-   * Uses GET /v1/design-studio/assets
-   */
   async getUserAssets(params?: GetUserAssetsDto): Promise<AssetResponse[]> {
     const queryParams = new URLSearchParams();
 
@@ -309,12 +273,8 @@ export class DesignStudioService {
 
     const url = `/v1/design-studio/assets${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
 
-    return this.fetcher.request<AssetResponse[]>(
-      url,
-      {
-        method: "GET",
-      },
-      { auth: false }
-    );
+    return this.fetcher.request<AssetResponse[]>(url, {
+      method: "GET",
+    });
   }
 }

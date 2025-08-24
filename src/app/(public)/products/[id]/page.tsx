@@ -2,7 +2,6 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getProductAction } from "@/lib/products/products.actions";
 import { ProductDetailsClient } from "./product-details-client";
-import { CustomerNavbar } from "@/components/layouts/customer-nav";
 
 interface ProductDetailsPageProps {
   params: Promise<{
@@ -60,7 +59,6 @@ export default async function ProductDetailsPage({
 
   return (
     <>
-      <CustomerNavbar />
       <ProductDetailsClient product={result.data} />
     </>
   );

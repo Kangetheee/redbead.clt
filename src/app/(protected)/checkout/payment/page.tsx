@@ -132,11 +132,9 @@ function CheckoutPaymentContent() {
         quantity: item.quantity || 1,
       };
 
-      // Handle productId/templateId mapping
       if (item.productId) {
         orderItem.productId = item.productId;
       } else if (item.templateId) {
-        // If cart uses templateId but API expects productId
         orderItem.productId = item.templateId;
       } else {
         console.warn("No productId or templateId found in cart item:", item);
@@ -145,11 +143,9 @@ function CheckoutPaymentContent() {
         );
       }
 
-      // Handle variantId/sizeVariantId mapping
       if (item.variantId) {
         orderItem.variantId = item.variantId;
       } else if (item.sizeVariantId) {
-        // If cart uses sizeVariantId but API expects variantId
         orderItem.variantId = item.sizeVariantId;
       } else {
         console.warn("No variantId or sizeVariantId found in cart item:", item);
@@ -591,7 +587,7 @@ function CheckoutPaymentContent() {
                           className="flex justify-between text-sm"
                         >
                           <span className="truncate mr-2">
-                            {item.productName || item.name || "Product"} ×{" "}
+                            {item.name || item.name || "Product"} ×{" "}
                             {item.quantity}
                           </span>
                           <span>

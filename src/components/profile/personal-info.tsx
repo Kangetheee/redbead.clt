@@ -219,11 +219,11 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
                 <Upload className="h-4 w-4" />
                 Upload New Photo
               </Button>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 JPG, PNG or GIF. Max size 2MB.
               </p>
               {formErrors.avatar && (
-                <p className="text-sm text-red-600">{formErrors.avatar}</p>
+                <p className="text-sm text-destructive">{formErrors.avatar}</p>
               )}
             </div>
           </div>
@@ -272,14 +272,16 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
                         handleInputChange("name", e.target.value)
                       }
                       placeholder="Enter your full name"
-                      className={formErrors.name ? "border-red-500" : ""}
+                      className={formErrors.name ? "border-destructive" : ""}
                     />
                     {formErrors.name && (
-                      <p className="text-sm text-red-600">{formErrors.name}</p>
+                      <p className="text-sm text-destructive">
+                        {formErrors.name}
+                      </p>
                     )}
                   </div>
                 ) : (
-                  <div className="p-3 bg-gray-50 rounded-md">
+                  <div className="p-3 bg-muted rounded-md">
                     {userProfile.name}
                   </div>
                 )}
@@ -301,15 +303,17 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
                         handleInputChange("email", e.target.value)
                       }
                       placeholder="Enter your email"
-                      className={formErrors.email ? "border-red-500" : ""}
+                      className={formErrors.email ? "border-destructive" : ""}
                     />
                     {formErrors.email && (
-                      <p className="text-sm text-red-600">{formErrors.email}</p>
+                      <p className="text-sm text-destructive">
+                        {formErrors.email}
+                      </p>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <div className="p-3 bg-gray-50 rounded-md">
+                    <div className="p-3 bg-muted rounded-md">
                       {userProfile.email}
                     </div>
                   </div>
@@ -332,13 +336,15 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
                         handleInputChange("phone", e.target.value)
                       }
                       placeholder="Enter your phone number"
-                      className={formErrors.phone ? "border-red-500" : ""}
+                      className={formErrors.phone ? "border-destructive" : ""}
                     />
                     {formErrors.phone && (
-                      <p className="text-sm text-red-600">{formErrors.phone}</p>
+                      <p className="text-sm text-destructive">
+                        {formErrors.phone}
+                      </p>
                     )}
                     {formData.phone && isValidPhoneNumber(formData.phone) && (
-                      <div className="flex items-center gap-1 text-green-600 text-xs">
+                      <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-xs">
                         <CheckCircle className="h-3 w-3" />
                         Valid phone number
                       </div>
@@ -346,7 +352,7 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <div className="p-3 bg-gray-50 rounded-md">
+                    <div className="p-3 bg-muted rounded-md">
                       {userProfile.phone || "Not provided"}
                     </div>
                   </div>
@@ -354,28 +360,28 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
               </div>
 
               {/* User Type */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <User className="h-4 w-4" />
                   User Type
                 </Label>
-                <div className="p-3 bg-gray-50 rounded-md">
+                <div className="p-3 bg-muted rounded-md">
                   <Badge variant="outline">{userProfile.type}</Badge>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             {/* Account Status Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-border">
               <div className="space-y-2">
                 <Label>Account Status</Label>
-                <div className="p-3 bg-gray-50 rounded-md">
+                <div className="p-3 bg-muted rounded-md">
                   <Badge
                     variant={userProfile.isActive ? "default" : "secondary"}
                     className={
                       userProfile.isActive
-                        ? "bg-green-100 text-green-800 hover:bg-green-100"
-                        : "bg-red-100 text-red-800 hover:bg-red-100"
+                        ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
                     }
                   >
                     {userProfile.isActive ? "Active" : "Inactive"}
@@ -385,13 +391,13 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
 
               <div className="space-y-2">
                 <Label>Verification Status</Label>
-                <div className="p-3 bg-gray-50 rounded-md">
+                <div className="p-3 bg-muted rounded-md">
                   <Badge
                     variant="outline"
                     className={
                       userProfile.verified
-                        ? "bg-green-100 text-green-800 border-green-600"
-                        : "bg-yellow-100 text-yellow-800 border-yellow-600"
+                        ? "bg-green-100 text-green-800 border-green-600 dark:bg-green-900/30 dark:text-green-400 dark:border-green-400"
+                        : "bg-yellow-100 text-yellow-800 border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-400"
                     }
                   >
                     {userProfile.verified ? "Verified" : "Pending Verification"}
@@ -401,7 +407,7 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
 
               <div className="space-y-2">
                 <Label>Role</Label>
-                <div className="p-3 bg-gray-50 rounded-md">
+                <div className="p-3 bg-muted rounded-md">
                   <Badge variant="outline">
                     {userProfile.role?.name || "No role"}
                   </Badge>
@@ -413,7 +419,7 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
                   <CalendarDays className="h-4 w-4" />
                   Member Since
                 </Label>
-                <div className="p-3 bg-gray-50 rounded-md">
+                <div className="p-3 bg-muted rounded-md">
                   {new Date(userProfile.createdAt).toLocaleDateString("en-US", {
                     year: "numeric",
                     month: "long",
@@ -428,7 +434,7 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
                     <CalendarDays className="h-4 w-4" />
                     Last Login
                   </Label>
-                  <div className="p-3 bg-gray-50 rounded-md">
+                  <div className="p-3 bg-muted rounded-md">
                     {new Date(userProfile.lastLogin).toLocaleDateString(
                       "en-US",
                       {
@@ -450,7 +456,7 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
       {/* Account Actions */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-red-600">Danger Zone</CardTitle>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -465,7 +471,7 @@ export default function PersonalInfo({ userProfile }: PersonalInfoProps) {
             <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
-                className="text-yellow-600 border-yellow-600 hover:bg-yellow-50"
+                className="text-yellow-600 border-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:border-yellow-400 dark:hover:bg-yellow-950/10"
                 disabled={!userProfile.isActive}
               >
                 {userProfile.isActive
