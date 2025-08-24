@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   Phone,
@@ -10,6 +12,44 @@ import {
   Youtube,
   Linkedin,
 } from "lucide-react";
+import { useFeaturedProducts } from "@/hooks/use-products";
+import { ProductResponse } from "@/lib/products/types/products.types";
+
+// Component for rendering dynamic product links
+function ProductLinks() {
+  const { data: featuredProducts, isLoading, error } = useFeaturedProducts(5);
+
+  const staticLinks = [
+    { name: "Business Cards", id: "business-cards" },
+    { name: "Name Badges", id: "name-badges" },
+    { name: "Banners & Signs", id: "banners" },
+    { name: "Brochures", id: "brochures" },
+    { name: "Custom Stickers", id: "stickers" },
+  ];
+
+  const productLinks =
+    isLoading || error || !featuredProducts
+      ? staticLinks
+      : featuredProducts.map((product: ProductResponse) => ({
+          name: product.name,
+          id: product.id,
+        }));
+
+  return (
+    <ul className="space-y-3">
+      {productLinks.slice(0, 5).map((product) => (
+        <li key={product.id}>
+          <Link
+            href={`/products/${product.id}`}
+            className="text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm"
+          >
+            {product.name}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function Footer() {
   return (
@@ -46,9 +86,7 @@ export default function Footer() {
 
               <div className="flex items-start space-x-3 text-sm">
                 <MapPin className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                <span className="text-muted-foreground">
-                  Titan Complex, Chaka Road, Kilimani, Nairobi
-                </span>
+                <span className="text-muted-foreground">123 Main, Nairobi</span>
               </div>
 
               <div className="flex items-center space-x-3 text-sm">
@@ -60,53 +98,12 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Design Products */}
+          {/* Dynamic Design Products */}
           <div>
             <h4 className="text-lg font-semibold mb-6 text-foreground">
               Design Products
             </h4>
-            <ul className="space-y-3">
-              <li>
-                <Link
-                  href="/products/business-cards"
-                  className="text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm"
-                >
-                  Business Cards
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/products/name-badges"
-                  className="text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm"
-                >
-                  Name Badges
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/products/banners"
-                  className="text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm"
-                >
-                  Banners & Signs
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/products/brochures"
-                  className="text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm"
-                >
-                  Brochures
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/products/stickers"
-                  className="text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm"
-                >
-                  Custom Stickers
-                </Link>
-              </li>
-            </ul>
+            <ProductLinks />
           </div>
 
           {/* Company */}

@@ -67,17 +67,17 @@ export default function Dashboard() {
       case "delivered":
       case "completed":
       case "approved":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
       case "shipped":
       case "processing":
       case "pending":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
       case "cancelled":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
       case "drafts":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
     }
   };
 
@@ -118,10 +118,10 @@ export default function Dashboard() {
   // Loading state
   if (dashboardQuery.isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">
-            <div className="bg-gradient-to-br from-green-50 via-white to-red-50 rounded-lg p-8">
+            <div className="bg-gradient-to-br from-green-50 via-background to-red-50 dark:from-green-950/20 dark:via-background dark:to-red-950/20 rounded-lg p-8 border">
               <div className="flex items-center space-x-4">
                 <Skeleton className="h-16 w-16 rounded-full" />
                 <div className="space-y-2">
@@ -149,7 +149,7 @@ export default function Dashboard() {
   // Error state
   if (dashboardQuery.error) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -187,24 +187,24 @@ export default function Dashboard() {
   const adminStats = stats && isAdminQuickStats(stats) ? stats : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
         <div className="mb-8">
-          <div className="bg-gradient-to-br from-green-50 via-white to-red-50 rounded-lg p-8">
+          <div className="bg-gradient-to-br from-green-50 via-background to-red-50 dark:from-green-950/20 dark:via-background dark:to-red-950/20 rounded-lg p-8 border border-border">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div className="flex items-center space-x-4 mb-4 md:mb-0">
                 <Avatar className="h-16 w-16">
                   <AvatarImage src={userProfile?.avatar || undefined} />
-                  <AvatarFallback className="bg-green-100 text-green-700 text-xl">
+                  <AvatarFallback className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xl">
                     {getInitials(userProfile?.name || "")}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-bold text-foreground">
                     Welcome back, {userProfile?.name?.split(" ")[0] || "User"}!
                   </h1>
-                  <p className="text-gray-600">
+                  <p className="text-muted-foreground">
                     {userProfile?.role?.name || "Member"} • Member since{" "}
                     {userProfile?.createdAt
                       ? formatDate(userProfile.createdAt)
@@ -215,7 +215,7 @@ export default function Dashboard() {
                     {userProfile?.verified && (
                       <Badge
                         variant="outline"
-                        className="text-green-600 border-green-600"
+                        className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400"
                       >
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Verified
@@ -225,7 +225,10 @@ export default function Dashboard() {
                 </div>
               </div>
               {isCustomer && (
-                <Button className="bg-green-600 hover:bg-green-700" asChild>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                  asChild
+                >
                   <Link href="/products">
                     <ShoppingBag className="h-4 w-4 mr-2" />
                     Browse Products
@@ -244,14 +247,14 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Total Orders
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {customerStats.totalOrders}
                       </p>
                     </div>
-                    <Package className="h-8 w-8 text-green-600" />
+                    <Package className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -260,14 +263,14 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Total Spent
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {formatCurrency(customerStats.totalSpent)}
                       </p>
                     </div>
-                    <CreditCard className="h-8 w-8 text-green-600" />
+                    <CreditCard className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -276,14 +279,14 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Saved Designs
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {customerStats.savedDesigns}
                       </p>
                     </div>
-                    <Palette className="h-8 w-8 text-green-600" />
+                    <Palette className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -292,14 +295,14 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Cart Items
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {customerStats.cartItems}
                       </p>
                     </div>
-                    <ShoppingCart className="h-8 w-8 text-green-600" />
+                    <ShoppingCart className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -312,14 +315,14 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Total Customers
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {adminStats.totalCustomers}
                       </p>
                     </div>
-                    <User className="h-8 w-8 text-green-600" />
+                    <User className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -328,14 +331,14 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Total Orders
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {adminStats.totalOrders}
                       </p>
                     </div>
-                    <Package className="h-8 w-8 text-green-600" />
+                    <Package className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -344,14 +347,14 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Monthly Revenue
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {formatCurrency(adminStats.monthlyRevenue)}
                       </p>
                     </div>
-                    <TrendingUp className="h-8 w-8 text-green-600" />
+                    <TrendingUp className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -360,14 +363,14 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Low Stock Alerts
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {adminStats.lowStockAlerts}
                       </p>
                     </div>
-                    <AlertCircle className="h-8 w-8 text-red-600" />
+                    <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
                   </div>
                 </CardContent>
               </Card>
@@ -377,7 +380,7 @@ export default function Dashboard() {
 
         {/* Navigation Tabs */}
         <div className="mb-8">
-          <div className="border-b border-gray-200">
+          <div className="border-b border-border">
             <nav className="-mb-px flex space-x-8">
               {[
                 { id: "overview", label: "Overview", icon: User },
@@ -395,8 +398,8 @@ export default function Dashboard() {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                       activeTab === tab.id
-                        ? "border-green-600 text-green-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        ? "border-green-600 text-green-600 dark:border-green-400 dark:text-green-400"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
                     }`}
                   >
                     <Icon className="h-5 w-5" />
@@ -428,21 +431,21 @@ export default function Dashboard() {
                         .map((order: RecentOrder) => (
                           <div
                             key={order.id}
-                            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+                            className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                           >
                             <div className="flex items-center space-x-3">
                               {getStatusIcon(order.status)}
                               <div>
-                                <p className="font-medium text-gray-900">
+                                <p className="font-medium text-foreground">
                                   {order.orderNumber}
                                 </p>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm text-muted-foreground">
                                   {formatDate(order.createdAt)}
                                 </p>
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="font-medium text-gray-900">
+                              <p className="font-medium text-foreground">
                                 {formatCurrency(order.totalAmount)}
                               </p>
                               <Badge className={getStatusColor(order.status)}>
@@ -452,7 +455,7 @@ export default function Dashboard() {
                           </div>
                         ))
                     ) : (
-                      <p className="text-gray-500 text-center py-4">
+                      <p className="text-muted-foreground text-center py-4">
                         No recent orders
                       </p>
                     )}
@@ -476,15 +479,15 @@ export default function Dashboard() {
                         .map((design: RecentDesign) => (
                           <div
                             key={design.id}
-                            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+                            className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                           >
                             <div className="flex items-center space-x-3">
-                              <Palette className="h-5 w-5 text-gray-400" />
+                              <Palette className="h-5 w-5 text-muted-foreground" />
                               <div>
-                                <p className="font-medium text-gray-900">
+                                <p className="font-medium text-foreground">
                                   {design.name}
                                 </p>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm text-muted-foreground">
                                   Updated {formatDate(design.updatedAt)}
                                 </p>
                               </div>
@@ -495,50 +498,13 @@ export default function Dashboard() {
                           </div>
                         ))
                     ) : (
-                      <p className="text-gray-500 text-center py-4">
+                      <p className="text-muted-foreground text-center py-4">
                         No saved designs
                       </p>
                     )}
                   </CardContent>
                 </Card>
               )}
-
-              {/* Quick Actions
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {isCustomer && (
-                    <>
-                      <Button className="w-full justify-start" variant="outline" asChild>
-                        <Link href="/design-studio">
-                          <Palette className="h-4 w-4 mr-2" />
-                          Create New Design
-                        </Link>
-                      </Button>
-                      <Button className="w-full justify-start" variant="outline" asChild>
-                        <Link href="/orders/track">
-                          <Truck className="h-4 w-4 mr-2" />
-                          Track an Order
-                        </Link>
-                      </Button>
-                    </>
-                  )}
-                  <Button className="w-full justify-start" variant="outline" asChild>
-                    <Link href="/profile">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Manage Profile
-                    </Link>
-                  </Button>
-                  <Button className="w-full justify-start" variant="outline" asChild>
-                    <Link href="/contact">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Contact Support
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card> */}
             </div>
           )}
 
@@ -553,19 +519,19 @@ export default function Dashboard() {
                     {recentActivity.results.map((activity: RecentActivity) => (
                       <div
                         key={activity.id}
-                        className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg"
+                        className="flex items-start space-x-3 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex-shrink-0">
                           {getStatusIcon(activity.type)}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-foreground">
                             {activity.title}
                           </p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             {activity.description}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             {formatDate(activity.timestamp)}
                           </p>
                         </div>
@@ -575,10 +541,10 @@ export default function Dashboard() {
                             className={`${
                               activity.severity === "high" ||
                               activity.severity === "urgent"
-                                ? "border-red-500 text-red-700"
+                                ? "border-red-500 text-red-700 dark:border-red-400 dark:text-red-400"
                                 : activity.severity === "medium"
-                                  ? "border-yellow-500 text-yellow-700"
-                                  : "border-gray-500 text-gray-700"
+                                  ? "border-yellow-500 text-yellow-700 dark:border-yellow-400 dark:text-yellow-400"
+                                  : "border-gray-500 text-gray-700 dark:border-gray-400 dark:text-gray-400"
                             }`}
                           >
                             {activity.severity}
@@ -588,7 +554,7 @@ export default function Dashboard() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-8">
+                  <p className="text-muted-foreground text-center py-8">
                     No recent activity
                   </p>
                 )}
@@ -600,7 +566,7 @@ export default function Dashboard() {
           {!["overview", "activity"].includes(activeTab) && (
             <Card>
               <CardContent className="p-8 text-center">
-                <p className="text-gray-500">
+                <p className="text-muted-foreground">
                   {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}{" "}
                   content coming soon...
                 </p>

@@ -17,7 +17,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Award, Users, ShoppingCart, CheckCircle, Filter } from "lucide-react";
+import { Award, Users, ShoppingCart, CheckCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function ProductsClient() {
