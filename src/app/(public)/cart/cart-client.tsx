@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +26,6 @@ import { CartItem } from "@/components/cart/cart-item";
 import CartSummary from "@/components/cart/cart-summary";
 import { CartActions } from "@/components/cart/cart-actions";
 import { CartItemResponse } from "@/lib/cart/types/cart.types";
-import { CustomerNavbar } from "@/components/layouts/customer-nav";
 import { FeaturedProductsSection } from "@/components/products/featured-products";
 
 export default function CartPage() {
