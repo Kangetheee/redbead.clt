@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useDesignContext } from "./design-context";
 import { CanvasElement } from "@/lib/design-studio/types/design-studio.types";
+import { formatCurrency } from "@/lib/utils";
 
 interface PropertiesPanelProps {
   templateInfo?: {
@@ -114,9 +115,9 @@ export default function PropertiesPanel({
   ];
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
+    <div className="w-80 bg-background border-l border-border overflow-y-auto">
+      <div className="p-4 border-b border-border">
+        <h2 className="text-lg font-semibold text-foreground">Properties</h2>
       </div>
 
       <div className="p-4 space-y-6">
@@ -125,21 +126,21 @@ export default function PropertiesPanel({
             {/* Element Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                <div className="w-8 h-8 bg-primary/10 rounded flex items-center justify-center">
                   {selectedElement.type === "text" && (
-                    <Type className="w-4 h-4 text-blue-600" />
+                    <Type className="w-4 h-4 text-primary" />
                   )}
                   {selectedElement.type === "image" && (
-                    <ImageIcon className="w-4 h-4 text-blue-600" />
+                    <ImageIcon className="w-4 h-4 text-primary" />
                   )}
                   {selectedElement.type === "logo" && (
-                    <FileImage className="w-4 h-4 text-blue-600" />
+                    <FileImage className="w-4 h-4 text-primary" />
                   )}
                   {selectedElement.type === "shape" && (
-                    <Square className="w-4 h-4 text-blue-600" />
+                    <Square className="w-4 h-4 text-primary" />
                   )}
                 </div>
-                <h3 className="font-medium text-gray-900 capitalize">
+                <h3 className="font-medium text-foreground capitalize">
                   {selectedElement.type} Element
                 </h3>
               </div>
@@ -147,7 +148,7 @@ export default function PropertiesPanel({
                 variant="ghost"
                 size="sm"
                 onClick={() => deleteElement(selectedElement.id)}
-                className="text-red-600 hover:text-red-700"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -155,11 +156,15 @@ export default function PropertiesPanel({
 
             {/* Common Properties */}
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Position & Size</Label>
+              <Label className="text-sm font-medium text-foreground">
+                Position & Size
+              </Label>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs text-gray-600">X Position</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    X Position
+                  </Label>
                   <Input
                     type="number"
                     value={selectedElement.x}
@@ -170,7 +175,9 @@ export default function PropertiesPanel({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-600">Y Position</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Y Position
+                  </Label>
                   <Input
                     type="number"
                     value={selectedElement.y}
@@ -184,7 +191,7 @@ export default function PropertiesPanel({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs text-gray-600">Width</Label>
+                  <Label className="text-xs text-muted-foreground">Width</Label>
                   <Input
                     type="number"
                     value={selectedElement.width || 0}
@@ -198,7 +205,9 @@ export default function PropertiesPanel({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-600">Height</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Height
+                  </Label>
                   <Input
                     type="number"
                     value={selectedElement.height || 0}
@@ -214,7 +223,9 @@ export default function PropertiesPanel({
               </div>
 
               <div>
-                <Label className="text-xs text-gray-600">Rotation (°)</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Rotation (°)
+                </Label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Slider
                     value={[selectedElement.rotation || 0]}
@@ -226,7 +237,7 @@ export default function PropertiesPanel({
                     step={1}
                     className="flex-1"
                   />
-                  <span className="text-xs text-gray-500 min-w-[40px]">
+                  <span className="text-xs text-muted-foreground min-w-[40px]">
                     {selectedElement.rotation || 0}°
                   </span>
                 </div>
@@ -238,10 +249,14 @@ export default function PropertiesPanel({
             {/* Text-specific Properties */}
             {selectedElement.type === "text" && (
               <div className="space-y-4">
-                <Label className="text-sm font-medium">Text Properties</Label>
+                <Label className="text-sm font-medium text-foreground">
+                  Text Properties
+                </Label>
 
                 <div>
-                  <Label className="text-xs text-gray-600">Content</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Content
+                  </Label>
                   <Textarea
                     value={selectedElement.content || ""}
                     onChange={(e) =>
@@ -253,7 +268,9 @@ export default function PropertiesPanel({
                 </div>
 
                 <div>
-                  <Label className="text-xs text-gray-600">Font Family</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Font Family
+                  </Label>
                   <Select
                     value={selectedElement.font || "Arial"}
                     onValueChange={(value) =>
@@ -285,7 +302,9 @@ export default function PropertiesPanel({
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs text-gray-600">Font Size</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      Font Size
+                    </Label>
                     <Input
                       type="number"
                       value={selectedElement.fontSize || 14}
@@ -301,7 +320,9 @@ export default function PropertiesPanel({
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-600">Font Weight</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      Font Weight
+                    </Label>
                     <Select
                       value={selectedElement.fontWeight || "normal"}
                       onValueChange={(value) =>
@@ -329,7 +350,9 @@ export default function PropertiesPanel({
 
                 {/* Text Style Buttons */}
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Text Style</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Text Style
+                  </Label>
                   <div className="flex space-x-1">
                     <Button
                       variant={
@@ -392,7 +415,7 @@ export default function PropertiesPanel({
 
                 {/* Text Alignment */}
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">
+                  <Label className="text-xs text-muted-foreground">
                     Text Alignment
                   </Label>
                   <div className="flex space-x-1">
@@ -433,7 +456,9 @@ export default function PropertiesPanel({
 
                 {/* Text Color */}
                 <div>
-                  <Label className="text-xs text-gray-600">Text Color</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Text Color
+                  </Label>
                   <div className="flex items-center space-x-2 mt-1">
                     <Input
                       type="color"
@@ -457,7 +482,7 @@ export default function PropertiesPanel({
                   {/* Color Presets */}
                   {colorPresets.length > 0 && (
                     <div className="mt-2">
-                      <Label className="text-xs text-gray-600 mb-1">
+                      <Label className="text-xs text-muted-foreground mb-1">
                         Quick Colors:
                       </Label>
                       <div className="grid grid-cols-8 gap-1 mt-1">
@@ -470,7 +495,7 @@ export default function PropertiesPanel({
                                 color.hexCode
                               )
                             }
-                            className="w-6 h-6 rounded border border-gray-300 hover:border-gray-400"
+                            className="w-6 h-6 rounded border border-border hover:border-primary transition-colors"
                             style={{ backgroundColor: color.hexCode }}
                             title={color.name}
                           />
@@ -482,7 +507,9 @@ export default function PropertiesPanel({
 
                 {/* Line Height */}
                 <div>
-                  <Label className="text-xs text-gray-600">Line Height</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Line Height
+                  </Label>
                   <div className="flex items-center space-x-2 mt-1">
                     <Slider
                       value={[
@@ -501,7 +528,7 @@ export default function PropertiesPanel({
                       step={0.1}
                       className="flex-1"
                     />
-                    <span className="text-xs text-gray-500 min-w-[30px]">
+                    <span className="text-xs text-muted-foreground min-w-[30px]">
                       {selectedElement.properties?.lineHeight || "1.4"}
                     </span>
                   </div>
@@ -512,10 +539,14 @@ export default function PropertiesPanel({
             {/* Shape-specific Properties */}
             {selectedElement.type === "shape" && (
               <div className="space-y-4">
-                <Label className="text-sm font-medium">Shape Properties</Label>
+                <Label className="text-sm font-medium text-foreground">
+                  Shape Properties
+                </Label>
 
                 <div>
-                  <Label className="text-xs text-gray-600">Shape Type</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Shape Type
+                  </Label>
                   <Select
                     value={selectedElement.shapeType || "rectangle"}
                     onValueChange={(value) =>
@@ -537,7 +568,9 @@ export default function PropertiesPanel({
                 </div>
 
                 <div>
-                  <Label className="text-xs text-gray-600">Fill Color</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Fill Color
+                  </Label>
                   <div className="flex items-center space-x-2 mt-1">
                     <Input
                       type="color"
@@ -571,7 +604,7 @@ export default function PropertiesPanel({
                                 color.hexCode
                               )
                             }
-                            className="w-6 h-6 rounded border border-gray-300 hover:border-gray-400"
+                            className="w-6 h-6 rounded border border-border hover:border-primary transition-colors"
                             style={{ backgroundColor: color.hexCode }}
                             title={color.name}
                           />
@@ -583,7 +616,9 @@ export default function PropertiesPanel({
 
                 {/* Border Properties */}
                 <div>
-                  <Label className="text-xs text-gray-600">Border Width</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Border Width
+                  </Label>
                   <Input
                     type="number"
                     value={selectedElement.properties?.borderWidth || 0}
@@ -601,7 +636,7 @@ export default function PropertiesPanel({
 
                 {selectedElement.properties?.borderWidth > 0 && (
                   <div>
-                    <Label className="text-xs text-gray-600">
+                    <Label className="text-xs text-muted-foreground">
                       Border Color
                     </Label>
                     <div className="flex items-center space-x-2 mt-1">
@@ -641,19 +676,19 @@ export default function PropertiesPanel({
             {(selectedElement.type === "image" ||
               selectedElement.type === "logo") && (
               <div className="space-y-4">
-                <Label className="text-sm font-medium">
+                <Label className="text-sm font-medium text-foreground">
                   {selectedElement.type === "logo" ? "Logo" : "Image"}{" "}
                   Properties
                 </Label>
 
                 <div>
-                  <Label className="text-xs text-gray-600">
+                  <Label className="text-xs text-muted-foreground">
                     Upload New File
                   </Label>
                   <input
                     type="file"
                     accept="image/*,.svg"
-                    className="mt-1 block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="mt-1 block w-full text-xs text-muted-foreground file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
@@ -665,7 +700,9 @@ export default function PropertiesPanel({
                 </div>
 
                 <div>
-                  <Label className="text-xs text-gray-600">Media ID</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Media ID
+                  </Label>
                   <Input
                     type="text"
                     value={selectedElement.mediaId || ""}
@@ -678,7 +715,9 @@ export default function PropertiesPanel({
                 </div>
 
                 <div>
-                  <Label className="text-xs text-gray-600">Object Fit</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Object Fit
+                  </Label>
                   <Select
                     value={selectedElement.properties?.objectFit || "contain"}
                     onValueChange={(value) =>
@@ -698,7 +737,9 @@ export default function PropertiesPanel({
                 </div>
 
                 <div>
-                  <Label className="text-xs text-gray-600">Opacity</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Opacity
+                  </Label>
                   <div className="flex items-center space-x-2 mt-1">
                     <Slider
                       value={[selectedElement.properties?.opacity || 1]}
@@ -710,7 +751,7 @@ export default function PropertiesPanel({
                       step={0.1}
                       className="flex-1"
                     />
-                    <span className="text-xs text-gray-500 min-w-[40px]">
+                    <span className="text-xs text-muted-foreground min-w-[40px]">
                       {Math.round(
                         (selectedElement.properties?.opacity || 1) * 100
                       )}
@@ -723,9 +764,9 @@ export default function PropertiesPanel({
           </div>
         ) : (
           /* No Element Selected State */
-          <div className="text-center text-gray-500">
+          <div className="text-center text-muted-foreground">
             <div className="mb-4">
-              <Square className="w-12 h-12 mx-auto text-gray-300" />
+              <Square className="w-12 h-12 mx-auto text-muted-foreground/50" />
             </div>
             <p className="text-sm font-medium mb-2">No Element Selected</p>
             <p className="text-xs">
@@ -738,10 +779,14 @@ export default function PropertiesPanel({
 
         {/* Canvas Properties */}
         <div className="space-y-4">
-          <Label className="text-sm font-medium">Canvas Properties</Label>
+          <Label className="text-sm font-medium text-foreground">
+            Canvas Properties
+          </Label>
 
           <div>
-            <Label className="text-xs text-gray-600">Background Color</Label>
+            <Label className="text-xs text-muted-foreground">
+              Background Color
+            </Label>
             <div className="flex items-center space-x-2 mt-1">
               <Input
                 type="color"
@@ -765,7 +810,9 @@ export default function PropertiesPanel({
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label className="text-xs text-gray-600">Width (mm)</Label>
+              <Label className="text-xs text-muted-foreground">
+                Width (mm)
+              </Label>
               <Input
                 type="number"
                 value={canvasSettings.width}
@@ -778,7 +825,9 @@ export default function PropertiesPanel({
               />
             </div>
             <div>
-              <Label className="text-xs text-gray-600">Height (mm)</Label>
+              <Label className="text-xs text-muted-foreground">
+                Height (mm)
+              </Label>
               <Input
                 type="number"
                 value={canvasSettings.height}
@@ -797,38 +846,42 @@ export default function PropertiesPanel({
         {templateInfo && (
           <div className="space-y-4">
             <Separator />
-            <Label className="text-sm font-medium flex items-center">
+            <Label className="text-sm font-medium flex items-center text-foreground">
               <Info className="w-4 h-4 mr-2" />
               Product Information
             </Label>
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Template:</span>
-                <span className="font-medium">{templateInfo.name}</span>
+                <span className="text-muted-foreground">Template:</span>
+                <span className="font-medium text-foreground">
+                  {templateInfo.name}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Category:</span>
-                <span className="font-medium">
+                <span className="text-muted-foreground">Category:</span>
+                <span className="font-medium text-foreground">
                   {templateInfo.category.name}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Product:</span>
-                <span className="font-medium">{templateInfo.product.name}</span>
+                <span className="text-muted-foreground">Product:</span>
+                <span className="font-medium text-foreground">
+                  {templateInfo.product.name}
+                </span>
               </div>
 
               {sizeVariantInfo && (
                 <>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Size:</span>
-                    <span className="font-medium">
+                    <span className="text-muted-foreground">Size:</span>
+                    <span className="font-medium text-foreground">
                       {sizeVariantInfo.displayName}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Dimensions:</span>
-                    <span className="font-medium">
+                    <span className="text-muted-foreground">Dimensions:</span>
+                    <span className="font-medium text-foreground">
                       {sizeVariantInfo.dimensions.width} ×{" "}
                       {sizeVariantInfo.dimensions.height}{" "}
                       {sizeVariantInfo.dimensions.unit}
@@ -840,29 +893,31 @@ export default function PropertiesPanel({
               )}
 
               <div className="flex justify-between">
-                <span className="text-gray-600">Base Price:</span>
-                <span className="font-medium">
+                <span className="text-muted-foreground">Base Price:</span>
+                <span className="font-medium text-foreground">
                   ${templateInfo.basePrice.toFixed(2)}
                 </span>
               </div>
 
               {sizeVariantInfo && sizeVariantInfo.price > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Size Adjustment:</span>
-                  <span className="font-medium">
+                  <span className="text-muted-foreground">
+                    Size Adjustment:
+                  </span>
+                  <span className="font-medium text-foreground">
                     +${sizeVariantInfo.price.toFixed(2)}
                   </span>
                 </div>
               )}
 
               {priceCalculation && (
-                <div className="flex justify-between border-t pt-2 mt-2">
-                  <span className="text-gray-600 font-medium flex items-center">
+                <div className="flex justify-between border-t border-border pt-2 mt-2">
+                  <span className="text-muted-foreground font-medium flex items-center">
                     <DollarSign className="w-4 h-4 mr-1" />
                     Total Price:
                   </span>
-                  <span className="font-bold text-green-600">
-                    ${priceCalculation.totalPrice.toFixed(2)}
+                  <span className="font-bold text-green-600 dark:text-green-400">
+                    {formatCurrency(priceCalculation.totalPrice)}
                   </span>
                 </div>
               )}

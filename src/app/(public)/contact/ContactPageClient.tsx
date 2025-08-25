@@ -7,8 +7,7 @@ import { MapSection } from "./map-section";
 
 export default function ContactPageClient() {
   return (
-    <div className="min-h-screen bg-white">
-      {/* Contact Information & Form */}
+    <div className="min-h-screen bg-background">
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-3 gap-12">
@@ -18,10 +17,8 @@ export default function ContactPageClient() {
         </div>
       </section>
 
-      {/* FAQ Section with Infinite Scroll */}
       <FAQSection />
 
-      {/* Google Map Section */}
       <MapSection />
     </div>
   );

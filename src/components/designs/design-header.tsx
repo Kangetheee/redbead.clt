@@ -141,7 +141,7 @@ export default function DesignHeader({
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
+    <header className="bg-background border-b border-border px-6 py-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           {/* Left Section */}
@@ -154,25 +154,31 @@ export default function DesignHeader({
             )}
 
             <div
-              className={cn(showBackButton && "border-l border-gray-300 pl-4")}
+              className={cn(showBackButton && "border-l border-border pl-4")}
             >
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-foreground mb-2">
                 Design Studio
               </h1>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 Design your custom template with text, images, and graphics
               </p>
 
               <div className="flex items-center space-x-2 mt-2">
-                <span className="text-sm text-gray-500">{templateName}</span>
-                <span className="text-sm text-gray-400">•</span>
-                <span className="text-sm text-gray-500">{categoryName}</span>
-                <span className="text-sm text-gray-400">•</span>
-                <span className="text-sm text-gray-500">{productName}</span>
+                <span className="text-sm text-muted-foreground">
+                  {templateName}
+                </span>
+                <span className="text-sm text-muted-foreground/60">•</span>
+                <span className="text-sm text-muted-foreground">
+                  {categoryName}
+                </span>
+                <span className="text-sm text-muted-foreground/60">•</span>
+                <span className="text-sm text-muted-foreground">
+                  {productName}
+                </span>
                 {sizeVariantName && (
                   <>
-                    <span className="text-sm text-gray-400">•</span>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-muted-foreground/60">•</span>
+                    <span className="text-sm text-muted-foreground">
                       {sizeVariantName}
                     </span>
                   </>
@@ -181,7 +187,10 @@ export default function DesignHeader({
 
               <div className="flex items-center space-x-2 mt-2">
                 {isDirty && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge
+                    variant="outline"
+                    className="text-xs border-orange-200 text-orange-700 dark:border-orange-800 dark:text-orange-300"
+                  >
                     <Clock className="w-3 h-3 mr-1" />
                     Unsaved Changes
                   </Badge>
@@ -194,7 +203,10 @@ export default function DesignHeader({
                 )}
 
                 {elements.length > 0 && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge
+                    variant="outline"
+                    className="text-xs border-green-200 text-green-700 dark:border-green-800 dark:text-green-300"
+                  >
                     {elements.length} Element{elements.length !== 1 ? "s" : ""}
                   </Badge>
                 )}
@@ -205,14 +217,22 @@ export default function DesignHeader({
           {/* Right Section */}
           <div className="flex items-center space-x-3">
             {totalPrice && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-md">
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground bg-muted px-3 py-2 rounded-md">
                 <DollarSign className="w-4 h-4" />
                 <span className="font-medium">${totalPrice.toFixed(2)}</span>
               </div>
             )}
 
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={togglePreviewMode}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={togglePreviewMode}
+                className={cn(
+                  isPreviewMode &&
+                    "bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-950/30 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-950/50"
+                )}
+              >
                 <Eye className="w-4 h-4 mr-2" />
                 {isPreviewMode ? "Edit" : "Preview"}
               </Button>
@@ -226,6 +246,10 @@ export default function DesignHeader({
                 variant="outline"
                 onClick={handleSave}
                 disabled={createDesign.isPending || updateDesign.isPending}
+                className={cn(
+                  isDirty &&
+                    "border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/30"
+                )}
               >
                 {createDesign.isPending || updateDesign.isPending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -235,7 +259,10 @@ export default function DesignHeader({
                 Save
               </Button>
 
-              <Button onClick={() => onExport?.({})}>
+              <Button
+                onClick={() => onExport?.({})}
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>

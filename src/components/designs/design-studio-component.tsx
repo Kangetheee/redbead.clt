@@ -173,10 +173,10 @@ function DesignStudioContent({
   // Loading state
   if (templateId && (templateLoading || designLoading)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading design studio...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading design studio...</p>
         </div>
       </div>
     );
@@ -185,13 +185,13 @@ function DesignStudioContent({
   // Error state
   if (templateId && templateError) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Failed to Load Template
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-muted-foreground mb-4">
             The template you&apos;re looking for couldn&apos;t be loaded.
           </p>
         </div>
@@ -202,11 +202,13 @@ function DesignStudioContent({
   // Template selection state
   if (!selectedTemplate) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">Select a Template</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="text-2xl font-bold mb-4 text-foreground">
+              Select a Template
+            </h2>
+            <p className="text-muted-foreground mb-6">
               Choose a template to start designing
             </p>
           </div>
@@ -216,7 +218,7 @@ function DesignStudioContent({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <DesignHeader
         templateId={templateId}

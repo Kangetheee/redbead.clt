@@ -107,10 +107,10 @@ export function ContactForm() {
     <div className="lg:col-span-2">
       <Card className="p-8">
         <CardHeader className="px-0 pt-0">
-          <CardTitle className="text-2xl font-bold text-gray-900">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Send Us a Message
           </CardTitle>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             Fill out the form below and we&apos;ll get back to you as soon as
             possible.
           </p>
@@ -119,13 +119,13 @@ export function ContactForm() {
         <CardContent className="px-0 pb-0">
           {isSubmitted ? (
             <div className="text-center py-12">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              <h3 className="text-xl font-semibold text-foreground mb-2">
                 Thank You!
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-muted-foreground mb-6">
                 Thanks for contacting us. We will get back to you shortly.
               </p>
               <Button onClick={() => setIsSubmitted(false)} variant="outline">

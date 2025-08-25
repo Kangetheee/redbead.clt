@@ -102,7 +102,7 @@ export default function Canvas({ className }: CanvasProps) {
           bounds="parent"
           className={cn(
             "cursor-pointer transition-all duration-200",
-            isSelected && "ring-2 ring-blue-500"
+            isSelected && "ring-2 ring-primary"
           )}
         >
           <div
@@ -133,7 +133,7 @@ export default function Canvas({ className }: CanvasProps) {
             {/* Image Element */}
             {element.type === "image" && (
               <div
-                className="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center"
+                className="w-full h-full bg-muted border-2 border-dashed border-border flex items-center justify-center"
                 style={{
                   transform: `rotate(${element.rotation || 0}deg)`,
                 }}
@@ -162,7 +162,7 @@ export default function Canvas({ className }: CanvasProps) {
                       if (parent && !parent.querySelector(".image-fallback")) {
                         const fallback = document.createElement("div");
                         fallback.className =
-                          "image-fallback flex flex-col items-center justify-center text-gray-400 text-xs h-full w-full";
+                          "image-fallback flex flex-col items-center justify-center text-muted-foreground text-xs h-full w-full";
                         fallback.innerHTML = `
               <svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
@@ -175,7 +175,7 @@ export default function Canvas({ className }: CanvasProps) {
                     }}
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-gray-400">
+                  <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <Image className="w-6 h-6 mb-1" />
                     <span className="text-xs">No image selected</span>
                   </div>
@@ -206,13 +206,13 @@ export default function Canvas({ className }: CanvasProps) {
             {/* Selection indicators */}
             {isSelected && (
               <>
-                <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                <div className="absolute -top-6 left-0 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">
                   {element.type}
                 </div>
 
                 {/* Resize handles for images */}
                 {element.type === "image" && (
-                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-se-resize" />
+                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary border border-background rounded-full cursor-se-resize" />
                 )}
               </>
             )}
@@ -243,7 +243,7 @@ export default function Canvas({ className }: CanvasProps) {
           >
             <ZoomIn className="w-4 h-4" />
           </Button>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             {Math.round(canvasSettings.zoom * 100)}%
           </span>
         </div>
@@ -261,9 +261,9 @@ export default function Canvas({ className }: CanvasProps) {
                 <DialogTitle>Print Preview</DialogTitle>
               </DialogHeader>
               <div className="p-4">
-                <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8">
+                <div className="bg-background border-2 border-dashed border-border rounded-lg p-8">
                   <div
-                    className="mx-auto bg-gray-100 rounded-lg overflow-hidden"
+                    className="mx-auto bg-muted rounded-lg overflow-hidden"
                     style={{
                       width: `${canvasWidthPx * 0.5}px`,
                       height: `${canvasHeightPx * 0.5}px`,
@@ -320,7 +320,7 @@ export default function Canvas({ className }: CanvasProps) {
             variant="outline"
             size="sm"
             onClick={togglePreviewMode}
-            className={isPreviewMode ? "bg-blue-50" : ""}
+            className={isPreviewMode ? "bg-primary/10" : ""}
           >
             <Eye className="w-4 h-4 mr-2" />
             {isPreviewMode ? "Edit" : "Preview"}
@@ -329,18 +329,18 @@ export default function Canvas({ className }: CanvasProps) {
       </div>
 
       {/* Canvas */}
-      <Card className="p-8 bg-white">
+      <Card className="p-8">
         <div className="flex justify-center">
           <div
             ref={canvasRef}
-            className="relative bg-white border-2 border-dashed border-gray-300 rounded-lg shadow-lg"
+            className="relative bg-background border-2 border-dashed border-border rounded-lg shadow-lg"
             style={{
               width: `${canvasWidthPx * canvasSettings.zoom}px`,
               height: `${canvasHeightPx * canvasSettings.zoom}px`,
               backgroundColor: canvasSettings.backgroundColor,
               backgroundImage: canvasSettings.showGrid
-                ? `linear-gradient(rgba(0,0,0,.1) 1px, transparent 1px),
-                 linear-gradient(90deg, rgba(0,0,0,.1) 1px, transparent 1px)`
+                ? `linear-gradient(hsl(var(--border)) 1px, transparent 1px),
+                 linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px)`
                 : "none",
               backgroundSize: canvasSettings.showGrid
                 ? `${20 * canvasSettings.zoom}px ${20 * canvasSettings.zoom}px`
@@ -349,7 +349,7 @@ export default function Canvas({ className }: CanvasProps) {
             onClick={() => !isPreviewMode && selectElement(null)}
           >
             {/* Print Area Label */}
-            <div className="absolute top-2 left-2 text-xs text-white font-mono bg-black/50 px-2 py-1 rounded">
+            <div className="absolute top-2 left-2 text-xs text-primary-foreground font-mono bg-primary/80 px-2 py-1 rounded">
               **PRINT AREA = {canvasSettings.width}MM X {canvasSettings.height}
               MM**
             </div>
@@ -362,7 +362,7 @@ export default function Canvas({ className }: CanvasProps) {
 
             {/* Empty state */}
             {elements.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
                 <div className="text-center">
                   <Palette className="w-8 h-8 mx-auto mb-2" />
                   <p className="text-sm">Start designing</p>
@@ -372,10 +372,10 @@ export default function Canvas({ className }: CanvasProps) {
             )}
 
             {/* Design ID */}
-            <div className="absolute left-2 bottom-2 text-xs text-white font-mono bg-black/50 px-2 py-1 rounded">
+            <div className="absolute left-2 bottom-2 text-xs text-primary-foreground font-mono bg-primary/80 px-2 py-1 rounded">
               ID: DS001
             </div>
-            <div className="absolute right-2 bottom-2 text-xs text-white font-mono bg-black/50 px-2 py-1 rounded">
+            <div className="absolute right-2 bottom-2 text-xs text-primary-foreground font-mono bg-primary/80 px-2 py-1 rounded">
               ID: DS001
             </div>
           </div>
@@ -383,7 +383,7 @@ export default function Canvas({ className }: CanvasProps) {
       </Card>
 
       {/* Canvas Info */}
-      <div className="text-center text-xs text-gray-500">
+      <div className="text-center text-xs text-muted-foreground">
         {canvasSettings.width}mm × {canvasSettings.height}mm (
         {Math.round(canvasSettings.zoom * 100)}% zoom)
       </div>

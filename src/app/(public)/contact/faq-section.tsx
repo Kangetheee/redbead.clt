@@ -109,13 +109,13 @@ export function FAQSection() {
   }, [faqData]); // Re-run when faqData changes
 
   return (
-    <section className="py-20 bg-gray-50 overflow-hidden">
+    <section className="py-20 bg-muted/50 overflow-hidden">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl font-bold text-foreground mb-4">
             Frequently Asked Questions
           </h2>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-muted-foreground">
             Quick answers to common questions about our services
           </p>
         </div>
@@ -136,10 +136,10 @@ export function FAQSection() {
                     style={{ opacity: 1, transform: "scale(1)" }}
                   >
                     <CardContent className="space-y-3">
-                      <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+                      <h3 className="font-semibold text-foreground text-lg leading-tight">
                         {faq.question}
                       </h3>
-                      <p className="text-gray-600 text-sm leading-relaxed">
+                      <p className="text-muted-foreground text-sm leading-relaxed">
                         {faq.answer}
                       </p>
                     </CardContent>
@@ -147,18 +147,20 @@ export function FAQSection() {
                 ))}
               </div>
 
-              <div className="absolute top-0 left-0 w-32 h-full bg-gradient-to-r from-gray-50 via-gray-50/80 to-transparent pointer-events-none z-10" />
-              <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-gray-50 via-gray-50/80 to-transparent pointer-events-none z-10" />
+              <div className="absolute top-0 left-0 w-32 h-full bg-gradient-to-r from-muted/50 via-muted/40 to-transparent pointer-events-none z-10" />
+              <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-muted/50 via-muted/40 to-transparent pointer-events-none z-10" />
             </div>
 
             <div className="md:hidden mt-8 grid gap-6">
               {faqData.map((faq) => (
                 <Card key={faq.id} className="p-6">
                   <CardContent className="space-y-3">
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-semibold text-foreground">
                       {faq.question}
                     </h3>
-                    <p className="text-gray-600 text-sm">{faq.answer}</p>
+                    <p className="text-muted-foreground text-sm">
+                      {faq.answer}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -166,7 +168,7 @@ export function FAQSection() {
           </>
         ) : (
           <div className="text-center py-8">
-            <p className="text-gray-600">Loading FAQs...</p>
+            <p className="text-muted-foreground">Loading FAQs...</p>
           </div>
         )}
       </div>

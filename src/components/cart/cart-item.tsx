@@ -7,8 +7,24 @@ import { Trash2, Edit } from "lucide-react";
 import { CartItemResponse } from "@/lib/cart/types/cart.types";
 import { useRemoveCartItem } from "@/hooks/use-cart";
 import { QuantitySelector } from "./quantity-selector";
-import { useCartSheet } from "./cart-sheet-dialog";
 import Image from "next/image";
+import { useContext } from "react";
+import { createContext } from "react";
+
+// Create a context type that matches the cart sheet context
+interface CartSheetContextType {
+  isOpen: boolean;
+  setUpdating: (updating: boolean) => void;
+  closeSheet: () => void;
+}
+
+// Import the context from cart-sheet-dialog
+const CartSheetContext = createContext<CartSheetContextType | null>(null);
+
+// Safe hook that returns context or null if not available
+function useCartSheetSafe() {
+  return useContext(CartSheetContext);
+}
 
 interface CartItemProps {
   item: CartItemResponse;
@@ -17,20 +33,20 @@ interface CartItemProps {
 
 export function CartItem({ item, onEdit }: CartItemProps) {
   const removeCartItem = useRemoveCartItem();
-  const { setUpdating, isOpen } = useCartSheet();
+  const cartSheetContext = useCartSheetSafe(); // Use safe version
 
   const handleRemove = () => {
-    // Signal that we're starting an update
-    if (isOpen) {
-      setUpdating(true);
+    // Signal that we're starting an update (only if in sheet context)
+    if (cartSheetContext?.isOpen) {
+      cartSheetContext.setUpdating(true);
     }
 
     removeCartItem.mutate(item.id, {
       onSettled: () => {
-        // Signal that update is complete
-        if (isOpen) {
+        // Signal that update is complete (only if in sheet context)
+        if (cartSheetContext?.isOpen) {
           setTimeout(() => {
-            setUpdating(false);
+            cartSheetContext.setUpdating(false);
           }, 100); // Small delay to ensure state updates complete
         }
       },
@@ -124,10 +140,14 @@ export function CartItem({ item, onEdit }: CartItemProps) {
               cartItemId={item.id}
               quantity={item.quantity}
               maxQuantity={item.variant.stock}
-              sheetContext={{
-                isOpen,
-                setUpdating,
-              }}
+              sheetContext={
+                cartSheetContext
+                  ? {
+                      isOpen: cartSheetContext.isOpen,
+                      setUpdating: cartSheetContext.setUpdating,
+                    }
+                  : undefined
+              }
             />
           </div>
 
