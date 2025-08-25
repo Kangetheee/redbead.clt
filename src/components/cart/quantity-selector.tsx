@@ -40,7 +40,7 @@ export function QuantitySelector({
       newQuantity >= minQuantity &&
       newQuantity <= maxQuantity
     ) {
-      // Signal that we're starting an update
+      // Signal that we're starting an update (only if sheet context exists)
       if (sheetContext?.isOpen) {
         sheetContext.setUpdating(true);
       }
@@ -52,7 +52,7 @@ export function QuantitySelector({
         },
         {
           onSettled: () => {
-            // Signal that update is complete
+            // Signal that update is complete (only if sheet context exists)
             if (sheetContext?.isOpen) {
               setTimeout(() => {
                 sheetContext.setUpdating(false);

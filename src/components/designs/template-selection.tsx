@@ -4,10 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDesignTemplates } from "@/hooks/use-design-templates";
 import { GetTemplatesDto } from "@/lib/design-templates/dto/design-template.dto";
-import {
-  DesignTemplate,
-  // TemplateListResponse
-} from "@/lib/design-templates/types/design-template.types";
+import { DesignTemplate } from "@/lib/design-templates/types/design-template.types";
 import {
   Loader2,
   Search,
@@ -89,27 +86,24 @@ const TemplateSelectionPage: React.FC<TemplateSelectionPageProps> = ({
         <div className="text-red-500 dark:text-red-400 mb-2">
           Error loading templates
         </div>
-        <p className="text-gray-600 dark:text-gray-400">
-          Please try again later
-        </p>
+        <p className="text-muted-foreground">Please try again later</p>
       </div>
     );
   }
 
-  // Extract data based on the actual hook response structure
   const templates = templatesResponse?.success
     ? templatesResponse.data.items
     : [];
   const meta = templatesResponse?.success ? templatesResponse.data.meta : null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 bg-white dark:bg-gray-900 min-h-screen">
+    <div className="max-w-7xl mx-auto px-4 py-8 bg-background min-h-screen">
       {/* Back Button */}
       {showBackButton && (
         <div className="mb-6">
           <button
             onClick={handleBackClick}
-            className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors group"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group"
           >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             <span className="font-medium">Back to Home</span>
@@ -119,10 +113,10 @@ const TemplateSelectionPage: React.FC<TemplateSelectionPageProps> = ({
 
       {/* Header */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+        <h1 className="text-3xl font-bold text-foreground mb-2">
           Select a Design Template
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-muted-foreground">
           Choose from our collection of professionally designed templates
         </p>
       </div>
@@ -132,13 +126,13 @@ const TemplateSelectionPage: React.FC<TemplateSelectionPageProps> = ({
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <input
               type="text"
               placeholder="Search templates..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent bg-background text-foreground placeholder-muted-foreground"
             />
           </div>
 
@@ -151,7 +145,7 @@ const TemplateSelectionPage: React.FC<TemplateSelectionPageProps> = ({
                     filters.isActive === undefined ? true : !filters.isActive,
                 })
               }
-              className="px-4 py-2 rounded-lg border transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="px-4 py-2 rounded-lg border transition-colors bg-background text-foreground border-border hover:bg-muted"
             >
               <Filter className="w-4 h-4 inline mr-2" />
               {filters.isActive === false ? "Show Active" : "Show All"}
@@ -163,8 +157,8 @@ const TemplateSelectionPage: React.FC<TemplateSelectionPageProps> = ({
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500 dark:text-blue-400" />
-          <span className="ml-2 text-gray-600 dark:text-gray-400">
+          <Loader2 className="w-8 h-8 animate-spin text-green-600 dark:text-green-400" />
+          <span className="ml-2 text-muted-foreground">
             Loading templates...
           </span>
         </div>
@@ -197,13 +191,13 @@ const TemplateSelectionPage: React.FC<TemplateSelectionPageProps> = ({
       {/* Empty State */}
       {!isLoading && templates.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-gray-400 dark:text-gray-500 mb-4">
+          <div className="text-muted-foreground mb-4">
             <Search className="w-16 h-16 mx-auto" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+          <h3 className="text-lg font-medium text-foreground mb-2">
             No templates found
           </h3>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground">
             Try adjusting your search or filter criteria
           </p>
         </div>
@@ -212,7 +206,6 @@ const TemplateSelectionPage: React.FC<TemplateSelectionPageProps> = ({
   );
 };
 
-// Template Card Component (Updated to match actual DesignTemplate interface)
 interface TemplateCardProps {
   template: DesignTemplate;
   onSelect: () => void;
@@ -249,9 +242,9 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onSelect }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md dark:hover:shadow-lg transition-shadow group">
+    <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow group">
       {/* Template Image */}
-      <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+      <div className="aspect-[4/3] bg-muted relative overflow-hidden">
         <img
           src={template.thumbnail}
           alt={template.name}
@@ -279,37 +272,37 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onSelect }) => {
         </div>
 
         {/* Quick Info Overlay */}
-        <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-85 text-white text-xs px-2 py-1 rounded">
+        <div className="absolute bottom-2 right-2 bg-black/75 dark:bg-black/85 text-white text-xs px-2 py-1 rounded">
           {getLeadTime()}
         </div>
       </div>
 
       {/* Template Info */}
       <div className="p-4">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 line-clamp-1">
+        <h3 className="font-semibold text-card-foreground mb-2 line-clamp-1">
           {template.name}
         </h3>
-        <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
+        <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
           {template.description || "Professional design template"}
         </p>
 
         {/* Template Details */}
         <div className="space-y-2 mb-4">
           <div className="flex items-center justify-between">
-            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            <span className="text-lg font-bold text-card-foreground">
               {formatAmount(getDefaultPrice())}
             </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-muted-foreground">
               {template.isActive ? "Active" : "Inactive"}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">
+            <span className="text-muted-foreground">
               {getActiveVariantsCount()} size
               {getActiveVariantsCount() !== 1 ? "s" : ""}
             </span>
-            <span className="text-gray-600 dark:text-gray-400">
+            <span className="text-muted-foreground">
               {getActiveColorsCount()} color
               {getActiveColorsCount() !== 1 ? "s" : ""}
             </span>
@@ -318,20 +311,20 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onSelect }) => {
           {/* Available Options */}
           <div className="flex flex-wrap gap-1 mt-2">
             {getActiveFontsCount() > 0 && (
-              <span className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded">
+              <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded">
                 {getActiveFontsCount()} fonts
               </span>
             )}
             {template.mediaRestrictions &&
               template.mediaRestrictions.length > 0 && (
-                <span className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded">
+                <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded">
                   Custom uploads
                 </span>
               )}
           </div>
 
           {/* Category and Product Info */}
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
             <span>{template.category?.name}</span>
             <span>{template.product?.name}</span>
           </div>
@@ -342,13 +335,13 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onSelect }) => {
               {template.metadata.tags.slice(0, 2).map((tag, index) => (
                 <span
                   key={index}
-                  className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs px-2 py-1 rounded"
+                  className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs px-2 py-1 rounded"
                 >
                   {tag}
                 </span>
               ))}
               {template.metadata.tags.length > 2 && (
-                <span className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded">
+                <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded">
                   +{template.metadata.tags.length - 2} more
                 </span>
               )}
@@ -359,7 +352,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onSelect }) => {
         {/* Select Button */}
         <button
           onClick={onSelect}
-          className="w-full bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+          className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={!template.isActive}
         >
           {template.isActive ? "Select Template" : "Template Unavailable"}
@@ -369,7 +362,6 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onSelect }) => {
   );
 };
 
-// Pagination Component (Updated to work with the actual meta structure)
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -395,7 +387,7 @@ const Pagination: React.FC<PaginationProps> = ({
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-2 text-sm font-medium text-muted-foreground bg-background border border-border rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Previous
       </button>
@@ -408,16 +400,16 @@ const Pagination: React.FC<PaginationProps> = ({
         return (
           <React.Fragment key={page}>
             {showEllipsis && (
-              <span className="px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+              <span className="px-3 py-2 text-sm font-medium text-muted-foreground">
                 ...
               </span>
             )}
             <button
               onClick={() => onPageChange(page)}
-              className={`px-3 py-2 text-sm font-medium rounded-md ${
+              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 currentPage === page
-                  ? "bg-blue-500 dark:bg-blue-600 text-white"
-                  : "text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  ? "bg-green-600 dark:bg-green-600 text-white"
+                  : "text-foreground bg-background border border-border hover:bg-muted"
               }`}
             >
               {page}
@@ -430,7 +422,7 @@ const Pagination: React.FC<PaginationProps> = ({
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-2 text-sm font-medium text-muted-foreground bg-background border border-border rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Next
       </button>

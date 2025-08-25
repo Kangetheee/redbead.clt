@@ -2,9 +2,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function AboutPageSkeleton() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       {/* Navbar skeleton */}
-      <div className="border-b">
+      <div className="border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <Skeleton className="h-10 w-32" />
@@ -55,7 +55,7 @@ export function AboutPageSkeleton() {
       </section>
 
       {/* FAQ Section skeleton */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-20 bg-muted/50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Skeleton className="h-10 w-64 mx-auto mb-4" />
