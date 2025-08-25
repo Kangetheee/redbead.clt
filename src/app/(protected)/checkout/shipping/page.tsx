@@ -12,9 +12,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Truck, MapPin, Loader2, Plus, Check, CreditCard } from "lucide-react";
+import {
+  Truck,
+  MapPin,
+  Loader2,
+  Plus,
+  Check,
+  CreditCard,
+  ChevronDown,
+} from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatAmount } from "@/lib/utils";
 import {
   useCheckoutSession,
@@ -46,6 +61,47 @@ import { toast } from "sonner";
 
 type AddressForm = z.infer<typeof addressInputSchema>;
 
+interface Country {
+  name: string;
+  code: string;
+  flag: string;
+}
+
+// Custom hook to fetch countries
+function useCountries() {
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const response = await fetch(
+          "https://restcountries.com/v3.1/all?fields=name,cca2,flag"
+        );
+        const data = await response.json();
+
+        const formattedCountries: Country[] = data
+          .map((country: any) => ({
+            name: country.name.common,
+            code: country.cca2,
+            flag: country.flag || "🌍",
+          }))
+          .sort((a: Country, b: Country) => a.name.localeCompare(b.name));
+
+        setCountries(formattedCountries);
+      } catch (error) {
+        console.error("Failed to fetch countries:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCountries();
+  }, []);
+
+  return { countries, isLoading };
+}
+
 function CheckoutShippingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,6 +118,7 @@ function CheckoutShippingContent() {
 
   const { data: userProfile } = useUserProfile();
   const isAuthenticated = !!userProfile;
+  const { countries, isLoading: countriesLoading } = useCountries();
 
   // Hooks
   const { data: checkoutSession, isLoading: sessionLoading } =
@@ -87,9 +144,14 @@ function CheckoutShippingContent() {
     handleSubmit: handleAddressSubmit,
     formState: { errors: addressErrors },
     reset: resetAddressForm,
+    setValue: setAddressValue,
+    watch: watchAddress,
   } = useForm<AddressForm>({
     resolver: zodResolver(addressInputSchema),
   });
+
+  // Watch country value for the form
+  const selectedCountry = watchAddress("country");
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -257,17 +319,6 @@ function CheckoutShippingContent() {
         // Store all checkout data for payment page
         sessionStorage.setItem("checkoutData", JSON.stringify(checkoutData));
 
-        // // Store individual items for backward compatibility
-        // sessionStorage.setItem(
-        //   "selectedShippingOption",
-        //   selectedShippingOption
-        // );
-        // sessionStorage.setItem(
-        //   "shippingAddress",
-        //   JSON.stringify(shippingAddress)
-        // );
-        // sessionStorage.setItem("selectedAddressId", selectedAddressId);
-
         router.push(`/checkout/payment?session=${sessionId}`);
       } else {
         toast.error("Checkout validation failed. Please try again.");
@@ -285,10 +336,10 @@ function CheckoutShippingContent() {
 
   if (sessionLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading checkout session...</p>
+          <p className="text-muted-foreground">Loading checkout session...</p>
         </div>
       </div>
     );
@@ -296,9 +347,9 @@ function CheckoutShippingContent() {
 
   if (!checkoutSession) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-500 mb-4">Checkout session not found</p>
+          <p className="text-destructive mb-4">Checkout session not found</p>
           <Button onClick={() => router.push("/checkout")}>Start Over</Button>
         </div>
       </div>
@@ -306,11 +357,11 @@ function CheckoutShippingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Shipping</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Shipping</h1>
+          <p className="text-muted-foreground">
             Choose your shipping address and method
           </p>
         </div>
@@ -335,12 +386,14 @@ function CheckoutShippingContent() {
                 Shipping
               </span>
             </div>
-            <div className="flex-1 h-px bg-gray-300 mx-4"></div>
+            <div className="flex-1 h-px bg-border mx-4"></div>
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gray-300 text-gray-500 rounded-full flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 bg-muted text-muted-foreground rounded-full flex items-center justify-center text-sm font-medium">
                 3
               </div>
-              <span className="ml-2 text-sm text-gray-500">Payment</span>
+              <span className="ml-2 text-sm text-muted-foreground">
+                Payment
+              </span>
             </div>
           </div>
         </div>
@@ -361,7 +414,9 @@ function CheckoutShippingContent() {
                   {addressesData?.success &&
                     addressesData.data.items.length > 0 && (
                       <div className="space-y-3">
-                        <h4 className="font-medium">Saved Addresses</h4>
+                        <h4 className="font-medium text-foreground">
+                          Saved Addresses
+                        </h4>
                         <RadioGroup
                           value={selectedAddressId}
                           onValueChange={handleAddressSelect}
@@ -386,9 +441,9 @@ function CheckoutShippingContent() {
                                   htmlFor={address.id}
                                   className="flex-1 cursor-pointer"
                                 >
-                                  <div className="p-3 border rounded-lg hover:bg-gray-50">
+                                  <div className="p-3 border border-border rounded-lg hover:bg-muted/50">
                                     <div className="flex items-center gap-2 mb-1">
-                                      <span className="font-medium">
+                                      <span className="font-medium text-foreground">
                                         {address.name || "Address"}
                                       </span>
                                       {address.isDefault && (
@@ -400,10 +455,10 @@ function CheckoutShippingContent() {
                                         </Badge>
                                       )}
                                     </div>
-                                    <p className="text-sm text-gray-900">
+                                    <p className="text-sm text-foreground">
                                       {address.recipientName}
                                     </p>
-                                    <p className="text-sm text-gray-600">
+                                    <p className="text-sm text-muted-foreground">
                                       {address.formattedAddress}
                                     </p>
                                   </div>
@@ -415,7 +470,7 @@ function CheckoutShippingContent() {
                     )}
 
                   {/* Add New Address */}
-                  <div className="pt-4 border-t">
+                  <div className="pt-4 border-t border-border">
                     {!showNewAddressForm ? (
                       <Button
                         variant="outline"
@@ -428,7 +483,9 @@ function CheckoutShippingContent() {
                     ) : (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium">New Shipping Address</h4>
+                          <h4 className="font-medium text-foreground">
+                            New Shipping Address
+                          </h4>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -445,6 +502,12 @@ function CheckoutShippingContent() {
                           register={registerAddress}
                           errors={addressErrors}
                           isSubmitting={createAddressMutation.isPending}
+                          countries={countries}
+                          countriesLoading={countriesLoading}
+                          selectedCountry={selectedCountry}
+                          onCountryChange={(countryCode) =>
+                            setAddressValue("country", countryCode)
+                          }
                         />
                       </div>
                     )}
@@ -491,7 +554,7 @@ function CheckoutShippingContent() {
                         <RadioGroupItem value="NORMAL" id="normal" />
                         <Label htmlFor="normal" className="text-sm">
                           Normal
-                          <span className="block text-xs text-gray-500">
+                          <span className="block text-xs text-muted-foreground">
                             Standard processing
                           </span>
                         </Label>
@@ -500,7 +563,7 @@ function CheckoutShippingContent() {
                         <RadioGroupItem value="EXPEDITED" id="expedited" />
                         <Label htmlFor="expedited" className="text-sm">
                           Expedited
-                          <span className="block text-xs text-gray-500">
+                          <span className="block text-xs text-muted-foreground">
                             Faster processing
                           </span>
                         </Label>
@@ -509,7 +572,7 @@ function CheckoutShippingContent() {
                         <RadioGroupItem value="RUSH" id="rush" />
                         <Label htmlFor="rush" className="text-sm">
                           Rush
-                          <span className="block text-xs text-gray-500">
+                          <span className="block text-xs text-muted-foreground">
                             Priority processing
                           </span>
                         </Label>
@@ -518,7 +581,7 @@ function CheckoutShippingContent() {
                         <RadioGroupItem value="EMERGENCY" id="emergency" />
                         <Label htmlFor="emergency" className="text-sm">
                           Emergency
-                          <span className="block text-xs text-gray-500">
+                          <span className="block text-xs text-muted-foreground">
                             Immediate processing
                           </span>
                         </Label>
@@ -551,17 +614,19 @@ function CheckoutShippingContent() {
                             htmlFor={option.id}
                             className="flex-1 cursor-pointer"
                           >
-                            <div className="p-3 border rounded-lg hover:bg-gray-50">
+                            <div className="p-3 border border-border rounded-lg hover:bg-muted/50">
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <p className="font-medium">{option.name}</p>
+                                  <p className="font-medium text-foreground">
+                                    {option.name}
+                                  </p>
                                   {option.description && (
-                                    <p className="text-sm text-gray-600">
+                                    <p className="text-sm text-muted-foreground">
                                       {option.description}
                                     </p>
                                   )}
                                   {option.estimatedDays && (
-                                    <p className="text-sm text-gray-500">
+                                    <p className="text-sm text-muted-foreground">
                                       {option.estimatedDays}
                                     </p>
                                   )}
@@ -579,11 +644,11 @@ function CheckoutShippingContent() {
                                     </span>
                                   ) : (
                                     <div>
-                                      <span className="font-medium">
+                                      <span className="font-medium text-foreground">
                                         {formatAmount(option.cost)}
                                       </span>
                                       {option.originalCost !== option.cost && (
-                                        <p className="text-xs text-gray-500 line-through">
+                                        <p className="text-xs text-muted-foreground line-through">
                                           {formatAmount(option.originalCost)}
                                         </p>
                                       )}
@@ -613,12 +678,18 @@ function CheckoutShippingContent() {
                 <div className="space-y-2">
                   {checkoutSession?.items?.map((item, index) => (
                     <div key={index} className="flex justify-between text-sm">
-                      <span className="truncate mr-2">
+                      <span className="truncate mr-2 text-foreground">
                         {item.productName} × {item.quantity}
                       </span>
-                      <span>{formatAmount(item.totalPrice)}</span>
+                      <span className="text-foreground">
+                        {formatAmount(item.totalPrice)}
+                      </span>
                     </div>
-                  )) || <p className="text-sm text-gray-500">No items found</p>}
+                  )) || (
+                    <p className="text-sm text-muted-foreground">
+                      No items found
+                    </p>
+                  )}
                 </div>
 
                 <Separator />
@@ -626,8 +697,8 @@ function CheckoutShippingContent() {
                 {/* Totals */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Subtotal</span>
-                    <span>
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-foreground">
                       {formatAmount(
                         calculatedTotals?.subtotal ||
                           checkoutSession?.subtotal ||
@@ -636,16 +707,16 @@ function CheckoutShippingContent() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Shipping</span>
-                    <span>
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span className="text-foreground">
                       {calculatedTotals?.shippingCost !== undefined
                         ? formatAmount(calculatedTotals.shippingCost)
                         : "TBD"}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Tax</span>
-                    <span>
+                    <span className="text-muted-foreground">Tax</span>
+                    <span className="text-foreground">
                       {formatAmount(
                         calculatedTotals?.estimatedTax ||
                           checkoutSession?.estimatedTax ||
@@ -664,8 +735,8 @@ function CheckoutShippingContent() {
                 <Separator />
 
                 <div className="flex justify-between font-medium text-lg">
-                  <span>Total</span>
-                  <span>
+                  <span className="text-foreground">Total</span>
+                  <span className="text-foreground">
                     {formatAmount(
                       calculatedTotals?.estimatedTotal ||
                         checkoutSession?.estimatedTotal ||
@@ -708,10 +779,10 @@ function CheckoutShippingContent() {
 // Loading fallback component
 function CheckoutShippingLoading() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center">
         <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-        <p>Loading shipping page...</p>
+        <p className="text-muted-foreground">Loading shipping page...</p>
       </div>
     </div>
   );
@@ -732,12 +803,20 @@ function AddressForm({
   register,
   errors,
   isSubmitting,
+  countries,
+  countriesLoading,
+  selectedCountry,
+  onCountryChange,
   submitText = "Save Address",
 }: {
   onSubmit: () => void;
   register: any;
   errors: any;
   isSubmitting: boolean;
+  countries: Country[];
+  countriesLoading: boolean;
+  selectedCountry?: string;
+  onCountryChange: (countryCode: string) => void;
   submitText?: string;
 }) {
   return (
@@ -748,10 +827,10 @@ function AddressForm({
           <Input
             id="recipientName"
             {...register("recipientName")}
-            className={errors.recipientName ? "border-red-500" : ""}
+            className={errors.recipientName ? "border-destructive" : ""}
           />
           {errors.recipientName && (
-            <p className="text-sm text-red-500 mt-1">
+            <p className="text-sm text-destructive mt-1">
               {errors.recipientName.message}
             </p>
           )}
@@ -767,10 +846,12 @@ function AddressForm({
         <Input
           id="street"
           {...register("street")}
-          className={errors.street ? "border-red-500" : ""}
+          className={errors.street ? "border-destructive" : ""}
         />
         {errors.street && (
-          <p className="text-sm text-red-500 mt-1">{errors.street.message}</p>
+          <p className="text-sm text-destructive mt-1">
+            {errors.street.message}
+          </p>
         )}
       </div>
 
@@ -785,10 +866,12 @@ function AddressForm({
           <Input
             id="city"
             {...register("city")}
-            className={errors.city ? "border-red-500" : ""}
+            className={errors.city ? "border-destructive" : ""}
           />
           {errors.city && (
-            <p className="text-sm text-red-500 mt-1">{errors.city.message}</p>
+            <p className="text-sm text-destructive mt-1">
+              {errors.city.message}
+            </p>
           )}
         </div>
         <div>
@@ -803,24 +886,43 @@ function AddressForm({
           <Input
             id="postalCode"
             {...register("postalCode")}
-            className={errors.postalCode ? "border-red-500" : ""}
+            className={errors.postalCode ? "border-destructive" : ""}
           />
           {errors.postalCode && (
-            <p className="text-sm text-red-500 mt-1">
+            <p className="text-sm text-destructive mt-1">
               {errors.postalCode.message}
             </p>
           )}
         </div>
         <div>
           <Label htmlFor="country">Country</Label>
-          <Input
-            id="country"
-            {...register("country")}
-            placeholder="Country"
-            className={errors.country ? "border-red-500" : ""}
-          />
+          <Select
+            value={selectedCountry}
+            onValueChange={onCountryChange}
+            disabled={countriesLoading}
+          >
+            <SelectTrigger
+              className={errors.country ? "border-destructive" : ""}
+            >
+              <SelectValue
+                placeholder={
+                  countriesLoading ? "Loading countries..." : "Select a country"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {countries.map((country) => (
+                <SelectItem key={country.code} value={country.code}>
+                  <div className="flex items-center gap-2">
+                    <span>{country.flag}</span>
+                    <span>{country.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.country && (
-            <p className="text-sm text-red-500 mt-1">
+            <p className="text-sm text-destructive mt-1">
               {errors.country.message}
             </p>
           )}
@@ -834,14 +936,20 @@ function AddressForm({
           type="tel"
           {...register("phone")}
           placeholder="+254 700 000 000"
-          className={errors.phone ? "border-red-500" : ""}
+          className={errors.phone ? "border-destructive" : ""}
         />
         {errors.phone && (
-          <p className="text-sm text-red-500 mt-1">{errors.phone.message}</p>
+          <p className="text-sm text-destructive mt-1">
+            {errors.phone.message}
+          </p>
         )}
       </div>
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={isSubmitting || countriesLoading}
+      >
         {isSubmitting ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
