@@ -74,7 +74,7 @@ export default function CheckoutSuccessPage() {
   const isPaymentSuccess = paymentStatus?.paymentStatus === "SUCCESS";
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Success Header */}
         <div className="text-center mb-8">
