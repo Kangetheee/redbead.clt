@@ -1,22 +1,18 @@
 import { z } from "zod";
 
-// Customization Schema
 export const customizationChoiceSchema = z.object({
   optionId: z.string().min(1, "Option ID is required"),
   valueId: z.string().optional(),
   customValue: z.string().optional(),
 });
-
 export type CustomizationChoiceDto = z.infer<typeof customizationChoiceSchema>;
 
-// Cart Item Schemas
 export const createCartItemSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),
   variantId: z.string().min(1, "Variant ID is required"),
   quantity: z.number().min(1, "Quantity must be at least 1"),
   customizations: z.array(customizationChoiceSchema).default([]),
 });
-
 export type CreateCartItemDto = z.infer<typeof createCartItemSchema>;
 
 export const updateCartItemSchema = z.object({
@@ -24,10 +20,8 @@ export const updateCartItemSchema = z.object({
   quantity: z.number().min(1, "Quantity must be at least 1").optional(),
   customizations: z.array(customizationChoiceSchema).optional(),
 });
-
 export type UpdateCartItemDto = z.infer<typeof updateCartItemSchema>;
 
-// Cart Query Schemas - More explicit optional typing
 export const getCartSchema = z.object({
   pageIndex: z.number().min(0, "Page index must be non-negative").optional(),
   pageSize: z
@@ -43,7 +37,6 @@ export const getCartSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional(),
 });
 
-// Explicit type definition to ensure all properties are optional
 export type GetCartDto = {
   pageIndex?: number;
   pageSize?: number;
@@ -75,13 +68,11 @@ export type GetSavedItemsDto = {
   sortOrder?: "asc" | "desc";
 };
 
-// Bulk Operations Schemas
 export const bulkRemoveSchema = z.object({
   cartItemIds: z
     .array(z.string().min(1, "Cart item ID is required"))
     .min(1, "At least one cart item ID is required"),
 });
-
 export type BulkRemoveDto = z.infer<typeof bulkRemoveSchema>;
 
 export const saveForLaterSchema = z.object({
@@ -90,19 +81,16 @@ export const saveForLaterSchema = z.object({
     .min(1, "At least one cart item ID is required"),
   saveForLater: z.boolean(),
 });
-
 export type SaveForLaterDto = z.infer<typeof saveForLaterSchema>;
 
 export const mergeSessionCartSchema = z.object({
   sessionId: z.string().min(1, "Session ID is required"),
 });
-
 export type MergeSessionCartDto = z.infer<typeof mergeSessionCartSchema>;
 
 export const cleanupExpiredSessionsSchema = z.object({
   daysOld: z.number().min(1, "Days old must be at least 1"),
 });
-
 export type CleanupExpiredSessionsDto = z.infer<
   typeof cleanupExpiredSessionsSchema
 >;

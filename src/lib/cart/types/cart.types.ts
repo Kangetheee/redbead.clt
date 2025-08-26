@@ -98,6 +98,7 @@ export interface CartItemResponse {
   totalPrice: number;
   createdAt: string;
   updatedAt: string;
+  sessionId?: string;
 }
 
 // Cart Response Structure

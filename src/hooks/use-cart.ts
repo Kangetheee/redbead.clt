@@ -26,6 +26,7 @@ import {
   MergeSessionCartDto,
   CleanupExpiredSessionsDto,
 } from "@/lib/cart/dto/cart.dto";
+import { useCartSessionManager } from "./useCartSessionManager";
 
 export const cartKeys = {
   all: ["cart"] as const,
@@ -88,6 +89,7 @@ export function useSavedItems(params?: GetSavedItemsDto, enabled = true) {
 
 export function useAddToCart() {
   const queryClient = useQueryClient();
+  const { storeGuestSessionId } = useCartSessionManager();
 
   return useMutation({
     mutationFn: async (values: CreateCartItemDto) => {
@@ -99,14 +101,12 @@ export function useAddToCart() {
     },
     onMutate: async (values) => {
       await queryClient.cancelQueries({ queryKey: cartKeys.all });
-
       const previousCart = queryClient.getQueryData(cartKeys.list());
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       queryClient.setQueryData(cartKeys.list(), (old: any) => {
         if (!old) return { items: [values] };
         return { ...old, items: [...old.items, { ...values, id: "temp-id" }] };
       });
-
       return { previousCart };
     },
     onError: (error: Error, _values, context) => {
@@ -117,6 +117,12 @@ export function useAddToCart() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(cartKeys.detail(data.id), data);
+
+      // FIXED: Store session ID if returned (for guest users)
+      if (data.sessionId) {
+        storeGuestSessionId(data.sessionId);
+      }
+
       toast.success("Item added to cart successfully");
     },
     onSettled: () => {

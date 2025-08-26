@@ -2,7 +2,7 @@ import { FeaturedProductsSection } from "@/components/products/featured-products
 import { getSession } from "@/lib/session/session";
 import { HeroSection } from "./(public)/landing/hero-section";
 import { CTASection } from "./(public)/landing/cta-section";
-import { TrustIndicators } from "./(public)/landing/trust-indicators";
+// import { TrustIndicators } from "./(public)/landing/trust-indicators";
 import { WhyChooseUs } from "./(public)/landing/why-choose-us";
 import { TestimonialsSection } from "./(public)/landing/testimonials-section";
 import { CustomerNavbar } from "@/components/layouts/customer-nav";
@@ -17,7 +17,7 @@ export default async function LandingPage() {
 
       <HeroSection session={session} />
 
-      <TrustIndicators />
+      {/* <TrustIndicators /> */}
 
       <section className="py-20">
         <div className="container mx-auto px-4">
