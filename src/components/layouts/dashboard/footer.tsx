@@ -185,7 +185,7 @@ export default function Footer() {
                   Terms of Service
                 </Link>
               </li>
-              <li>
+              {/* <li>
                 <Link
                   href="/refund-policy"
                   className="text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm"
@@ -200,7 +200,7 @@ export default function Footer() {
                 >
                   Shipping Policy
                 </Link>
-              </li>
+              </li> */}
             </ul>
 
             {/* Social Links */}

@@ -380,7 +380,7 @@ function ProductCard({ product }: { product: ProductResponse }) {
           <div className="relative aspect-square overflow-hidden rounded-t-lg">
             {product.thumbnailImage ? (
               <Image
-                src={product.thumbnailImage}
+                src={product.thumbnailImage?.src || "/placeholder-product.jpg"}
                 alt={product.name}
                 fill
                 className="object-cover group-hover:scale-105 transition-transform duration-200"
@@ -436,7 +436,9 @@ function ProductListItem({ product }: { product: ProductResponse }) {
             <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-lg">
               {product.thumbnailImage ? (
                 <Image
-                  src={product.thumbnailImage}
+                  src={
+                    product.thumbnailImage?.src || "/placeholder-product.jpg"
+                  }
                   alt={product.name}
                   fill
                   className="object-cover"

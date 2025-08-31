@@ -170,10 +170,10 @@ export function FeaturedProductsSection({
           const defaultVariant = getDefaultVariant(product);
           const rating = generateRating(product.id);
           const isWishlisted = wishlistedProducts.includes(product.id);
-          const imageUrl = product.thumbnailImage
-            ? getValidImageUrl(product.thumbnailImage)
+          const imageUrl = product.thumbnailImage?.src
+            ? getValidImageUrl(product.thumbnailImage.src)
             : product.images && product.images.length > 0
-              ? getValidImageUrl(product.images[0])
+              ? getValidImageUrl(product.images[0].src)
               : "/placeholder-product.jpg";
 
           return (

@@ -5,8 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { Search, Tag, Package } from "lucide-react";
 import { Input } from "../../ui/input";
 import { useSearchProducts } from "@/hooks/use-products";
-import { ProductResponse } from "@/lib/products/types/products.types";
-import Image from "next/image";
+// import { ProductResponse } from "@/lib/products/types/products.types";
 import { formatCurrency } from "@/lib/utils";
 
 export default function SearchBar() {
@@ -56,15 +55,15 @@ export default function SearchBar() {
     router.push(`/products/${productId}`);
   }
 
-  // Helper function to get valid image URL
-  const getValidImageUrl = (
-    product: ProductResponse,
-    fallback = "/placeholder-product.jpg"
-  ) => {
-    if (product.thumbnailImage) return product.thumbnailImage;
-    if (product.images && product.images.length > 0) return product.images[0];
-    return fallback;
-  };
+  // // Helper function to get valid image URL
+  // const getValidImageUrl = (
+  //   product: ProductResponse,
+  //   fallback = "/placeholder-product.jpg"
+  // ) => {
+  //   if (product.thumbnailImage) return product.thumbnailImage;
+  //   if (product.images && product.images.length > 0) return product.images[0];
+  //   return fallback;
+  // };
 
   return (
     <div className="relative w-full flex-1">
@@ -101,7 +100,7 @@ export default function SearchBar() {
                 >
                   {/* Product thumbnail */}
                   <div className="w-12 h-12 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
-                    <Image
+                    {/* <Image
                       src={getValidImageUrl(product)}
                       alt={product.name}
                       fill
@@ -110,7 +109,7 @@ export default function SearchBar() {
                         (e.target as HTMLImageElement).src =
                           "/placeholder-product.jpg";
                       }}
-                    />
+                    /> */}
                   </div>
 
                   {/* Product info */}

@@ -4,8 +4,8 @@ export interface ProductResponse {
   name: string;
   slug: string;
   description: string;
-  images: string[];
-  thumbnailImage?: string | null;
+  images: Media[];
+  thumbnailImage?: Media | null;
   basePrice: number;
   categoryId: string;
   isActive: boolean;
@@ -23,7 +23,14 @@ export interface ProductResponse {
   designTemplates?: ProductDesignTemplate[];
 }
 
+export interface Media {
+  id: string;
+  name: string;
+  src: string;
+}
+
 export interface ProductMetadata {
+  tags?: string[];
   type?: string;
   leadTime?: string;
   material?: string;
