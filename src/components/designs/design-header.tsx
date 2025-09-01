@@ -194,7 +194,6 @@ export default function DesignHeader({
                     "border-l border-slate-200 dark:border-slate-700 pl-6"
                 )}
               >
-                {/* Main Title with gradient */}
                 <div className="flex items-center space-x-3 mb-3">
                   <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
                     <Palette className="w-6 h-6 text-white" />

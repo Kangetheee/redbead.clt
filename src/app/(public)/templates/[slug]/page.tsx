@@ -1,7 +1,6 @@
 "use client";
 
 import React, { use } from "react";
-import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -398,7 +397,8 @@ export default function TemplateDetailPage({
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Template Not Found</h1>
           <p className="text-muted-foreground mb-4">
-            The template you're looking for doesn't exist or has been removed.
+            The template you&apos;re looking for doesn&apos;t exist or has been
+            removed.
           </p>
           <Button asChild>
             <Link href="/templates">Browse All Templates</Link>
@@ -418,7 +418,6 @@ export default function TemplateDetailPage({
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        {/* Back Button */}
         <div className="mb-6">
           <Button variant="ghost" asChild className="gap-2">
             <Link href="/templates">

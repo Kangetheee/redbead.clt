@@ -895,7 +895,7 @@ export default function PropertiesPanel({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Base Price:</span>
                 <span className="font-medium text-foreground">
-                  ${templateInfo.basePrice.toFixed(2)}
+                  {formatCurrency(templateInfo.basePrice)}
                 </span>
               </div>
 
