@@ -120,7 +120,6 @@ function CheckoutShippingContent() {
   const isAuthenticated = !!userProfile;
   const { countries, isLoading: countriesLoading } = useCountries();
 
-  // Hooks
   const { data: checkoutSession, isLoading: sessionLoading } =
     useCheckoutSession(sessionId || "", !!sessionId);
 

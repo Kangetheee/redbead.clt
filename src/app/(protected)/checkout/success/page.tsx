@@ -133,7 +133,7 @@ export default function CheckoutSuccessPage() {
                       Total Amount
                     </p>
                     <p className="text-sm text-gray-600">
-                      ${order.totalAmount.toFixed(2)}
+                      {formatCurrency(order.totalAmount)}
                     </p>
                   </div>
                 </div>

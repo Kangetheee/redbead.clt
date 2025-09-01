@@ -29,9 +29,7 @@ export const checkoutKeys = {
     [...checkoutKeys.all, "confirmation", orderId] as const,
 };
 
-/**
- * Hook to get checkout session details
- */
+
 export function useCheckoutSession(sessionId: string, enabled = true) {
   return useQuery({
     queryKey: checkoutKeys.session(sessionId),
@@ -48,9 +46,6 @@ export function useCheckoutSession(sessionId: string, enabled = true) {
   });
 }
 
-/**
- * Hook to get order confirmation details
- */
 export function useOrderConfirmation(orderId: string, enabled = true) {
   return useQuery({
     queryKey: checkoutKeys.confirmation(orderId),
@@ -82,9 +77,6 @@ export function useCheckoutSessions(
   });
 }
 
-/**
- * Hook to initialize checkout for authenticated users
- */
 export function useInitializeCheckout() {
   const queryClient = useQueryClient();
 
@@ -107,34 +99,6 @@ export function useInitializeCheckout() {
   });
 }
 
-/**
- * Hook to initialize checkout for guest users
- */
-// export function useInitializeGuestCheckout() {
-//   const queryClient = useQueryClient();
-
-//   return useMutation({
-//     mutationFn: async (values: GuestInitCheckoutDto) => {
-//       const result = await initializeGuestCheckoutAction(values);
-//       if (!result.success) {
-//         throw new Error(result.error);
-//       }
-//       return result.data;
-//     },
-//     onSuccess: (data) => {
-//       toast.success("Guest checkout initialized successfully");
-//       // Cache the session data
-//       queryClient.setQueryData(checkoutKeys.session(data.sessionId), data);
-//     },
-//     onError: (error) => {
-//       toast.error(`Failed to initialize guest checkout: ${error.message}`);
-//     },
-//   });
-// }
-
-/**
- * Hook to calculate shipping options
- */
 export function useCalculateShipping() {
   return useMutation({
     mutationFn: async (values: ShippingCalculationDto) => {
@@ -153,9 +117,6 @@ export function useCalculateShipping() {
   });
 }
 
-/**
- * Hook to validate checkout data
- */
 export function useValidateCheckout() {
   return useMutation({
     mutationFn: async (values: ValidateCheckoutDto) => {
@@ -225,51 +186,6 @@ export function useCompleteCheckout() {
     },
   });
 }
-
-/**
- * Hook to complete checkout for guest users
- */
-// export function useCompleteGuestCheckout() {
-//   const queryClient = useQueryClient();
-
-//   return useMutation({
-//     mutationFn: async (values: GuestCompleteCheckoutDto) => {
-//       const result = await completeGuestCheckoutAction(values);
-//       if (!result.success) {
-//         throw new Error(result.error);
-//       }
-//       return result.data;
-//     },
-//     onSuccess: (data, variables) => {
-//       toast.success("Guest order placed successfully!");
-
-//       // Clear checkout session from cache
-//       queryClient.removeQueries({
-//         queryKey: checkoutKeys.session(variables.sessionId),
-//       });
-
-//       // Cache the order confirmation data
-//       const confirmationData = {
-//         orderId: data.orderId,
-//         orderNumber: data.orderNumber,
-//         status: "PENDING",
-//         totalAmount: data.totalAmount,
-//         paymentStatus: data.paymentRequired ? "PENDING" : "COMPLETED",
-//         nextSteps: data.nextSteps,
-//         estimatedDelivery: data.estimatedDelivery,
-//         createdAt: new Date().toISOString(),
-//       };
-
-//       queryClient.setQueryData(
-//         checkoutKeys.confirmation(data.orderId),
-//         confirmationData
-//       );
-//     },
-//     onError: (error) => {
-//       toast.error(`Failed to complete guest checkout: ${error.message}`);
-//     },
-//   });
-// }
 
 export function useSessionTimeRemaining(sessionId: string) {
   const { data: session } = useCheckoutSession(sessionId);

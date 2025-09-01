@@ -112,17 +112,16 @@ export default function CheckoutClient({ session }: CheckoutClientProps) {
             await initializeCheckoutMutation.mutateAsync(initData);
           sessionStorage.setItem("checkoutSessionId", checkoutResult.sessionId);
           router.push(`/checkout/shipping?session=${checkoutResult.sessionId}`);
-          return; // Success, exit early
+          return;
         } catch (serverCartError) {
           console.log(
             "Server cart checkout failed, falling back to explicit items:",
             serverCartError
           );
-          // Continue to fallback below
         }
       }
 
-      console.log("Using explicit items for checkout initialization");
+      // console.log("Using explicit items for checkout initialization");
       const initData: InitCheckoutDto = {
         useCartItems: false,
         items: itemsToCheckout.map((item) => ({
