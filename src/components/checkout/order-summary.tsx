@@ -132,7 +132,7 @@ export function OrderSummary({
       thumbnail: item.thumbnail,
       productId: item.productId,
       templateId: item.templateId,
-      sizeVariant: item.sizeVariantName,
+      sizeVariant: item.variantName,
     }));
   }, [session.items]);
 

@@ -24,24 +24,27 @@ export async function generateMetadata({
 
   const product = result.data;
 
+  const ogImages = product.thumbnailImage
+    ? [{ url: product.thumbnailImage.src, alt: product.thumbnailImage.name }]
+    : product.images.map((img) => ({
+        url: img.src,
+        alt: img.name,
+      }));
+
   return {
     title: product.metadata?.metaTitle || `${product.name} | Custom Products`,
     description: product.metadata?.metaDescription || product.description,
     openGraph: {
       title: product.name,
       description: product.description,
-      images: product.thumbnailImage
-        ? [product.thumbnailImage]
-        : product.images,
+      images: ogImages,
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: product.name,
       description: product.description,
-      images: product.thumbnailImage
-        ? [product.thumbnailImage]
-        : product.images,
+      images: ogImages,
     },
   };
 }

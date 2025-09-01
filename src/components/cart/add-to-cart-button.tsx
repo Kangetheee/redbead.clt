@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
 import { CustomizationChoiceDto } from "@/lib/cart/dto/cart.dto";
 
 interface AddToCartButtonProps {
-  productId: string;
-  variantId: string;
+  productId?: string;
+  variantId?: string;
+  designId?: string;
   quantity?: number;
   customizations?: CustomizationChoiceDto[];
   variant?: "default" | "outline" | "ghost";
@@ -18,11 +19,13 @@ interface AddToCartButtonProps {
   disabled?: boolean;
   children?: React.ReactNode;
   showSuccessState?: boolean;
+  onSuccess?: () => void;
 }
 
 export function AddToCartButton({
   productId,
   variantId,
+  designId,
   quantity = 1,
   customizations = [],
   variant = "default",
@@ -31,6 +34,7 @@ export function AddToCartButton({
   disabled,
   children,
   showSuccessState = true,
+  onSuccess,
 }: AddToCartButtonProps) {
   const [optimisticAdded, setOptimisticAdded] = useState(false);
   const addToCart = useAddToCart();
@@ -57,10 +61,15 @@ export function AddToCartButton({
       {
         productId,
         variantId,
+        designId,
         quantity,
         customizations,
       },
       {
+        onSuccess: () => {
+          // Call the onSuccess callback when the mutation succeeds
+          onSuccess?.();
+        },
         onError: () => {
           // rollback optimistic state
           setOptimisticAdded(false);

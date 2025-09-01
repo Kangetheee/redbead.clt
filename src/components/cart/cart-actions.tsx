@@ -1,11 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 "use client";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,15 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Trash2, ShoppingCart, Mail } from "lucide-react";
+import { Trash2, ShoppingCart } from "lucide-react";
 import { useClearCart /*useCartSummary*/ } from "@/hooks/use-cart";
 import { useUserProfile } from "@/hooks/use-users";
 import { useRouter } from "next/navigation";
@@ -44,7 +32,9 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
   const { data: userProfile, isLoading: isProfileLoading } = useUserProfile();
 
   const [guestEmail, setGuestEmail] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [emailError, setEmailError] = useState("");
 
   const handleClearCart = () => {
@@ -56,6 +46,7 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
     return emailRegex.test(email);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCheckout = () => {
     // If we have authenticated user, proceed directly to checkout
     if (userProfile?.email) {
@@ -66,6 +57,7 @@ export function CartActions({ cart, disabled }: CartActionsProps) {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleGuestCheckout = () => {
     // Validate email
     if (!guestEmail.trim()) {

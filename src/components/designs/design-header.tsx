@@ -11,11 +11,15 @@ import {
   Loader2,
   Clock,
   DollarSign,
+  Palette,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 
 import { useDesignContext } from "./design-context";
 import { useCreateDesign, useUpdateDesign } from "@/hooks/use-design-studio";
@@ -24,6 +28,7 @@ import {
   UpdateDesignDto,
 } from "@/lib/design-studio/dto/design-studio.dto";
 import { TemplateResponse } from "@/lib/design-templates/types/design-template.types";
+import { CustomizationChoiceDto } from "@/lib/cart/dto/cart.dto";
 
 interface DesignHeaderProps {
   templateId?: string;
@@ -40,6 +45,13 @@ interface DesignHeaderProps {
   onSave?: (design: any) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onExport?: (data: any) => void;
+  // Add to cart props
+  showAddToCart?: boolean;
+  productId?: string;
+  variantId?: string;
+  cartQuantity?: number;
+  cartCustomizations?: CustomizationChoiceDto[];
+  onAddToCart?: () => void;
 }
 
 export default function DesignHeader({
@@ -55,6 +67,12 @@ export default function DesignHeader({
   designId,
   onSave,
   onExport,
+  showAddToCart = true,
+  productId,
+  variantId,
+  cartQuantity = 1,
+  cartCustomizations = [],
+  onAddToCart,
 }: DesignHeaderProps) {
   const router = useRouter();
   const {
@@ -140,136 +158,216 @@ export default function DesignHeader({
     dispatch({ type: "SET_PREVIEW_MODE", payload: !isPreviewMode });
   };
 
+  const handleAddToCartSuccess = () => {
+    onAddToCart?.();
+    toast.success("Design added to cart!");
+  };
+
   return (
-    <header className="bg-background border-b border-border px-6 py-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          {/* Left Section */}
-          <div className="flex items-center space-x-4">
-            {showBackButton && (
-              <Button variant="ghost" onClick={handleBack}>
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back
-              </Button>
-            )}
+    <div className="relative bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 border-b border-slate-200 dark:border-slate-700">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full blur-xl opacity-30 animate-pulse"></div>
+        <div className="absolute top-8 -left-8 w-32 h-32 bg-gradient-to-br from-pink-100 to-orange-100 dark:from-pink-900/20 dark:to-orange-900/20 rounded-full blur-xl opacity-20 animate-pulse delay-1000"></div>
+      </div>
 
-            <div
-              className={cn(showBackButton && "border-l border-border pl-4")}
-            >
-              <h1 className="text-3xl font-bold text-foreground mb-2">
-                Design Studio
-              </h1>
-              <p className="text-muted-foreground">
-                Design your custom template with text, images, and graphics
-              </p>
+      <div className="relative px-6 py-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            {/* Left Section */}
+            <div className="flex items-center space-x-6">
+              {showBackButton && (
+                <Button
+                  variant="ghost"
+                  onClick={handleBack}
+                  className="group hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
+                  Back
+                </Button>
+              )}
 
-              <div className="flex items-center space-x-2 mt-2">
-                <span className="text-sm text-muted-foreground">
-                  {templateName}
-                </span>
-                <span className="text-sm text-muted-foreground/60">•</span>
-                <span className="text-sm text-muted-foreground">
-                  {categoryName}
-                </span>
-                <span className="text-sm text-muted-foreground/60">•</span>
-                <span className="text-sm text-muted-foreground">
-                  {productName}
-                </span>
-                {sizeVariantName && (
-                  <>
-                    <span className="text-sm text-muted-foreground/60">•</span>
-                    <span className="text-sm text-muted-foreground">
-                      {sizeVariantName}
+              <div
+                className={cn(
+                  "relative",
+                  showBackButton &&
+                    "border-l border-slate-200 dark:border-slate-700 pl-6"
+                )}
+              >
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
+                    <Palette className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 dark:from-white dark:via-slate-200 dark:to-white bg-clip-text text-transparent">
+                      Design Studio
+                    </h1>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                      Create stunning designs with AI-powered tools
+                    </p>
+                  </div>
+                </div>
+
+                {/* Template info breadcrumb */}
+                <div className="flex items-center space-x-2 mb-3">
+                  <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <Sparkles className="w-3 h-3 text-blue-500" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {templateName}
                     </span>
-                  </>
-                )}
-              </div>
+                  </div>
+                  <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
+                  <span className="text-sm text-slate-500 dark:text-slate-400">
+                    {categoryName}
+                  </span>
+                  <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
+                  <span className="text-sm text-slate-500 dark:text-slate-400">
+                    {productName}
+                  </span>
+                  {sizeVariantName && (
+                    <>
+                      <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
+                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                        {sizeVariantName}
+                      </span>
+                    </>
+                  )}
+                </div>
 
-              <div className="flex items-center space-x-2 mt-2">
-                {isDirty && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs border-orange-200 text-orange-700 dark:border-orange-800 dark:text-orange-300"
-                  >
-                    <Clock className="w-3 h-3 mr-1" />
-                    Unsaved Changes
-                  </Badge>
-                )}
+                {/* Status badges */}
+                <div className="flex items-center space-x-2">
+                  {isDirty && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-400 animate-pulse"
+                    >
+                      <Clock className="w-3 h-3 mr-1" />
+                      Unsaved Changes
+                    </Badge>
+                  )}
 
-                {lastSaved && (
-                  <Badge variant="secondary" className="text-xs">
-                    Saved {new Date(lastSaved).toLocaleTimeString()}
-                  </Badge>
-                )}
+                  {lastSaved && !isDirty && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs bg-green-50 border-green-200 text-green-700 dark:bg-green-950/30 dark:border-green-800 dark:text-green-400"
+                    >
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                      Saved {new Date(lastSaved).toLocaleTimeString()}
+                    </Badge>
+                  )}
 
-                {elements.length > 0 && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs border-green-200 text-green-700 dark:border-green-800 dark:text-green-300"
-                  >
-                    {elements.length} Element{elements.length !== 1 ? "s" : ""}
-                  </Badge>
-                )}
+                  {elements.length > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-400"
+                    >
+                      <Layers className="w-3 h-3 mr-1" />
+                      {elements.length} Element
+                      {elements.length !== 1 ? "s" : ""}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Right Section */}
-          <div className="flex items-center space-x-3">
-            {totalPrice && (
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground bg-muted px-3 py-2 rounded-md">
-                <DollarSign className="w-4 h-4" />
-                <span className="font-medium">${totalPrice.toFixed(2)}</span>
+            {/* Right Section */}
+            <div className="flex items-center space-x-4">
+              {/* Price display with enhanced styling */}
+              {totalPrice && (
+                <div className="flex items-center space-x-2 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800 px-4 py-2.5 rounded-xl shadow-sm">
+                  <div className="p-1 bg-emerald-500 rounded-lg">
+                    <DollarSign className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                      Total
+                    </span>
+                    <div className="font-bold text-emerald-700 dark:text-emerald-300">
+                      ${totalPrice.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action buttons with enhanced styling */}
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={togglePreviewMode}
+                  className={cn(
+                    "group border-2 transition-all duration-200 hover:scale-105",
+                    isPreviewMode
+                      ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-300 text-green-700 hover:from-green-100 hover:to-emerald-100 dark:from-green-950/30 dark:to-emerald-950/30 dark:border-green-700 dark:text-green-400"
+                      : "hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                  )}
+                >
+                  <Eye className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+                  {isPreviewMode ? "Edit" : "Preview"}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="group border-2 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-all duration-200 hover:scale-105"
+                >
+                  <Share2 className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+                  Share
+                </Button>
+
+                <Button
+                  onClick={handleSave}
+                  disabled={createDesign.isPending || updateDesign.isPending}
+                  className={cn(
+                    "group border-2 transition-all duration-200 hover:scale-105",
+                    isDirty
+                      ? "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 border-orange-400 text-white shadow-lg"
+                      : "bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 border-slate-500 text-white"
+                  )}
+                  size="sm"
+                >
+                  {createDesign.isPending || updateDesign.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+                  )}
+                  Save Design
+                </Button>
+
+                {showAddToCart && (
+                  <AddToCartButton
+                    productId={productId}
+                    variantId={variantId}
+                    designId={design?.id}
+                    quantity={cartQuantity}
+                    customizations={cartCustomizations}
+                    disabled={!design || isDirty}
+                    size="sm"
+                    className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 border-2 border-blue-500 text-white shadow-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    onSuccess={handleAddToCartSuccess}
+                  >
+                    <span className="group-hover:scale-110 transition-transform duration-200 flex items-center">
+                      Add to Cart
+                    </span>
+                  </AddToCartButton>
+                )}
+
+                <Button
+                  onClick={() => onExport?.({})}
+                  className="group bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 border-2 border-emerald-500 text-white shadow-lg transition-all duration-200 hover:scale-105"
+                  size="sm"
+                >
+                  <Download className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+                  Export
+                </Button>
               </div>
-            )}
-
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={togglePreviewMode}
-                className={cn(
-                  isPreviewMode &&
-                    "bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-950/30 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-950/50"
-                )}
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                {isPreviewMode ? "Edit" : "Preview"}
-              </Button>
-
-              <Button variant="outline" size="sm">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={handleSave}
-                disabled={createDesign.isPending || updateDesign.isPending}
-                className={cn(
-                  isDirty &&
-                    "border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/30"
-                )}
-              >
-                {createDesign.isPending || updateDesign.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Save
-              </Button>
-
-              <Button
-                onClick={() => onExport?.({})}
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
             </div>
           </div>
         </div>
       </div>
-    </header>
+
+      {/* Bottom gradient line */}
+      <div className="h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30"></div>
+    </div>
   );
 }

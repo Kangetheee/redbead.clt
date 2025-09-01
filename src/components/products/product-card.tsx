@@ -263,11 +263,7 @@ export function ProductCard({
         {/* Image */}
         <div className="relative bg-gradient-to-br from-green-50 to-muted dark:from-green-950/20 dark:to-muted flex-shrink-0 w-20 h-20">
           <Image
-            src={
-              product.thumbnailImage ||
-              product.images?.[0] ||
-              "/placeholder-product.jpg"
-            }
+            src={product.thumbnailImage?.src || "/placeholder-product.jpg"}
             alt={product.name}
             fill
             className="object-cover"
@@ -366,11 +362,7 @@ export function ProductCard({
         )}
       >
         <Image
-          src={
-            product.thumbnailImage ||
-            product.images?.[0] ||
-            "/placeholder-product.jpg"
-          }
+          src={product.thumbnailImage?.src || "/placeholder-product.jpg"}
           alt={product.name}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-300"

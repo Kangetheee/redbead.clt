@@ -2,9 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Minus, Plus } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Minus, Plus, Loader2 } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
 import { useUpdateCartItem } from "@/hooks/use-cart";
+import { useCartSheet } from "./cart-sheet-dialog";
 
 interface QuantitySelectorProps {
   cartItemId: string;
@@ -12,6 +13,7 @@ interface QuantitySelectorProps {
   minQuantity?: number;
   maxQuantity?: number;
   size?: "sm" | "md" | "lg";
+  disabled?: boolean;
   sheetContext?: {
     isOpen: boolean;
     setUpdating: (updating: boolean) => void;
@@ -24,115 +26,214 @@ export function QuantitySelector({
   minQuantity = 1,
   maxQuantity = 999,
   size = "sm",
+  disabled = false,
   sheetContext,
 }: QuantitySelectorProps) {
   const [quantity, setQuantity] = useState(initialQuantity);
+  const [isLocallyUpdating, setIsLocallyUpdating] = useState(false);
   const updateCartItem = useUpdateCartItem();
 
-  // Sync with external quantity changes
-  useEffect(() => {
-    setQuantity(initialQuantity);
-  }, [initialQuantity]);
-
-  const updateQuantity = (newQuantity: number) => {
-    if (
-      newQuantity !== initialQuantity &&
-      newQuantity >= minQuantity &&
-      newQuantity <= maxQuantity
-    ) {
-      // Signal that we're starting an update (only if sheet context exists)
-      if (sheetContext?.isOpen) {
-        sheetContext.setUpdating(true);
-      }
-
-      updateCartItem.mutate(
-        {
-          cartItemId,
-          values: { quantity: newQuantity },
-        },
-        {
-          onSettled: () => {
-            // Signal that update is complete (only if sheet context exists)
-            if (sheetContext?.isOpen) {
-              setTimeout(() => {
-                sheetContext.setUpdating(false);
-              }, 100); // Small delay to ensure state updates complete
-            }
-          },
-          onError: () => {
-            // Rollback quantity on error
-            setQuantity(initialQuantity);
-          },
-        }
-      );
+  const cartSheet = (() => {
+    if (sheetContext) {
+      return sheetContext;
     }
-  };
+    try {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      return useCartSheet();
+    } catch {
+      return null; // Not within cart sheet context
+    }
+  })();
 
-  const handleDecrease = () => {
+  // Debounce timer for input changes
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track if we've synced with the initial quantity
+  const lastInitialQuantity = useRef(initialQuantity);
+
+  // Sync with external quantity changes only when they actually change
+  if (lastInitialQuantity.current !== initialQuantity) {
+    setQuantity(initialQuantity);
+    lastInitialQuantity.current = initialQuantity;
+  }
+
+  const updateQuantity = useCallback(
+    (newQuantity: number) => {
+      if (
+        newQuantity !== initialQuantity &&
+        newQuantity >= minQuantity &&
+        newQuantity <= maxQuantity
+      ) {
+        setIsLocallyUpdating(true);
+
+        // Notify cart sheet that update is starting
+        if (cartSheet?.isOpen) {
+          cartSheet.setUpdating(true);
+        }
+
+        updateCartItem.mutate(
+          {
+            cartItemId,
+            values: { quantity: newQuantity },
+          },
+          {
+            onSuccess: () => {
+              console.log(
+                `Successfully updated quantity for item ${cartItemId} to ${newQuantity}`
+              );
+            },
+            onError: (error) => {
+              console.error("Failed to update quantity:", error);
+              // Rollback quantity on error
+              setQuantity(initialQuantity);
+            },
+            onSettled: () => {
+              setIsLocallyUpdating(false);
+
+              // Notify cart sheet that update is complete - no delay
+              if (cartSheet?.isOpen) {
+                cartSheet.setUpdating(false);
+              }
+            },
+          }
+        );
+      }
+    },
+    [
+      cartItemId,
+      initialQuantity,
+      minQuantity,
+      maxQuantity,
+      updateCartItem,
+      cartSheet,
+    ]
+  );
+
+  const handleDecrease = useCallback(() => {
+    if (isLocallyUpdating || updateCartItem.isPending) return;
+
     const newQuantity = Math.max(minQuantity, quantity - 1);
     setQuantity(newQuantity);
     updateQuantity(newQuantity);
-  };
+  }, [
+    quantity,
+    minQuantity,
+    updateQuantity,
+    isLocallyUpdating,
+    updateCartItem.isPending,
+  ]);
 
-  const handleIncrease = () => {
+  const handleIncrease = useCallback(() => {
+    if (isLocallyUpdating || updateCartItem.isPending) return;
+
     const newQuantity = Math.min(maxQuantity, quantity + 1);
     setQuantity(newQuantity);
     updateQuantity(newQuantity);
-  };
+  }, [
+    quantity,
+    maxQuantity,
+    updateQuantity,
+    isLocallyUpdating,
+    updateCartItem.isPending,
+  ]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value) || minQuantity;
-    const clampedValue = Math.max(minQuantity, Math.min(maxQuantity, value));
-    setQuantity(clampedValue);
-  };
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = parseInt(e.target.value) || minQuantity;
+      const clampedValue = Math.max(minQuantity, Math.min(maxQuantity, value));
+      setQuantity(clampedValue);
 
-  const handleInputBlur = () => {
-    updateQuantity(quantity);
-  };
+      // Clear existing debounce timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      updateQuantity(quantity);
-      e.currentTarget.blur();
+      // Set new debounce timer for input changes
+      debounceTimerRef.current = setTimeout(() => {
+        updateQuantity(clampedValue);
+        debounceTimerRef.current = null;
+      }, 500); // 500ms debounce
+    },
+    [minQuantity, maxQuantity, updateQuantity]
+  );
+
+  const handleInputBlur = useCallback(() => {
+    // Clear debounce timer and update immediately on blur
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
-  };
+    updateQuantity(quantity);
+  }, [quantity, updateQuantity]);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        // Clear debounce timer and update immediately on Enter
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = null;
+        }
+        updateQuantity(quantity);
+        e.currentTarget.blur();
+      }
+    },
+    [quantity, updateQuantity]
+  );
+
+  const isUpdating = updateCartItem.isPending || isLocallyUpdating;
+  const isDisabled = disabled || isUpdating;
   const buttonSize =
     size === "sm" ? "h-7 w-7" : size === "md" ? "h-8 w-8" : "h-9 w-9";
   const inputSize = size === "sm" ? "h-7" : size === "md" ? "h-8" : "h-9";
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 relative">
       <Button
         variant="outline"
         size="icon"
         className={buttonSize}
         onClick={handleDecrease}
-        disabled={quantity <= minQuantity || updateCartItem.isPending}
+        disabled={quantity <= minQuantity || isDisabled}
       >
-        <Minus className="h-3 w-3" />
+        {isUpdating && quantity <= minQuantity ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Minus className="h-3 w-3" />
+        )}
       </Button>
 
-      <Input
-        type="number"
-        value={quantity}
-        onChange={handleInputChange}
-        onBlur={handleInputBlur}
-        onKeyDown={handleKeyDown}
-        className={`w-16 text-center ${inputSize}`}
-        min={minQuantity}
-        max={maxQuantity}
-        disabled={updateCartItem.isPending}
-      />
+      <div className="relative">
+        <Input
+          type="number"
+          value={quantity}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          onKeyDown={handleKeyDown}
+          className={`w-16 text-center ${inputSize} ${isUpdating ? "bg-muted" : ""}`}
+          min={minQuantity}
+          max={maxQuantity}
+          disabled={isDisabled}
+        />
+        {isUpdating && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
 
       <Button
         variant="outline"
         size="icon"
         className={buttonSize}
         onClick={handleIncrease}
-        disabled={quantity >= maxQuantity || updateCartItem.isPending}
+        disabled={quantity >= maxQuantity || isDisabled}
       >
-        <Plus className="h-3 w-3" />
+        {isUpdating && quantity >= maxQuantity ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Plus className="h-3 w-3" />
+        )}
       </Button>
     </div>
   );

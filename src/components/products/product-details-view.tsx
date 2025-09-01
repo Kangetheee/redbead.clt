@@ -47,10 +47,13 @@ export function ProductDetailsView({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isImageLoading, setIsImageLoading] = useState(true);
 
-  const images =
-    product.images?.length > 0
-      ? product.images
-      : [product.thumbnailImage].filter(Boolean);
+  const images: string[] =
+    product.images && product.images.length > 0
+      ? product.images.map((img) => img.src)
+      : product.thumbnailImage
+        ? [product.thumbnailImage.src]
+        : [];
+
   const currentImage = images[selectedImageIndex] || "/placeholder-product.jpg";
 
   const handlePreviousImage = () => {
@@ -65,7 +68,6 @@ export function ProductDetailsView({
     );
   };
 
-  // Use the actual design templates without trying to add non-existent properties
   const templates = product.designTemplates || [];
 
   // Get product metadata for type and material

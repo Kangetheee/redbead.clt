@@ -4,10 +4,10 @@ import { z } from "zod";
 export const createTemplateSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
   description: z.string().max(500, "Description too long").optional(),
-  productId: z.string().min(1, "Product ID is required"),
+  productId: z.string().min(1, "Product ID is required").optional(),
   categoryId: z.string().min(1, "Category ID is required"),
-  basePrice: z.number().positive("Base price must be positive"),
-  thumbnail: z.string().min(1, "Thumbnail is required"),
+  basePrice: z.coerce.number().positive("Base price must be positive"),
+  thumbnail: z.string().min(1, "Thumbnail is required").optional(),
   isActive: z.boolean().default(true),
   metadata: z
     .object({
@@ -15,10 +15,8 @@ export const createTemplateSchema = z.object({
     })
     .optional(),
 });
-
 export type CreateTemplateDto = z.infer<typeof createTemplateSchema>;
 
-// Update Template DTO Schema
 export const updateTemplateSchema = z.object({
   name: z
     .string()
@@ -28,8 +26,11 @@ export const updateTemplateSchema = z.object({
   description: z.string().max(500, "Description too long").optional(),
   categoryId: z.string().optional(),
   productId: z.string().optional(),
-  basePrice: z.number().positive("Base price must be positive").optional(),
-  thumbnail: z.string().optional(),
+  basePrice: z.coerce
+    .number()
+    .positive("Base price must be positive")
+    .optional(),
+  thumbnail: z.coerce.string().optional(),
   isActive: z.boolean().optional(),
   metadata: z
     .object({
@@ -37,10 +38,8 @@ export const updateTemplateSchema = z.object({
     })
     .optional(),
 });
-
 export type UpdateTemplateDto = z.infer<typeof updateTemplateSchema>;
 
-// Get Templates DTO Schema - Updated to match API exactly
 export const getTemplatesSchema = z.object({
   pageIndex: z.number().min(0).default(0).optional(),
   pageSize: z.number().min(-1).max(100).default(10).optional(),
@@ -73,12 +72,12 @@ export const createSizeVariantSchema = z.object({
   name: z.string().min(1, "Name is required"),
   displayName: z.string().min(1, "Display name is required"),
   dimensions: z.object({
-    width: z.number().positive(),
-    height: z.number().positive(),
+    width: z.coerce.number().positive(),
+    height: z.coerce.number().positive(),
     unit: z.string(),
     dpi: z.number().positive(),
   }),
-  price: z.number().positive("Price must be positive"),
+  price: z.coerce.number().positive("Price must be positive"),
   isDefault: z.boolean().default(false),
   isActive: z.boolean().default(true),
   sortOrder: z.number().min(0).default(0),
@@ -197,9 +196,9 @@ export type UpdateFontPresetDto = z.infer<typeof updateFontPresetSchema>;
 // Media Restriction DTOs
 export const createMediaRestrictionSchema = z.object({
   allowedTypes: z.array(z.string()),
-  maxFileSize: z.number().positive(),
+  maxFileSize: z.coerce.number().positive("File size must be positive"),
   allowedFormats: z.array(z.string()),
-  requiredDPI: z.number().positive().optional(),
+  requiredDPI: z.coerce.number().positive().optional(),
   isActive: z.boolean().default(true),
 });
 

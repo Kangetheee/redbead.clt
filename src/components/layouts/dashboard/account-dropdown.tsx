@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-"use client";
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -38,6 +35,7 @@ export default function AccountDropdown() {
   const handleSignOut = async () => {
     try {
       await signOutFormAction();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error("Failed to sign out");
     }
@@ -76,6 +74,7 @@ export default function AccountDropdown() {
   }
 
   const userName = userProfile?.name || "User";
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const userRole = userProfile?.role?.name || "User";
   const userAvatar = userProfile?.avatar;
 

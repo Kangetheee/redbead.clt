@@ -19,7 +19,7 @@ export function CTASection({ session }: SessionProps) {
         </p>
 
         <ActionButtons
-          primaryHref={isLoggedIn ? "/orders/new" : "/products"}
+          primaryHref={isLoggedIn ? "/products" : "Products"}
           primaryText={isLoggedIn ? "Place New Order" : "Browse Products"}
           secondaryHref={isLoggedIn ? "/orders" : "/contact"}
           secondaryText={isLoggedIn ? "View Orders" : "Contact Us Today"}

@@ -357,15 +357,14 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
+      <Button variant="outline" size="sm" asChild>
+        <Link href="/orders">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Orders
+        </Link>
+      </Button>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/orders">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Orders
-            </Link>
-          </Button>
-
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
               Order #{order.orderNumber}
@@ -378,55 +377,6 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
               </span>
             </div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => copyToClipboard(order.orderNumber)}
-              >
-                <Copy className="mr-2 h-4 w-4" />
-                Copy Order Number
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => copyToClipboard(order.id)}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy Order ID
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Download className="mr-2 h-4 w-4" />
-                Download Invoice
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Mail className="mr-2 h-4 w-4" />
-                Send to Customer
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {/* <DropdownMenuItem asChild>
-                <Link href={`/orders/${order.id}/edit`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Order
-                </Link>
-              </DropdownMenuItem> */}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* <Button asChild>
-            <Link href={`/orders/${order.id}/edit`}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Order
-            </Link>
-          </Button> */}
         </div>
       </div>
 
@@ -989,7 +939,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
           )}
 
           {/* Quick Actions */}
-          <Card>
+          {/* <Card>
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
@@ -1003,7 +953,7 @@ export default function OrderDetailView({ orderId }: OrderDetailViewProps) {
                 Duplicate Order
               </Button>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
       </div>
     </div>

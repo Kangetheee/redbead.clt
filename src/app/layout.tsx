@@ -10,6 +10,7 @@ import QueryProvider from "@/providers/query-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 
 import "../styles/globals.css";
+import { CartSessionProvider } from "@/providers/cart-session-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,10 +47,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <QueryProvider>
-            {children}
-            {env.NODE_ENV === "development" && (
-              <ReactQueryDevtools buttonPosition="bottom-right" />
-            )}
+            <CartSessionProvider>
+              {children}
+              {env.NODE_ENV === "development" && (
+                <ReactQueryDevtools buttonPosition="bottom-right" />
+              )}
+            </CartSessionProvider>
           </QueryProvider>
 
           <ProgressBar />

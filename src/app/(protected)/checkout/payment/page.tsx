@@ -40,7 +40,6 @@ const paymentSchema = z.object({
 
 type PaymentForm = z.infer<typeof paymentSchema>;
 
-// Define proper error type
 interface ApiError {
   message?: string;
 }
@@ -78,7 +77,6 @@ function CheckoutPaymentContent() {
         const parsed = JSON.parse(stored);
         setCheckoutData(parsed);
 
-        // Pre-fill phone number if available from user profile or guest info
         if (parsed.guestInfo?.phone) {
           setValue("customerPhone", parsed.guestInfo.phone);
         }
