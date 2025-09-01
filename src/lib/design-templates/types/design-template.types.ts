@@ -5,9 +5,9 @@ export interface DesignTemplate {
   name: string;
   description?: string;
   categoryId: string;
-  productId: string;
+  productId?: string;
   basePrice: number;
-  thumbnail: string;
+  thumbnail?: string;
   isActive: boolean;
   metadata?: {
     tags?: string[];

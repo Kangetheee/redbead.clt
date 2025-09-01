@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Create Template DTO Schema
 export const createTemplateSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
   description: z.string().max(500, "Description too long").optional(),
@@ -18,7 +17,6 @@ export const createTemplateSchema = z.object({
 
 export type CreateTemplateDto = z.infer<typeof createTemplateSchema>;
 
-// Update Template DTO Schema
 export const updateTemplateSchema = z.object({
   name: z
     .string()
@@ -40,7 +38,6 @@ export const updateTemplateSchema = z.object({
 
 export type UpdateTemplateDto = z.infer<typeof updateTemplateSchema>;
 
-// Get Templates DTO Schema - Updated to match API exactly
 export const getTemplatesSchema = z.object({
   pageIndex: z.number().min(0).default(0).optional(),
   pageSize: z.number().min(-1).max(100).default(10).optional(),
@@ -52,7 +49,6 @@ export const getTemplatesSchema = z.object({
 
 export type GetTemplatesDto = z.infer<typeof getTemplatesSchema>;
 
-// Get Templates by Product DTO Schema
 export const getTemplatesByProductSchema = z.object({
   isActive: z.boolean().optional(),
 });
@@ -61,7 +57,6 @@ export type GetTemplatesByProductDto = z.infer<
   typeof getTemplatesByProductSchema
 >;
 
-// Duplicate Template DTO Schema
 export const duplicateTemplateSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
 });

@@ -1,29 +1,33 @@
 export interface CheckoutItem {
   productId: string;
+  variantId?: string;
   quantity: number;
-  customizations: CustomizationChoice[];
+  customizations?: CustomizationChoice[];
   designId?: string;
 }
 
 export interface CustomizationChoice {
   optionId: string;
-  valueId: string;
+  value?: string; // e.g. "Red"
+  valueId?: string; // optional ID reference
   customValue?: string;
 }
 
 export interface CheckoutItemResponse {
+  itemType: "PRODUCT" | "TEMPLATE";
   productId?: string;
   templateId?: string;
-  sizeVariantId?: string;
+  designId?: string;
+  variantId?: string;
   productName?: string;
   templateName?: string;
-  sizeVariantName?: string;
+  variantName?: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
   customizations: string[];
   thumbnail: string;
-  designId?: string;
+  requiresProduction: boolean;
 }
 
 export interface CheckoutSession {
@@ -34,6 +38,7 @@ export interface CheckoutSession {
   estimatedTotal: number;
   requiresShipping: boolean;
   requiresDesignApproval: boolean;
+  fulfillmentType: "INVENTORY" | "PRODUCTION" | "HYBRID";
   customerInfo: {
     email?: string;
     isGuest: boolean;
@@ -52,6 +57,7 @@ export interface AddressInput {
   postalCode: string;
   country: string;
   phone?: string;
+  type?: string; // shipping/billing, optional
 }
 
 export interface ShippingOption {
@@ -64,8 +70,8 @@ export interface ShippingOption {
   estimatedDays?: string;
   urgencyMultiplier: number;
   zone?: {
-    id: string;
-    name: string;
+    id?: string;
+    name?: string;
   };
 }
 
@@ -119,6 +125,7 @@ export interface CheckoutResponse {
   paymentRequired: boolean;
   paymentDetails: PaymentDetails;
   designApprovalRequired: boolean;
+  fulfillmentType: "INVENTORY" | "PRODUCTION" | "HYBRID";
   estimatedProductionDays: number;
   estimatedDelivery: string;
   nextSteps: string[];
@@ -145,7 +152,6 @@ export interface OrderConfirmation {
   createdAt: string;
 }
 
-// Add pagination metadata interface
 export interface PaginationMeta {
   pageCount: number;
   pageSize: number;
@@ -154,7 +160,6 @@ export interface PaginationMeta {
   itemCount: number;
 }
 
-// Add checkout sessions list response interface
 export interface CheckoutSessionsListResponse {
   data: CheckoutSession[];
   meta: PaginationMeta;

@@ -1,4 +1,10 @@
-import React, { useState, useRef, createContext, useContext } from "react";
+import React, {
+  useState,
+  useRef,
+  createContext,
+  useContext,
+  useCallback,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,6 +32,7 @@ interface CartSheetContextType {
   isOpen: boolean;
   setUpdating: (updating: boolean) => void;
   closeSheet: () => void;
+  isUpdating: boolean;
 }
 
 const CartSheetContext = createContext<CartSheetContextType | null>(null);
@@ -43,22 +50,47 @@ export function CartSheet({ children, showLabel = false }: CartSheetProps) {
   const { data: cart, isLoading, error } = useCart();
 
   const [open, setOpen] = useState(false);
-  const isUpdatingRef = useRef(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const updateCountRef = useRef(0);
 
-  const handleOpenChange = (newOpen: boolean) => {
-    // Prevent closing if we're updating items
-    if (!newOpen && isUpdatingRef.current) {
-      return;
+  // Improved setUpdating function that tracks multiple concurrent updates
+  const setUpdating = useCallback((updating: boolean) => {
+    if (updating) {
+      updateCountRef.current += 1;
+      setIsUpdating(true);
+    } else {
+      updateCountRef.current = Math.max(0, updateCountRef.current - 1);
+      // Only set to false if no more updates are pending
+      if (updateCountRef.current === 0) {
+        // Use immediate state update without setTimeout
+        setIsUpdating(false);
+      }
     }
-    setOpen(newOpen);
-  };
+  }, []);
+
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      // Allow opening always, but prevent closing during updates
+      if (!newOpen && isUpdating) {
+        console.log("Preventing cart sheet close - update in progress");
+        return;
+      }
+      setOpen(newOpen);
+    },
+    [isUpdating]
+  );
+
+  const closeSheet = useCallback(() => {
+    if (!isUpdating) {
+      setOpen(false);
+    }
+  }, [isUpdating]);
 
   const sheetContext: CartSheetContextType = {
     isOpen: open,
-    setUpdating: (updating: boolean) => {
-      isUpdatingRef.current = updating;
-    },
-    closeSheet: () => setOpen(false),
+    setUpdating,
+    closeSheet,
+    isUpdating,
   };
 
   const trigger = children || (
@@ -88,10 +120,16 @@ export function CartSheet({ children, showLabel = false }: CartSheetProps) {
             <SheetTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
               Cart ({itemCount})
+              {isUpdating && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </SheetTitle>
             {itemCount > 0 && (
               <SheetDescription>
                 Review your items before checkout
+                {isUpdating && (
+                  <span className="text-yellow-600 ml-2">(Updating...)</span>
+                )}
               </SheetDescription>
             )}
           </SheetHeader>
@@ -155,8 +193,11 @@ export function CartSheet({ children, showLabel = false }: CartSheetProps) {
                 className="w-full bg-green-600 hover:bg-green-700"
                 asChild
                 onClick={() => setOpen(false)}
+                disabled={isUpdating}
               >
-                <Link href="/checkout">Proceed to Checkout</Link>
+                <Link href="/checkout">
+                  {isUpdating ? "Updating Cart..." : "Proceed to Checkout"}
+                </Link>
               </Button>
 
               <Button
@@ -164,6 +205,7 @@ export function CartSheet({ children, showLabel = false }: CartSheetProps) {
                 className="w-full"
                 asChild
                 onClick={() => setOpen(false)}
+                disabled={isUpdating}
               >
                 <Link href="/cart" className="flex items-center gap-2">
                   View Full Cart
