@@ -20,6 +20,8 @@ interface CanvasProps {
   className?: string;
 }
 
+const apiUrl = process.env.API_URL;
+
 export default function Canvas({ className }: CanvasProps) {
   const {
     elements,
@@ -140,7 +142,7 @@ export default function Canvas({ className }: CanvasProps) {
               >
                 {element.mediaId ? (
                   <img
-                    src={`http://localhost:3001/v1/uploads/${element.mediaId}/file`}
+                    src={`${apiUrl}/v1/uploads/${element.mediaId}/file`}
                     alt="Design element"
                     className="w-full h-full object-contain"
                     onLoad={() => {
