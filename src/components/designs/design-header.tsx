@@ -9,14 +9,9 @@ import {
   Share2,
   Eye,
   Loader2,
-  Clock,
   DollarSign,
-  Palette,
-  Layers,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
@@ -57,8 +52,10 @@ interface DesignHeaderProps {
 export default function DesignHeader({
   templateId,
   templateName,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   categoryName,
   productName,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   sizeVariantName,
   totalPrice,
   onBack,
@@ -81,6 +78,7 @@ export default function DesignHeader({
     canvasSettings,
     isPreviewMode,
     isDirty,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     lastSaved,
     dispatch,
   } = useDesignContext();
@@ -173,103 +171,18 @@ export default function DesignHeader({
 
       <div className="relative px-6 py-6">
         <div className="max-w-7xl mx-auto">
+          {/* Left Section */}
+          {showBackButton && (
+            <Button
+              variant="ghost"
+              onClick={handleBack}
+              className="group hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
+              Back
+            </Button>
+          )}
           <div className="flex items-center justify-between">
-            {/* Left Section */}
-            <div className="flex items-center space-x-6">
-              {showBackButton && (
-                <Button
-                  variant="ghost"
-                  onClick={handleBack}
-                  className="group hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
-                >
-                  <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
-                  Back
-                </Button>
-              )}
-
-              <div
-                className={cn(
-                  "relative",
-                  showBackButton &&
-                    "border-l border-slate-200 dark:border-slate-700 pl-6"
-                )}
-              >
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
-                    <Palette className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 dark:from-white dark:via-slate-200 dark:to-white bg-clip-text text-transparent">
-                      Design Studio
-                    </h1>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                      Create stunning designs with AI-powered tools
-                    </p>
-                  </div>
-                </div>
-
-                {/* Template info breadcrumb */}
-                <div className="flex items-center space-x-2 mb-3">
-                  <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
-                    <Sparkles className="w-3 h-3 text-blue-500" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {templateName}
-                    </span>
-                  </div>
-                  <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
-                  <span className="text-sm text-slate-500 dark:text-slate-400">
-                    {categoryName}
-                  </span>
-                  <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
-                  <span className="text-sm text-slate-500 dark:text-slate-400">
-                    {productName}
-                  </span>
-                  {sizeVariantName && (
-                    <>
-                      <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
-                      <span className="text-sm text-slate-500 dark:text-slate-400">
-                        {sizeVariantName}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {/* Status badges */}
-                <div className="flex items-center space-x-2">
-                  {isDirty && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-400 animate-pulse"
-                    >
-                      <Clock className="w-3 h-3 mr-1" />
-                      Unsaved Changes
-                    </Badge>
-                  )}
-
-                  {lastSaved && !isDirty && (
-                    <Badge
-                      variant="secondary"
-                      className="text-xs bg-green-50 border-green-200 text-green-700 dark:bg-green-950/30 dark:border-green-800 dark:text-green-400"
-                    >
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                      Saved {new Date(lastSaved).toLocaleTimeString()}
-                    </Badge>
-                  )}
-
-                  {elements.length > 0 && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-400"
-                    >
-                      <Layers className="w-3 h-3 mr-1" />
-                      {elements.length} Element
-                      {elements.length !== 1 ? "s" : ""}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* Right Section */}
             <div className="flex items-center space-x-4">
               {/* Price display with enhanced styling */}
@@ -343,7 +256,7 @@ export default function DesignHeader({
                     customizations={cartCustomizations}
                     disabled={!design || isDirty}
                     size="sm"
-                    className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 border-2 border-blue-500 text-white shadow-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    className="group bg-gradient-to-r  bg-green-500 dark:bg-green text-white shadow-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     onSuccess={handleAddToCartSuccess}
                   >
                     <span className="group-hover:scale-110 transition-transform duration-200 flex items-center">
@@ -365,9 +278,6 @@ export default function DesignHeader({
           </div>
         </div>
       </div>
-
-      {/* Bottom gradient line */}
-      <div className="h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30"></div>
     </div>
   );
 }

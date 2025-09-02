@@ -216,7 +216,8 @@ export class DesignStudioService {
       {
         method: "POST",
         data: values,
-      }
+      },
+      { auth: false }
     );
   }
 

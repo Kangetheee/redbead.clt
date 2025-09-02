@@ -67,7 +67,6 @@ const TemplateSelectionPage: React.FC<TemplateSelectionPageProps> = ({
     if (onTemplateSelect) {
       onTemplateSelect(template);
     } else if (enableRouterNavigation) {
-      // Navigate using template ID
       router.push(`/design-studio/${template.id}`);
     }
   };
@@ -212,7 +211,6 @@ interface TemplateCardProps {
 }
 
 const TemplateCard: React.FC<TemplateCardProps> = ({ template, onSelect }) => {
-  // Helper functions based on actual DesignTemplate interface
   const getLeadTime = () => {
     return template.metadata?.leadTime || "3-5 days";
   };
@@ -243,22 +241,11 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ template, onSelect }) => {
 
   return (
     <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow group">
-      {/* Template Image */}
       <div className="aspect-[4/3] bg-muted relative overflow-hidden">
-        <img
-          src={template.thumbnail}
-          alt={template.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = "/placeholder-template.png"; // Fallback image
-          }}
-        />
-
         {/* Badges */}
         <div className="absolute top-2 left-2 flex gap-2">
           {isFeatured() && (
-            <span className="bg-blue-500 dark:bg-blue-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+            <span className="bg-green-500 dark:bg-green-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
               <Star className="w-3 h-3" />
               Featured
             </span>
